@@ -401,4 +401,85 @@ void main() {
       expect(out, contains('GeneratedPluginRegistrant.register'));
     });
   });
+
+  group('entity query registration', () {
+    EntitySpec project({bool hasQuery = true}) => EntitySpec(
+      typeName: 'Project',
+      dartClassName: 'ProjectEntity',
+      idProperty: 'id',
+      properties: [
+        EntityPropertySpec(name: 'name', type: ParamType.string, isTitle: true),
+        EntityPropertySpec(
+          name: 'teamName',
+          type: ParamType.string,
+          isSubtitle: true,
+        ),
+      ],
+      hasQuery: hasQuery,
+      queryClassName: hasQuery ? 'ProjectResolver' : null,
+    );
+
+    test('a queryable entity is registered in the registry', () {
+      // Nothing in the app calls these — the OS does, before a handler runs —
+      // so if they are not registered the feature silently returns nothing.
+      final out = emitDartRegistry(
+        manifest(intents: [intent()], entities: [project()]),
+      );
+      expect(out, contains("entities: {"));
+      expect(out, contains("'Project': EntityBinding("));
+      expect(out, contains('ProjectResolver().byIds(ids)'));
+      expect(out, contains('ProjectResolver().matching(query)'));
+      expect(out, contains('ProjectResolver().suggested()'));
+    });
+
+    test('an entity without a query is not registered', () {
+      final out = emitDartRegistry(
+        manifest(intents: [intent()], entities: [project(hasQuery: false)]),
+      );
+      expect(out, isNot(contains('entities: {')));
+    });
+
+    test('the encoder matches what the generated Swift reads', () {
+      final out = emitDartHelpers(
+        manifest(intents: [intent()], entities: [project()]),
+      );
+      expect(out, contains('Map<String, Object?> _encodeProject('));
+      expect(out, contains("'id': e.id,"));
+      expect(out, contains("'name': e.name,"));
+      expect(out, contains("'teamName': e.teamName,"));
+
+      // Both sides come from one spec; drift here is the bug this guards.
+      final swift = SwiftEmitter(
+        manifest(intents: [intent()], entities: [project()]),
+      ).emit()['OsIntentsEntities.swift']!;
+      expect(swift, contains('wire["id"] as? String'));
+      expect(swift, contains('wire["name"] as? String'));
+      expect(swift, contains('wire["teamName"] as? String'));
+    });
+
+    test('the id property is honoured even when it is not called id', () {
+      final out = emitDartHelpers(
+        manifest(
+          intents: [intent()],
+          entities: [
+            EntitySpec(
+              typeName: 'Project',
+              dartClassName: 'ProjectEntity',
+              idProperty: 'slug',
+              properties: [
+                EntityPropertySpec(
+                  name: 'name',
+                  type: ParamType.string,
+                  isTitle: true,
+                ),
+              ],
+              hasQuery: true,
+              queryClassName: 'ProjectResolver',
+            ),
+          ],
+        ),
+      );
+      expect(out, contains("'id': e.slug,"));
+    });
+  });
 }

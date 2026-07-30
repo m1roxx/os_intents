@@ -5,6 +5,17 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 typedef IntentInvocationHandler =
     Future<Map<String, Object?>> Function(String id, Map<String, Object?> args);
 
+/// Called when the OS resolves an entity — during disambiguation, when filling
+/// a Shortcuts parameter, or when turning an identifier back into an object.
+///
+/// [method] is one of `entities.byIds`, `entities.matching`,
+/// `entities.suggested`.
+typedef EntityQueryHandler =
+    Future<List<Map<String, Object?>>> Function(
+      String method,
+      Map<String, Object?> args,
+    );
+
 /// The contract every platform implementation fulfils.
 abstract class OsIntentsPlatform extends PlatformInterface {
   OsIntentsPlatform() : super(token: _token);
@@ -30,6 +41,9 @@ abstract class OsIntentsPlatform extends PlatformInterface {
     bool background = false,
   });
 
+  /// Installs the callback that answers entity queries.
+  void setEntityHandler(EntityQueryHandler handler, {bool background = false});
+
   /// Signals that Dart handlers are registered.
   ///
   /// The native side buffers any invocation that arrives before this resolves —
@@ -53,6 +67,12 @@ class _UnimplementedOsIntents extends OsIntentsPlatform {
   @override
   void setInvocationHandler(
     IntentInvocationHandler handler, {
+    bool background = false,
+  }) {}
+
+  @override
+  void setEntityHandler(
+    EntityQueryHandler handler, {
     bool background = false,
   }) {}
 

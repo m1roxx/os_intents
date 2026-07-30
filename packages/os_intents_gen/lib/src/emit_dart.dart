@@ -18,6 +18,8 @@ String emitDartRegistry(Manifest manifest) {
     return b.toString();
   }
 
+  final queryable = manifest.entities.where((e) => e.hasQuery).toList();
+
   final entitiesByType = {for (final e in manifest.entities) e.typeName: e};
 
   b.writeln('/// Every intent declared in this library, keyed by its id.');
@@ -42,6 +44,33 @@ String emitDartRegistry(Manifest manifest) {
       }
       b.writeln('    ),');
     }
+    b.writeln('  ),');
+  }
+  b.write('}');
+
+  if (queryable.isEmpty) {
+    b.writeln(');');
+    return b.toString();
+  }
+
+  // Entity queries are answered by the OS *before* a handler runs, so these
+  // have to be registered even though nothing in the app calls them.
+  b.writeln(', entities: {');
+  for (final e in queryable) {
+    b.writeln("  '${e.typeName}': EntityBinding(");
+    b.writeln("    typeName: '${e.typeName}',");
+    b.writeln(
+      '    byIds: (ids) async => '
+      '(await ${e.queryClassName}().byIds(ids)).map(_encode${e.typeName}).toList(),',
+    );
+    b.writeln(
+      '    matching: (query) async => '
+      '(await ${e.queryClassName}().matching(query)).map(_encode${e.typeName}).toList(),',
+    );
+    b.writeln(
+      '    suggested: () async => '
+      '(await ${e.queryClassName}().suggested()).map(_encode${e.typeName}).toList(),',
+    );
     b.writeln('  ),');
   }
   b.writeln('});');
@@ -128,6 +157,23 @@ T _require<T>(T? value, String name) {
         if (p.type == ParamType.entity && p.entityTypeName != null)
           p.entityTypeName!,
   };
+
+  // Encoders for every queryable entity. The shape must match what the
+  // generated Swift `init(wire:)` reads, so both are emitted from one spec.
+  for (final entity in manifest.entities) {
+    if (!entity.hasQuery) continue;
+    final fields = [
+      "        'id': e.${entity.idProperty},",
+      for (final p in entity.properties) "        '${p.name}': e.${p.name},",
+    ].join('\n');
+    b.write('''
+
+/// Flattens a ${entity.dartClassName} for the method channel.
+Map<String, Object?> _encode${entity.typeName}(${entity.dartClassName} e) => {
+$fields
+      };
+''');
+  }
 
   for (final entity in manifest.entities) {
     if (!used.contains(entity.typeName)) continue;

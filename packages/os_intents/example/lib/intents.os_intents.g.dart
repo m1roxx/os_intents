@@ -29,6 +29,13 @@ final IntentRegistry $osIntentsRegistry = IntentRegistry({
       taskId: _require(args['taskId'] as String?, 'taskId'),
     ),
   ),
+}, entities: {
+  'Project': EntityBinding(
+    typeName: 'Project',
+    byIds: (ids) async => (await ProjectResolver().byIds(ids)).map(_encodeProject).toList(),
+    matching: (query) async => (await ProjectResolver().matching(query)).map(_encodeProject).toList(),
+    suggested: () async => (await ProjectResolver().suggested()).map(_encodeProject).toList(),
+  ),
 });
 
 /// Started by the plugin when an Execution.background intent fires with no UI
@@ -44,6 +51,13 @@ T _require<T>(T? value, String name) {
   }
   return value;
 }
+
+/// Flattens a ProjectEntity for the method channel.
+Map<String, Object?> _encodeProject(ProjectEntity e) => {
+        'id': e.id,
+        'name': e.name,
+        'teamName': e.teamName,
+      };
 
 /// Turns the identifier the OS resolved back into a ProjectEntity,
 /// using the ProjectResolver declared with @EntityQuery.

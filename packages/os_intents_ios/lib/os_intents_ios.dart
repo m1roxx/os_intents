@@ -16,6 +16,8 @@ class OsIntentsIos extends OsIntentsPlatform {
 
   IntentInvocationHandler? _fgHandler;
   IntentInvocationHandler? _bgHandler;
+  EntityQueryHandler? _fgEntities;
+  EntityQueryHandler? _bgEntities;
   final Set<bool> _wired = {};
 
   /// Called by the Flutter tooling via `dartPluginClass`.
@@ -36,15 +38,44 @@ class OsIntentsIos extends OsIntentsPlatform {
     } else {
       _fgHandler = handler;
     }
+    _wire(background);
+  }
+
+  @override
+  void setEntityHandler(
+    EntityQueryHandler handler, {
+    bool background = false,
+  }) {
+    if (background) {
+      _bgEntities = handler;
+    } else {
+      _fgEntities = handler;
+    }
+    _wire(background);
+  }
+
+  /// One handler per channel, dispatching by method — installing a second would
+  /// silently replace the first, and entity queries would stop being answered.
+  void _wire(bool background) {
     if (!_wired.add(background)) return;
 
     _channel(background).setMethodCallHandler((call) async {
+      final args = (call.arguments as Map? ?? const {})
+          .cast<String, Object?>();
+
+      if (call.method.startsWith('entities.')) {
+        final h = background ? _bgEntities : _fgEntities;
+        // No entities declared is normal; an empty list is the right answer.
+        if (h == null) return const <Map<String, Object?>>[];
+        return h(call.method, args);
+      }
+
       if (call.method != 'invoke') return null;
+
       final h = background ? _bgHandler : _fgHandler;
       if (h == null) {
         return {'kind': 'error', 'message': 'no handler installed'};
       }
-      final args = (call.arguments as Map).cast<String, Object?>();
       final id = args['id'] as String;
       final params = (args['args'] as Map? ?? const {}).cast<String, Object?>();
       return h(id, params);
