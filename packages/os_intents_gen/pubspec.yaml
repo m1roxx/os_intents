@@ -1,0 +1,19 @@
+name: os_intents_gen
+description: "Code generator for os_intents: emits the Dart dispatcher plus the Swift and Kotlin sources the OS needs at compile time."
+version: 0.0.1
+repository: https://github.com/nugmanov/os_intents
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  analyzer: ^8.0.0
+  build: ^3.0.0
+  source_gen: ^4.0.0
+  os_intents: ^0.0.1
+
+dev_dependencies:
+  build_runner: ^2.4.13
+  lints: ^6.0.0
+  test: ^1.25.0

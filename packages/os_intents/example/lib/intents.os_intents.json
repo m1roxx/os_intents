@@ -1,0 +1,95 @@
+{
+  "formatVersion": 1,
+  "source": "os_intents_example|lib/intents.dart",
+  "libraryUri": "package:os_intents_example/intents.dart",
+  "intents": [
+    {
+      "id": "addTask",
+      "functionName": "addTask",
+      "title": "Add task",
+      "description": "Creates a new task in the Inbox",
+      "phrases": [
+        "Add a task to $app",
+        "New $app task"
+      ],
+      "execution": "background",
+      "systemImageName": "plus.circle",
+      "showsInSpotlight": true,
+      "params": [
+        {
+          "name": "title",
+          "title": "Title",
+          "type": "string",
+          "isRequired": true,
+          "requestValueDialog": "What should the task be called?"
+        },
+        {
+          "name": "dueDate",
+          "title": "Due date",
+          "type": "dateTime",
+          "isRequired": false
+        },
+        {
+          "name": "project",
+          "title": "Project",
+          "type": "entity",
+          "entityTypeName": "Project",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "id": "dueToday",
+      "functionName": "dueToday",
+      "title": "Tasks due today",
+      "phrases": [
+        "What's due today in $app"
+      ],
+      "execution": "static",
+      "systemImageName": "calendar",
+      "showsInSpotlight": true,
+      "params": []
+    },
+    {
+      "id": "completeTask",
+      "functionName": "completeTask",
+      "title": "Complete task",
+      "description": "Marks a task as done",
+      "phrases": [],
+      "execution": "background",
+      "showsInSpotlight": true,
+      "params": [
+        {
+          "name": "taskId",
+          "title": "Task",
+          "type": "string",
+          "isRequired": true
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "typeName": "Project",
+      "dartClassName": "ProjectEntity",
+      "idProperty": "id",
+      "displayName": "Project",
+      "properties": [
+        {
+          "name": "name",
+          "type": "string",
+          "isTitle": true,
+          "isSubtitle": false
+        },
+        {
+          "name": "teamName",
+          "type": "string",
+          "isTitle": false,
+          "isSubtitle": true
+        }
+      ],
+      "hasQuery": true,
+      "queryClassName": "ProjectResolver"
+    }
+  ]
+}

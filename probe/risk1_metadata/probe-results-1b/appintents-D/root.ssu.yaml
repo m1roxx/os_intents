@@ -1,0 +1,47 @@
+apiVersion: ssu/v1
+nlu:
+  shortcuts:
+    bundleIdentifier: dev.osintents.risk1Metadata
+    intents:
+    - metadata:
+        name: ProbeRunnerIntent_0
+        title: Probe Runner Intent
+      corpuses:
+        training:
+        - locale: en
+          utterances:
+          - '{${+prefix} }Run runner probe in ${+applicationName}'
+        - locale: Base
+          utterances:
+          - Run runner probe in ${+applicationName}
+    - metadata:
+        name: +negative
+      corpuses:
+        training:
+        - locale: en
+          utterances:
+          - '{${+prefix} }${+standardAppShortcutNegatives}'
+        - locale: Base
+          utterances: []
+variables:
+- name: +applicationName
+  type: ssu/expansion
+  definitions:
+  - locale: en
+    synomyms:
+    - Risk1 Metadata
+  - locale: Base
+    synomyms:
+    - Risk1 Metadata
+- name: +prefix
+  type: ssu/expansion
+  definitions:
+  - locale: en
+    synomyms:
+      $ref: ssu://Resources/prefix/en.yaml
+- name: +standardAppShortcutNegatives
+  type: ssu/expansion
+  definitions:
+  - locale: en
+    synomyms:
+      $ref: ssu://Resources/standardAppShortcutNegatives/en.yaml

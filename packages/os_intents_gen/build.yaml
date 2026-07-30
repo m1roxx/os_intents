@@ -1,0 +1,14 @@
+targets:
+  $default:
+    builders:
+      os_intents_gen|os_intents:
+        enabled: true
+
+builders:
+  os_intents:
+    import: "package:os_intents_gen/os_intents_gen.dart"
+    builder_factories: ["osIntentsBuilder"]
+    build_extensions: { ".dart": [".os_intents.g.dart"] }
+    auto_apply: dependents
+    build_to: source
+    applies_builders: ["source_gen|combining_builder"]

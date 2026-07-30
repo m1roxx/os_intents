@@ -1,0 +1,25 @@
+# FVM Version Cache
+.fvm/
+
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+**/xcuserdata/
+
+# probe artifacts
+probe/**/probe-results/
+probe/**/probe-console.log
+probe/**/*.probe-backup
+
+# macOS
+.DS_Store

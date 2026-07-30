@@ -1,0 +1,23 @@
+name: os_intents_example
+description: "Worked example: a task app whose actions are reachable from Siri, Spotlight and Shortcuts."
+publish_to: none
+version: 1.0.0+1
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  os_intents: ^0.0.1
+
+dev_dependencies:
+  build_runner: ^2.4.13
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  os_intents_gen: ^0.0.1
+
+flutter:
+  uses-material-design: true

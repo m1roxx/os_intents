@@ -1,0 +1,21 @@
+name: os_intents
+description: "Declare OS-level app actions in Dart. Generates iOS App Intents and Android AppFunctions — no Swift or Kotlin by hand."
+version: 0.0.1
+repository: https://github.com/nugmanov/os_intents
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  meta: ^1.16.0
+  os_intents_platform_interface: ^0.0.1
+  os_intents_ios: ^0.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

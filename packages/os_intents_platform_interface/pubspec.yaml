@@ -1,0 +1,19 @@
+name: os_intents_platform_interface
+description: "Platform interface for the os_intents plugin."
+version: 0.0.1
+repository: https://github.com/nugmanov/os_intents
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.1.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

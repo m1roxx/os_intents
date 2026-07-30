@@ -1,0 +1,17 @@
+name: os_intents_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+# Pub workspace (Dart 3.6+). Members share one lockfile and one .dart_tool, and
+# resolve each other locally — no path deps, no dependency_overrides, so every
+# package stays publishable exactly as it sits here.
+workspace:
+  - packages/os_intents
+  - packages/os_intents/example
+  - packages/os_intents_platform_interface
+  - packages/os_intents_ios
+  - packages/os_intents_gen
+  - packages/os_intents_cli
+  - probe/risk1_metadata
