@@ -27,3 +27,5 @@ probe/**/*.probe-backup
 # Android probe build output
 probe/android_appfunctions/android/.gradle/
 probe/android_appfunctions/android/local.properties
+probe/**/integration-results/
+probe/integration-results/
