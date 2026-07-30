@@ -20,5 +20,5 @@ Got dependencies in `/Users/dev/FlutterProjects/os_intents`!
 Try `flutter pub outdated` for more information.
 Building dev.osintents.osIntentsExample for simulator (ios)...
 Running Xcode build...                                          
-Xcode build done.                                            8.8s
+Xcode build done.                                            5.8s
 ✓ Built build/ios/iphonesimulator/Runner.app

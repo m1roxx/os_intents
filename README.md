@@ -8,8 +8,21 @@ without opening the app at all.
 The pitch in one line: **you never open Xcode.**
 
 > **Status: pre-alpha, iOS only.** Nothing is published. The pipeline below
-> works end to end and is verified by an app that builds: annotations →
-> `build_runner` → Swift → `Metadata.appintents`. Android is not started.
+> works end to end: annotations → `build_runner` → Swift → `Metadata.appintents`,
+> verified on a simulator by [`probe/run_integration.sh`](probe/run_integration.sh).
+> Android has been probed for feasibility but not implemented — see
+> [docs/android.md](docs/android.md).
+
+## What works
+
+| | iOS | Android |
+|---|---|---|
+| Intents in Shortcuts, Spotlight, agents | ✅ verified in a built app | probed only |
+| Spoken Siri phrases | ✅ | — |
+| `@AppEntity` + `@EntityQuery` resolution | ✅ verified on device | — |
+| `Execution.background` — runs with no UI | ✅ verified on device | not started |
+| `Execution.static_` — answers with no engine | ✅ verified on device | not started |
+| Snippet cards | ✅ compiles and round-trips | — |
 
 ## Pipeline
 

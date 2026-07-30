@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Verification
+
+`probe/run_integration.sh` runs the example's self-check on a booted simulator
+and reports what the device did. Not `flutter test`, because every claim worth
+checking here only exists on a device; and not through the UI, because injected
+taps do not reach Flutter's gesture layer on this setup — the checks run from
+`main()` behind a `--dart-define`.
+
+Currently 4 checks: `headless_isolate`, `static_round_trip`, `entity_queries`,
+`snippet_round_trip`.
+
+Android: `probe/android_appfunctions` establishes that AppFunctions compiles
+inside a Flutter module and produces real metadata, and what it costs. See
+[docs/android.md](docs/android.md).
+
+
 Working iOS pipeline, verified end to end by an app that builds. Nothing
 published; Android not started.
 
