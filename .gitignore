@@ -23,3 +23,7 @@ probe/**/*.probe-backup
 
 # macOS
 .DS_Store
+
+# Android probe build output
+probe/android_appfunctions/android/.gradle/
+probe/android_appfunctions/android/local.properties
