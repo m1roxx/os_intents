@@ -77,18 +77,23 @@ public final class OsIntentsBridge: @unchecked Sendable {
   }
 
   func publishStatic(_ values: [String: Any]) {
-    // Values readable by `Execution.static_` intents with no engine running.
-    // Uses the shared App Group container so the App Intents extension — a
-    // separate process — can read them too.
-    guard let defaults = UserDefaults(suiteName: Self.appGroupIdentifier) else { return }
-    defaults.set(values, forKey: "os_intents.static")
+    Self.staticStore.set(values, forKey: Self.staticKey)
   }
 
-  /// Overridden by the CLI when it provisions the App Group.
-  public static var appGroupIdentifier: String = {
-    let bundleId = Bundle.main.bundleIdentifier ?? "app"
-    return "group.\(bundleId).osintents"
-  }()
+  /// Where `Execution.static_` answers are kept.
+  ///
+  /// Plain `UserDefaults`, deliberately. Generated intents are compiled into
+  /// the app target, so `perform()` runs in the app's own process — an App
+  /// Group would buy nothing here. It becomes necessary only if intents ever
+  /// move into a separate App Intents extension, and then this is the one place
+  /// to change.
+  ///
+  /// The first version of this shipped writing to an App Group that was never
+  /// provisioned (`UserDefaults(suiteName:)` returned nil, so the write was
+  /// dropped) while reading back from `.standard`. The two never met.
+  public static var staticStore: UserDefaults = .standard
+
+  static let staticKey = "os_intents.static"
 
   // MARK: - Called from generated AppIntent.perform()
 
@@ -154,9 +159,7 @@ public final class OsIntentsBridge: @unchecked Sendable {
   /// Deliberately synchronous and engine-free: this path exists precisely so a
   /// read-only action costs nothing and cannot be evicted for memory.
   public func staticValue(for id: String) -> String? {
-    let defaults = UserDefaults(suiteName: Self.appGroupIdentifier)
-      ?? UserDefaults.standard
-    let values = defaults.dictionary(forKey: "os_intents.static")
+    let values = Self.staticStore.dictionary(forKey: Self.staticKey)
     return values?[id] as? String
   }
 

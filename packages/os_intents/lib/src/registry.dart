@@ -103,6 +103,29 @@ class OsIntents {
     return me;
   }
 
+  /// Publishes answers that `Execution.static_` intents return without starting
+  /// any Dart at all.
+  ///
+  /// Keys are intent ids. Call it whenever the underlying data changes — the
+  /// app is the only thing that can, since the static path deliberately runs no
+  /// code of yours:
+  ///
+  /// ```dart
+  /// await OsIntents.publishStatic({'dueToday': '3 tasks due today'});
+  /// ```
+  ///
+  /// An id with nothing published falls back to running the handler headlessly,
+  /// so forgetting this costs speed, not correctness.
+  static Future<void> publishStatic(Map<String, String> values) =>
+      OsIntentsPlatform.instance.publishStaticValues(values);
+
+  /// Reads back what a generated `Execution.static_` intent would answer with.
+  ///
+  /// For development: confirms [publishStatic] and the native read side agree,
+  /// which is not otherwise observable from Dart.
+  static Future<String?> debugStaticValue(String id) =>
+      OsIntentsPlatform.instance.debugStaticValue(id);
+
   /// Runs an intent through the headless engine even though the app is open.
   ///
   /// For verifying the background path during development: the normal router

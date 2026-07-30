@@ -101,4 +101,8 @@ class OsIntentsIos extends OsIntentsPlatform {
     );
     return out?.cast<String, Object?>();
   }
+
+  @override
+  Future<String?> debugStaticValue(String id) =>
+      _foreground.invokeMethod<String>('debugStaticValue', {'id': id});
 }

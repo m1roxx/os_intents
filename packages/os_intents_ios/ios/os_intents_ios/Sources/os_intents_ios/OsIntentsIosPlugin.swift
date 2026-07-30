@@ -41,6 +41,11 @@ public class OsIntentsIosPlugin: NSObject, FlutterPlugin {
       OsIntentsBridge.shared.publishStatic(call.arguments as? [String: Any] ?? [:])
       result(nil)
 
+    case "debugStaticValue":
+      // Reads back exactly what a generated Execution.static_ intent would see.
+      let id = (call.arguments as? [String: Any])?["id"] as? String ?? ""
+      result(OsIntentsBridge.shared.staticValue(for: id))
+
     case "debugInvokeBackground":
       // Forces the headless engine even though the UI engine is alive, which
       // the normal router would never do. Exists because the alternative way to

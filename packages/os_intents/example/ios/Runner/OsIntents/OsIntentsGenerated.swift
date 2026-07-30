@@ -47,10 +47,19 @@ struct DueTodayOsIntent: AppIntent {
   static let openAppWhenRun = false
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    // Execution.static_: answered from the shared container,
-    // with no Dart engine started.
-    let value = OsIntentsBridge.shared.staticValue(for: "dueToday")
-    return .result(dialog: IntentDialog(stringLiteral: value ?? ""))
+    // Execution.static_: answered from stored state, with no
+    // Dart engine started.
+    if let value = OsIntentsBridge.shared.staticValue(for: "dueToday") {
+      return .result(dialog: IntentDialog(stringLiteral: value))
+    }
+    // Nothing published yet — usually a first run, before the
+    // app has had a chance to call publishStatic. Fall back to
+    // running the handler rather than answering with silence.
+    let outcome = try await OsIntentsBridge.shared.invokeBackground(
+      id: "dueToday",
+      args: [:]
+    )
+    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))
   }
 }
 

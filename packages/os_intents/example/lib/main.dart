@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:os_intents/os_intents.dart';
 
 import 'intents.dart';
+import 'selfcheck.dart';
 import 'task_repo.dart';
 
 Future<void> main() async {
@@ -11,6 +12,18 @@ Future<void> main() async {
   // Install it before runApp: an intent can be what launched the app, and the
   // native side buffers that invocation only until this resolves.
   await OsIntents.install($osIntentsRegistry);
+
+  // Answers "what's due today" with no Dart running at all. The app is the only
+  // thing that can keep this fresh, since the static path deliberately runs no
+  // code of ours — so republish whenever the data changes.
+  await _publishDueToday();
+
+  if (selfCheckEnabled) {
+    await runSelfCheck(
+      registry: $osIntentsRegistry,
+      uiSideEffectCount: () => TaskRepo.instance.all.length,
+    );
+  }
 
   runApp(const ExampleApp());
 }
@@ -101,4 +114,11 @@ class _TaskListPageState extends State<TaskListPage> {
       ),
     );
   }
+}
+
+Future<void> _publishDueToday() async {
+  final due = await TaskRepo.instance.dueToday();
+  await OsIntents.publishStatic({
+    'dueToday': due.isEmpty ? 'Nothing due today' : '${due.length} task(s) due today',
+  });
 }

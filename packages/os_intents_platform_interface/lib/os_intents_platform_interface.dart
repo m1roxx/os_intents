@@ -61,6 +61,9 @@ abstract class OsIntentsPlatform extends PlatformInterface {
     String id,
     Map<String, Object?> args,
   );
+
+  /// Reads back what a generated `Execution.static_` intent would answer with.
+  Future<String?> debugStaticValue(String id);
 }
 
 class _UnimplementedOsIntents extends OsIntentsPlatform {
@@ -87,4 +90,7 @@ class _UnimplementedOsIntents extends OsIntentsPlatform {
     String id,
     Map<String, Object?> args,
   ) async => null;
+
+  @override
+  Future<String?> debugStaticValue(String id) async => null;
 }

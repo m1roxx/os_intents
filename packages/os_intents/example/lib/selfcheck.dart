@@ -1,0 +1,124 @@
+// Self-check run by the example app at startup, guarded by a --dart-define so
+// it never runs for real users.
+//
+// Not a `flutter test`: everything worth checking here — the headless engine,
+// the static store, the entity channel — only exists on a device. And not
+// driven through the UI either, because taps injected into the simulator do not
+// reach Flutter's gesture layer on this setup.
+//
+// Each check prints one line the harness greps for.
+
+import 'package:flutter/foundation.dart';
+import 'package:os_intents/os_intents.dart';
+
+const _tag = 'OSINTENTS_SELFCHECK';
+
+/// True when the app was launched with
+/// `--dart-define=OS_INTENTS_SELFCHECK=true`.
+const bool selfCheckEnabled = bool.fromEnvironment('OS_INTENTS_SELFCHECK');
+
+void _pass(String name, [String detail = '']) =>
+    debugPrint('$_tag PASS $name${detail.isEmpty ? '' : ' — $detail'}');
+
+void _fail(String name, Object detail) =>
+    debugPrint('$_tag FAIL $name — $detail');
+
+/// Runs every check, then prints a terminating line so the harness can tell
+/// "still running" from "finished".
+Future<void> runSelfCheck({
+  required IntentRegistry registry,
+  required int Function() uiSideEffectCount,
+}) async {
+  debugPrint('$_tag BEGIN');
+
+  await _checkHeadlessIsolate(uiSideEffectCount);
+  await _checkStaticRoundTrip();
+  await _checkEntityQueries(registry);
+
+  debugPrint('$_tag END');
+}
+
+/// The handler must run, and must run somewhere else.
+///
+/// The second half is the real assertion: if the work landed in the UI isolate
+/// the count would move, and the "headless" engine would be a fiction.
+Future<void> _checkHeadlessIsolate(int Function() uiSideEffectCount) async {
+  const name = 'headless_isolate';
+  final before = uiSideEffectCount();
+  try {
+    final out = await OsIntents.debugInvokeBackground('addTask', {
+      'title': 'from the self-check',
+    });
+    if (out == null || out['kind'] != 'dialog') {
+      _fail(name, 'unexpected result: $out');
+      return;
+    }
+    final after = uiSideEffectCount();
+    if (after != before) {
+      _fail(name, 'the UI isolate saw the write ($before -> $after)');
+      return;
+    }
+    _pass(name, 'ran elsewhere, UI count stayed $after');
+  } catch (e) {
+    _fail(name, e);
+  }
+}
+
+/// publishStatic and the native read side must agree.
+///
+/// They did not at first: the write went to an App Group that was never
+/// provisioned and the read came from UserDefaults.standard.
+Future<void> _checkStaticRoundTrip() async {
+  const name = 'static_round_trip';
+  try {
+    const sentinel = 'self-check sentinel';
+    await OsIntents.publishStatic({'dueToday': sentinel});
+    final read = await OsIntents.debugStaticValue('dueToday');
+    if (read != sentinel) {
+      _fail(name, 'published "$sentinel", read back ${read ?? "null"}');
+      return;
+    }
+    _pass(name);
+  } catch (e) {
+    _fail(name, e);
+  }
+}
+
+/// Entity queries have to answer, since the OS calls them before a handler
+/// runs. They returned null until the channel dispatched on method name.
+Future<void> _checkEntityQueries(IntentRegistry registry) async {
+  const name = 'entity_queries';
+  try {
+    final binding = registry.entities['Project'];
+    if (binding == null) {
+      _fail(name, 'no EntityBinding registered for Project');
+      return;
+    }
+    final suggested = await binding.suggested();
+    final matching = await binding.matching('groc');
+    final byIds = await binding.byIds(['p1']);
+
+    if (suggested.isEmpty) {
+      _fail(name, 'suggested() returned nothing');
+      return;
+    }
+    if (matching.length != 1 || matching.single['name'] != 'Groceries') {
+      _fail(name, 'matching("groc") returned $matching');
+      return;
+    }
+    if (byIds.length != 1 || byIds.single['id'] != 'p1') {
+      _fail(name, 'byIds(["p1"]) returned $byIds');
+      return;
+    }
+    // The encoder must produce exactly the keys the generated Swift reads.
+    const expected = {'id', 'name', 'teamName'};
+    final actual = byIds.single.keys.toSet();
+    if (!actual.containsAll(expected)) {
+      _fail(name, 'encoder produced $actual, expected to include $expected');
+      return;
+    }
+    _pass(name, '${suggested.length} suggested, wire keys $actual');
+  } catch (e) {
+    _fail(name, e);
+  }
+}

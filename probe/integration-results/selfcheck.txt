@@ -1,0 +1,5 @@
+OSINTENTS_SELFCHECK BEGIN
+OSINTENTS_SELFCHECK PASS headless_isolate — ran elsewhere, UI count stayed 0
+OSINTENTS_SELFCHECK PASS static_round_trip
+OSINTENTS_SELFCHECK PASS entity_queries — 2 suggested, wire keys {id, name, teamName}
+OSINTENTS_SELFCHECK END

@@ -21,7 +21,7 @@ class SwiftEmitter {
   };
 
   bool get _needsBackground =>
-      manifest.intents.any((i) => i.execution == ExecutionMode.background);
+      manifest.intents.any((i) => i.needsHeadlessEngine);
 
   /// Supplies the background engine with the two things only the app target
   /// has: which Dart library holds the generated entrypoint, and
@@ -107,12 +107,23 @@ class SwiftEmitter {
 
     b.writeln('  func perform() async throws -> $resultType {');
     if (i.execution == ExecutionMode.static_) {
-      b.writeln('    // Execution.static_: answered from the shared container,');
-      b.writeln('    // with no Dart engine started.');
+      b.writeln('    // Execution.static_: answered from stored state, with no');
+      b.writeln('    // Dart engine started.');
       b.writeln(
-        '    let value = OsIntentsBridge.shared.staticValue(for: ${_str(i.id)})',
+        '    if let value = OsIntentsBridge.shared.staticValue(for: ${_str(i.id)}) {',
       );
-      b.writeln('    return .result(dialog: IntentDialog(stringLiteral: value ?? ""))');
+      b.writeln('      return .result(dialog: IntentDialog(stringLiteral: value))');
+      b.writeln('    }');
+      b.writeln('    // Nothing published yet — usually a first run, before the');
+      b.writeln('    // app has had a chance to call publishStatic. Fall back to');
+      b.writeln('    // running the handler rather than answering with silence.');
+      b.writeln('    let outcome = try await OsIntentsBridge.shared.invokeBackground(');
+      b.writeln('      id: ${_str(i.id)},');
+      b.writeln('      args: [:]');
+      b.writeln('    )');
+      b.writeln(
+        '    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))',
+      );
     } else {
       // Background intents go through the router, which reuses the UI isolate
       // when the app happens to be running and starts the headless engine only

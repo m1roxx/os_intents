@@ -117,6 +117,13 @@ class IntentSpec {
   final bool showsInSpotlight;
   final List<ParamSpec> params;
 
+  /// Whether this intent can end up needing the headless Dart engine.
+  ///
+  /// True for background, and also for static: a static intent whose value has
+  /// not been published yet falls back to running the handler rather than
+  /// answering with silence.
+  bool get needsHeadlessEngine => execution != ExecutionMode.foreground;
+
   /// PascalCase name of the generated Swift struct.
   String get swiftTypeName =>
       '${id[0].toUpperCase()}${id.substring(1)}OsIntent';
@@ -293,8 +300,7 @@ class Manifest {
     return 'package:${parts[0]}/${path.substring('lib/'.length)}';
   }
 
-  bool get hasBackgroundIntents =>
-      intents.any((i) => i.execution == ExecutionMode.background);
+  bool get hasBackgroundIntents => intents.any((i) => i.needsHeadlessEngine);
 
   /// Asset path of the library the specs came from, for error messages.
   final String source;

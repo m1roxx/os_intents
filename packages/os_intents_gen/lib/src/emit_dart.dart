@@ -115,9 +115,7 @@ String _decode(ParamSpec p, Map<String, EntitySpec> entities) {
 /// this function, so tree shaking removes it in release builds and the native
 /// side then fails to start the engine with a bare "false" from `run()`.
 String emitBackgroundEntrypoint(Manifest manifest) {
-  final needed = manifest.intents.any(
-    (i) => i.execution == ExecutionMode.background,
-  );
+  final needed = manifest.intents.any((i) => i.needsHeadlessEngine);
   if (!needed) return '';
 
   return '''
