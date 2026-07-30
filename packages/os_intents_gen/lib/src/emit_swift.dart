@@ -74,8 +74,10 @@ class SwiftEmitter {
 
   String _intentStruct(IntentSpec i) {
     final b = StringBuffer();
-    final resultType = i.phrases.isEmpty
-        ? 'some IntentResult & ProvidesDialog'
+    // Swift fixes this at compile time, so an intent that only sometimes
+    // returns a card still has to declare that it might.
+    final resultType = i.showsSnippet
+        ? 'some IntentResult & ProvidesDialog & ShowsSnippetView'
         : 'some IntentResult & ProvidesDialog';
 
     b.writeln('@available(iOS 16.0, *)');
@@ -110,9 +112,10 @@ class SwiftEmitter {
       b.writeln('    // Execution.static_: answered from stored state, with no');
       b.writeln('    // Dart engine started.');
       b.writeln(
-        '    if let value = OsIntentsBridge.shared.staticValue(for: ${_str(i.id)}) {',
+        '    if let stored = OsIntentsBridge.shared.staticResult(for: ${_str(i.id)}) {',
       );
-      b.writeln('      return .result(dialog: IntentDialog(stringLiteral: value))');
+      b.writeln('      let outcome = IntentOutcome(wire: stored)');
+      b.writeln('      return ${_dialogReturn(i, 'outcome.spoken ?? ""')}');
       b.writeln('    }');
       b.writeln('    // Nothing published yet — usually a first run, before the');
       b.writeln('    // app has had a chance to call publishStatic. Fall back to');
@@ -122,7 +125,7 @@ class SwiftEmitter {
       b.writeln('      args: [:]');
       b.writeln('    )');
       b.writeln(
-        '    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))',
+        '    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}',
       );
     } else {
       // Background intents go through the router, which reuses the UI isolate
@@ -144,7 +147,7 @@ class SwiftEmitter {
       }
       b.writeln('    )');
       b.writeln(
-        '    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))',
+        '    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}',
       );
     }
     b.writeln('  }');
@@ -182,6 +185,18 @@ class SwiftEmitter {
     }
     b.write('  }');
     return b.toString();
+  }
+
+  /// Builds the `return .result(...)` line.
+  ///
+  /// The view argument only appears for intents that declared showsSnippet,
+  /// because the presence of `ShowsSnippetView` in the return type and the
+  /// presence of `view:` here have to agree.
+  String _dialogReturn(IntentSpec i, String spoken, {String? snippet}) {
+    final dialog = 'IntentDialog(stringLiteral: $spoken)';
+    if (!i.showsSnippet) return '.result(dialog: $dialog)';
+    final source = snippet ?? 'outcome.snippet';
+    return '.result(dialog: $dialog, view: OsIntentsSnippetView(wire: $source))';
   }
 
   String _parameter(ParamSpec p) {

@@ -104,6 +104,7 @@ class IntentSpec {
     this.phrases = const [],
     this.systemImageName,
     this.showsInSpotlight = true,
+    this.showsSnippet = false,
     this.params = const [],
   });
 
@@ -115,6 +116,7 @@ class IntentSpec {
   final ExecutionMode execution;
   final String? systemImageName;
   final bool showsInSpotlight;
+  final bool showsSnippet;
   final List<ParamSpec> params;
 
   /// Whether this intent can end up needing the headless Dart engine.
@@ -168,6 +170,7 @@ class IntentSpec {
     'execution': execution.wire,
     if (systemImageName != null) 'systemImageName': systemImageName,
     'showsInSpotlight': showsInSpotlight,
+    'showsSnippet': showsSnippet,
     'params': [for (final p in params) p.toJson()],
   };
 
@@ -180,6 +183,7 @@ class IntentSpec {
     execution: ExecutionMode.parse(j['execution']! as String),
     systemImageName: j['systemImageName'] as String?,
     showsInSpotlight: j['showsInSpotlight'] as bool? ?? true,
+    showsSnippet: j['showsSnippet'] as bool? ?? false,
     params: [
       for (final p in (j['params'] as List? ?? const []))
         ParamSpec.fromJson((p as Map).cast<String, Object?>()),

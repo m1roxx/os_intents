@@ -15,6 +15,7 @@
       "execution": "background",
       "systemImageName": "plus.circle",
       "showsInSpotlight": true,
+      "showsSnippet": false,
       "params": [
         {
           "name": "title",
@@ -48,6 +49,7 @@
       "execution": "static",
       "systemImageName": "calendar",
       "showsInSpotlight": true,
+      "showsSnippet": true,
       "params": []
     },
     {
@@ -58,6 +60,7 @@
       "phrases": [],
       "execution": "background",
       "showsInSpotlight": true,
+      "showsSnippet": false,
       "params": [
         {
           "name": "taskId",

@@ -106,12 +106,23 @@ void main() {
       );
     });
 
-    test('a static intent never calls into Dart', () {
+    test('a static intent answers from the store first', () {
       final out = intentsFor(
         manifest(intents: [intent(execution: ExecutionMode.static_)]),
       );
-      expect(out, contains('staticValue(for: "addTask")'));
-      expect(out, isNot(contains('invoke(')));
+      expect(out, contains('staticResult(for: "addTask")'));
+      // Never the plain foreground path: that would need the app on screen,
+      // which defeats the point of a static answer.
+      expect(out, isNot(contains('shared.invoke(')));
+    });
+
+    test('a static intent falls back to the handler when nothing is stored', () {
+      // Answering with silence before the app has ever published would look
+      // like a broken action to the user.
+      final out = intentsFor(
+        manifest(intents: [intent(execution: ExecutionMode.static_)]),
+      );
+      expect(out, contains('invokeBackground('));
     });
 
     test('required and optional parameters differ by Swift optionality', () {
@@ -480,6 +491,66 @@ void main() {
         ),
       );
       expect(out, contains("'id': e.slug,"));
+    });
+  });
+
+  group('snippets', () {
+    String intentsFor(Manifest m) =>
+        SwiftEmitter(m).emit()['OsIntentsGenerated.swift']!;
+
+    IntentSpec snippetIntent({
+      ExecutionMode execution = ExecutionMode.background,
+    }) => IntentSpec(
+      id: 'dueToday',
+      functionName: 'dueToday',
+      title: 'Tasks due today',
+      execution: execution,
+      showsSnippet: true,
+    );
+
+    test('the return type and the view argument agree', () {
+      // Swift fixes perform()'s return type at compile time; declaring
+      // ShowsSnippetView without passing a view, or the reverse, does not
+      // compile.
+      final with_ = intentsFor(manifest(intents: [snippetIntent()]));
+      expect(with_, contains('& ShowsSnippetView'));
+      expect(with_, contains('view: OsIntentsSnippetView(wire: outcome.snippet)'));
+
+      final without = intentsFor(manifest(intents: [intent()]));
+      expect(without, isNot(contains('ShowsSnippetView')));
+      expect(without, isNot(contains('OsIntentsSnippetView')));
+    });
+
+    test('a static snippet reads its card from the stored result', () {
+      // Storing only the spoken text would leave this path rendering an empty
+      // card, which is what the first attempt did.
+      final out = intentsFor(
+        manifest(intents: [snippetIntent(execution: ExecutionMode.static_)]),
+      );
+      expect(out, contains('staticResult(for: "dueToday")'));
+      expect(out, contains('let outcome = IntentOutcome(wire: stored)'));
+      expect(
+        out,
+        contains('view: OsIntentsSnippetView(wire: outcome.snippet)'),
+      );
+      expect(out, isNot(contains('wire: nil')));
+    });
+
+    test('showsSnippet survives the manifest round trip', () {
+      final restored = Manifest.decode(
+        manifest(intents: [snippetIntent()]).encode(),
+      );
+      expect(restored.intents.single.showsSnippet, isTrue);
+    });
+
+    test('static intents still need the headless engine, for the fallback', () {
+      final m = Manifest(
+        source: 'my_app|lib/intents.dart',
+        intents: [snippetIntent(execution: ExecutionMode.static_)],
+      );
+      expect(m.hasBackgroundIntents, isTrue);
+      expect(SwiftEmitter(m).emit(), contains('OsIntentsBackground.swift'));
+      expect(emitBackgroundEntrypoint(m), contains("@pragma('vm:entry-point')"));
     });
   });
 }

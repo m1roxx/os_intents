@@ -50,6 +50,7 @@ class AppIntent {
     this.systemImageName,
     this.identifier,
     this.showsInSpotlight = true,
+    this.showsSnippet = false,
   });
 
   /// Human-readable name, shown in Shortcuts and Spotlight.
@@ -72,6 +73,16 @@ class AppIntent {
   final String? identifier;
 
   final bool showsInSpotlight;
+
+  /// Whether this intent can answer with an [IntentResult.snippet] card.
+  ///
+  /// Opt-in because Swift fixes `perform()`'s return type at compile time,
+  /// while the decision to return a card is made at run time. Declaring it
+  /// always would attach an empty card to every plain answer.
+  ///
+  /// With this false, an `IntentResult.snippet` still speaks its `spoken` text
+  /// — the card is simply not shown.
+  final bool showsSnippet;
 }
 
 /// Describes a single parameter of an [AppIntent] handler.

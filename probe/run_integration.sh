@@ -66,7 +66,9 @@ fi
 echo "  ok"
 
 step "Launching"
-START_AT=$(date -u +%Y-%m-%d\ %H:%M:%S)
+# Local time, not UTC: `log show --start` reads it in the device's local zone,
+# so a UTC stamp widens the window by the offset and sweeps in earlier runs.
+START_AT=$(date +%Y-%m-%d\ %H:%M:%S)
 xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" >/dev/null 2>&1
 xcrun simctl install "$DEVICE" "$APP/build/ios/iphonesimulator/Runner.app" \
   > "$RESULTS/launch.log" 2>&1 || { fail "install to simulator failed"; exit 1; }

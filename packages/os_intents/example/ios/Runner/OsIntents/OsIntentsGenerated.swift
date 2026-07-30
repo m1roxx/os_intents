@@ -46,11 +46,12 @@ struct DueTodayOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Tasks due today"
   static let openAppWhenRun = false
 
-  func perform() async throws -> some IntentResult & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
     // Execution.static_: answered from stored state, with no
     // Dart engine started.
-    if let value = OsIntentsBridge.shared.staticValue(for: "dueToday") {
-      return .result(dialog: IntentDialog(stringLiteral: value))
+    if let stored = OsIntentsBridge.shared.staticResult(for: "dueToday") {
+      let outcome = IntentOutcome(wire: stored)
+      return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
     }
     // Nothing published yet — usually a first run, before the
     // app has had a chance to call publishStatic. Fall back to
@@ -59,7 +60,7 @@ struct DueTodayOsIntent: AppIntent {
       id: "dueToday",
       args: [:]
     )
-    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))
+    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
   }
 }
 

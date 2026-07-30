@@ -2,4 +2,5 @@ OSINTENTS_SELFCHECK BEGIN
 OSINTENTS_SELFCHECK PASS headless_isolate — ran elsewhere, UI count stayed 0
 OSINTENTS_SELFCHECK PASS static_round_trip
 OSINTENTS_SELFCHECK PASS entity_queries — 2 suggested, wire keys {id, name, teamName}
+OSINTENTS_SELFCHECK PASS snippet_round_trip — spec and spoken text both stored
 OSINTENTS_SELFCHECK END

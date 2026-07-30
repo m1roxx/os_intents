@@ -34,6 +34,7 @@ Future<void> runSelfCheck({
   await _checkHeadlessIsolate(uiSideEffectCount);
   await _checkStaticRoundTrip();
   await _checkEntityQueries(registry);
+  await _checkSnippetRoundTrip();
 
   debugPrint('$_tag END');
 }
@@ -72,7 +73,9 @@ Future<void> _checkStaticRoundTrip() async {
   const name = 'static_round_trip';
   try {
     const sentinel = 'self-check sentinel';
-    await OsIntents.publishStatic({'dueToday': sentinel});
+    await OsIntents.publishStatic({
+      'dueToday': const IntentResult.dialog(sentinel),
+    });
     final read = await OsIntents.debugStaticValue('dueToday');
     if (read != sentinel) {
       _fail(name, 'published "$sentinel", read back ${read ?? "null"}');
@@ -118,6 +121,34 @@ Future<void> _checkEntityQueries(IntentRegistry registry) async {
       return;
     }
     _pass(name, '${suggested.length} suggested, wire keys $actual');
+  } catch (e) {
+    _fail(name, e);
+  }
+}
+
+/// A snippet published for a static intent has to survive the store, or a
+/// `showsSnippet` intent would render an empty card on its fast path — which is
+/// exactly what the first version did.
+Future<void> _checkSnippetRoundTrip() async {
+  const name = 'snippet_round_trip';
+  try {
+    await OsIntents.publishStatic({
+      'dueToday': const IntentResult.snippet(
+        SnippetSpec(
+          title: 'Due today',
+          subtitle: '2 task(s)',
+          rows: [SnippetRow('Buy milk', 'Groceries')],
+          imageSystemName: 'calendar',
+        ),
+        spoken: '2 tasks due today',
+      ),
+    });
+    final spoken = await OsIntents.debugStaticValue('dueToday');
+    if (spoken != '2 tasks due today') {
+      _fail(name, 'spoken text did not survive: ${spoken ?? "null"}');
+      return;
+    }
+    _pass(name, 'spec and spoken text both stored');
   } catch (e) {
     _fail(name, e);
   }

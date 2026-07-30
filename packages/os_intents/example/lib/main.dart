@@ -119,6 +119,16 @@ class _TaskListPageState extends State<TaskListPage> {
 Future<void> _publishDueToday() async {
   final due = await TaskRepo.instance.dueToday();
   await OsIntents.publishStatic({
-    'dueToday': due.isEmpty ? 'Nothing due today' : '${due.length} task(s) due today',
+    'dueToday': IntentResult.snippet(
+      SnippetSpec(
+        title: 'Due today',
+        subtitle: '${due.length} task(s)',
+        rows: [for (final t in due.take(3)) SnippetRow(t.title, t.projectName)],
+        imageSystemName: 'calendar',
+      ),
+      spoken: due.isEmpty
+          ? 'Nothing due today'
+          : '${due.length} task(s) due today',
+    ),
   });
 }

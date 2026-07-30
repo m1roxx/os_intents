@@ -4,12 +4,9 @@
   Updating the asset graph.
   Building, incremental build.
   0s source_gen:combining_builder on 4 inputs; lib/intents.dart
-  0s source_gen:combining_builder on 4 inputs: 3 skipped, 1 no-op
+  0s source_gen:combining_builder on 4 inputs: 4 skipped
   0s os_intents_gen:os_intents on 8 inputs; lib/intents.dart
-W SDK language version 3.12.0 is newer than `analyzer` language version 3.11.0. Run `flutter packages upgrade`.
-  4s os_intents_gen:os_intents on 8 inputs: 1 same; spent 3s analyzing; lib/intents.g.dart
-  6s os_intents_gen:os_intents on 8 inputs: 1 skipped, 1 same, 1 no-op; spent 5s analyzing, 1s resolving; lib/main.g.dart
-  6s os_intents_gen:os_intents on 8 inputs: 4 skipped, 1 same, 3 no-op; spent 5s analyzing, 1s resolving
+  0s os_intents_gen:os_intents on 8 inputs: 8 skipped
   Running the post build.
   Writing the asset graph.
-  Built with build_runner in 7s; wrote 2 outputs.
+  Built with build_runner in 1s; wrote 0 outputs.

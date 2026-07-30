@@ -35,6 +35,7 @@ Future<IntentResult> addTask({
   phrases: [r"What's due today in $app"],
   systemImageName: 'calendar',
   execution: Execution.static_,
+  showsSnippet: true,
 )
 Future<IntentResult> dueToday() async {
   final tasks = await TaskRepo.instance.dueToday();

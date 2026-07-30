@@ -111,13 +111,20 @@ class OsIntents {
   /// code of yours:
   ///
   /// ```dart
-  /// await OsIntents.publishStatic({'dueToday': '3 tasks due today'});
+  /// await OsIntents.publishStatic({
+  ///   'dueToday': IntentResult.dialog('3 tasks due today'),
+  /// });
   /// ```
+  ///
+  /// Whole results rather than plain strings, so an intent that shows a card
+  /// can answer with one on this path too.
   ///
   /// An id with nothing published falls back to running the handler headlessly,
   /// so forgetting this costs speed, not correctness.
-  static Future<void> publishStatic(Map<String, String> values) =>
-      OsIntentsPlatform.instance.publishStaticValues(values);
+  static Future<void> publishStatic(Map<String, IntentResult> results) =>
+      OsIntentsPlatform.instance.publishStaticValues({
+        for (final e in results.entries) e.key: e.value.toWire(),
+      });
 
   /// Reads back what a generated `Execution.static_` intent would answer with.
   ///

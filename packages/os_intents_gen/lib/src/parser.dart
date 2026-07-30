@@ -62,6 +62,7 @@ class SpecParser {
           ];
 
     final spotlight = annotation.read('showsInSpotlight');
+    final snippet = annotation.read('showsSnippet');
 
     _intents.add(
       IntentSpec(
@@ -73,6 +74,7 @@ class SpecParser {
         execution: execution,
         systemImageName: _stringOrNull(annotation, 'systemImageName'),
         showsInSpotlight: spotlight.isNull ? true : spotlight.boolValue,
+        showsSnippet: snippet.isNull ? false : snippet.boolValue,
         params: _params(element, id),
       ),
     );

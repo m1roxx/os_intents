@@ -7,10 +7,14 @@ public struct IntentOutcome {
   public let spoken: String?
   public let value: Any?
 
-  init(wire: [String: Any]) {
+  /// Wire form of a `SnippetSpec`, when the handler returned one.
+  public let snippet: [String: Any]?
+
+  public init(wire: [String: Any]) {
     kind = wire["kind"] as? String ?? "done"
     spoken = wire["spoken"] as? String ?? wire["displayed"] as? String
     value = wire["value"]
+    snippet = wire["spec"] as? [String: Any]
   }
 }
 
@@ -77,7 +81,39 @@ public final class OsIntentsBridge: @unchecked Sendable {
   }
 
   func publishStatic(_ values: [String: Any]) {
-    Self.staticStore.set(values, forKey: Self.staticKey)
+    Self.staticStore.set(Self.plistSafe(values), forKey: Self.staticKey)
+  }
+
+  /// Makes a decoded method-channel payload safe for `UserDefaults`.
+  ///
+  /// Two things bite here. Dart nulls arrive as `NSNull`, and a single one
+  /// anywhere in the tree makes `UserDefaults.set` throw
+  /// `NSInvalidArgumentException` and take the whole app down — which it did,
+  /// the first time a result with an unset field was published. And nested maps
+  /// decode as `[AnyHashable: Any]`, which is not a property list type either.
+  ///
+  /// Dropping nulls is right rather than lossy: absent and null mean the same
+  /// thing to every reader of this data.
+  static func plistSafe(_ value: Any) -> Any? {
+    switch value {
+    case is NSNull:
+      return nil
+    case let dict as [AnyHashable: Any]:
+      var out: [String: Any] = [:]
+      for (k, v) in dict {
+        guard let key = k as? String, let clean = plistSafe(v) else { continue }
+        out[key] = clean
+      }
+      return out
+    case let array as [Any]:
+      return array.compactMap { plistSafe($0) }
+    case is String, is NSNumber, is Date, is Data:
+      return value
+    default:
+      // Anything else would throw on write; a description keeps the rest of the
+      // payload usable instead of losing all of it.
+      return String(describing: value)
+    }
   }
 
   /// Where `Execution.static_` answers are kept.
@@ -153,14 +189,21 @@ public final class OsIntentsBridge: @unchecked Sendable {
     return IntentOutcome(wire: wire)
   }
 
-  /// Reads a value published by `publishStaticValues` for an
-  /// `Execution.static_` intent.
+  /// The whole stored result for an `Execution.static_` intent.
   ///
-  /// Deliberately synchronous and engine-free: this path exists precisely so a
-  /// read-only action costs nothing and cannot be evicted for memory.
-  public func staticValue(for id: String) -> String? {
+  /// Synchronous and engine-free: this path exists precisely so a read-only
+  /// action costs nothing and cannot be evicted for memory.
+  ///
+  /// Whole results rather than the spoken text alone, because storing only the
+  /// text would force a `showsSnippet` intent to render an empty card here.
+  public func staticResult(for id: String) -> [String: Any]? {
     let values = Self.staticStore.dictionary(forKey: Self.staticKey)
-    return values?[id] as? String
+    return values?[id] as? [String: Any]
+  }
+
+  public func staticValue(for id: String) -> String? {
+    guard let wire = staticResult(for: id) else { return nil }
+    return IntentOutcome(wire: wire).spoken
   }
 
   // MARK: - Entity resolution, called from generated EntityStringQuery types
