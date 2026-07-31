@@ -34,6 +34,9 @@ probe/**/*.probe-backup
 # macOS
 .DS_Store
 
+# Kotlin build daemon's scratch dir, written next to the Gradle project.
+**/.kotlin/
+
 # Android probe build output
 probe/android_appfunctions/android/.gradle/
 probe/android_appfunctions/android/local.properties

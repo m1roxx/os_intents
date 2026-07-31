@@ -101,8 +101,9 @@ and the CLI carries it the rest of the way. That is why the build has two steps.
 Two more worth wiring in:
 
 ```bash
-dart run os_intents_cli:os_intents sync --check   # fails on drift, for CI
-dart run os_intents_cli:os_intents doctor         # what will the OS actually see?
+dart run os_intents_cli:os_intents sync --check     # fails on drift, for CI
+dart run os_intents_cli:os_intents doctor           # what will the OS actually see?
+dart run os_intents_cli:os_intents doctor --android # …and what will an agent see?
 ```
 
 `doctor` reads `Metadata.appintents/extract.actionsdata` out of a **built**

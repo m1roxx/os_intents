@@ -57,6 +57,25 @@ Independently, iOS itself indexed the generated intents: the Shortcuts daemon
 logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`, `LNEntityMetadata`
 and `LNQueryMetadata` for the example's bundle.
 
+## Verified by reading the built artefact
+
+Neither of these needs a device, and both answer the question no other step in
+the toolchain can: the code was generated, it compiled, and it can still be
+invisible to the OS.
+
+- **iOS** — `os_intents doctor` reads `Metadata.appintents/extract.actionsdata`
+  out of a built `.app` and reports the intents, parameters, entities, queries
+  and phrases the system will see, then cross-checks them against the manifests.
+- **Android** — `os_intents doctor --android` reads the built APK: the
+  AppFunction metadata KSP wrote into `assets/` as plain XML, and whether the
+  shortcuts XML was packaged. It reports the descriptions that travelled from
+  Dart through KDoc, and the optionality the runtime will actually enforce —
+  which is not what the file says, because a nullable property counts as
+  optional however `<required>` lists it.
+
+Both readers are pure and tested against files captured from real builds, so
+they need neither Xcode nor the Android SDK to run.
+
 ## Verified by building, not by running
 
 - The generated Swift compiles into an app and reaches
@@ -128,7 +147,7 @@ what the function returns.
 
 ## Health
 
-152 tests — 6 in `os_intents`, 93 in `os_intents_gen`, 53 in `os_intents_cli` —
+171 tests — 6 in `os_intents`, 93 in `os_intents_gen`, 72 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

@@ -13,11 +13,13 @@ library;
 
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:args/command_runner.dart';
 import 'package:os_intents_gen/os_intents_gen.dart';
 import 'package:path/path.dart' as p;
 
 import 'actions_data.dart';
+import 'doctor_android.dart';
 import 'manifests.dart';
 import 'sync.dart';
 
@@ -289,6 +291,19 @@ class DoctorCommand extends Command<int> {
         help:
             'Path to a built .app bundle. Defaults to the most recent build '
             'under build/ios.',
+      )
+      ..addFlag(
+        'android',
+        negatable: false,
+        help:
+            'Inspect a built APK instead: which AppFunctions an agent will be '
+            'offered, and whether the shortcuts XML was packaged.',
+      )
+      ..addOption(
+        'apk',
+        help:
+            'Path to a built .apk. Implies --android. Defaults to the most '
+            'recent build under build/app/outputs.',
       );
   }
 
@@ -310,9 +325,21 @@ class DoctorCommand extends Command<int> {
     'build/ios/Release-iphoneos/Runner.app',
   ];
 
+  /// Where `flutter build apk` leaves an APK, newest layout first.
+  static const _apkCandidates = [
+    'build/app/outputs/flutter-apk/app-debug.apk',
+    'build/app/outputs/flutter-apk/app-release.apk',
+    'build/app/outputs/apk/debug/app-debug.apk',
+    'build/app/outputs/apk/release/app-release.apk',
+  ];
+
   @override
   Future<int> run() async {
     final root = p.absolute(argResults!.option('project')!);
+
+    if (argResults!.flag('android') || argResults!.option('apk') != null) {
+      return _runAndroid(root);
+    }
 
     final explicit = argResults!.option('app');
     final bundle = explicit != null
@@ -382,6 +409,68 @@ class DoctorCommand extends Command<int> {
 
     final errors = findings.where((f) => f.severity == Severity.error).length;
     return errors == 0 ? 0 : 1;
+  }
+
+  Future<int> _runAndroid(String root) async {
+    final explicit = argResults!.option('apk');
+    final apk = explicit != null
+        ? File(p.isAbsolute(explicit) ? explicit : p.join(root, explicit))
+        : _newestApk(root);
+
+    if (apk == null) {
+      stderr.writeln(
+        'No built APK found under ${p.join(root, 'build/app/outputs')}.\n'
+        'Build one first:\n'
+        '  flutter build apk --debug\n'
+        'or point doctor at one with --apk.',
+      );
+      return 66;
+    }
+    if (!apk.existsSync()) {
+      stderr.writeln('No APK at ${apk.path}.');
+      return 66;
+    }
+
+    final ApkInspection inspection;
+    try {
+      inspection = inspectApk(apk);
+    } on ArchiveException catch (e) {
+      stderr.writeln('Could not read ${p.relative(apk.path, from: root)}: $e');
+      return 65;
+    }
+
+    final List<Manifest> manifests;
+    try {
+      manifests = readManifests(root);
+    } on ManifestReadException catch (e) {
+      stderr.writeln('${p.relative(e.path, from: root)}: ${e.message}');
+      return 65;
+    }
+    final declared = manifests.isEmpty ? null : Manifest.merge(manifests);
+
+    reportAndroid(root, apk, inspection);
+
+    final findings = diagnoseAndroid(declared: declared, apk: inspection);
+    _printFindings(findings, artefact: 'APK');
+
+    final errors = findings.where((f) => f.severity == Severity.error).length;
+    return errors == 0 ? 0 : 1;
+  }
+
+  /// Picks the APK most likely to be the one just built.
+  File? _newestApk(String root) {
+    File? best;
+    DateTime? bestAt;
+    for (final rel in _apkCandidates) {
+      final file = File(p.join(root, rel));
+      if (!file.existsSync()) continue;
+      final at = file.lastModifiedSync();
+      if (bestAt == null || at.isAfter(bestAt)) {
+        best = file;
+        bestAt = at;
+      }
+    }
+    return best;
   }
 
   /// Picks the bundle most likely to be the one just built.
@@ -515,11 +604,11 @@ class DoctorCommand extends Command<int> {
     stdout.write(out);
   }
 
-  void _printFindings(List<Finding> findings) {
+  void _printFindings(List<Finding> findings, {String artefact = 'bundle'}) {
     if (findings.isEmpty) {
       stdout
         ..writeln()
-        ..writeln('Everything declared in Dart reached the bundle.');
+        ..writeln('Everything declared in Dart reached the $artefact.');
       return;
     }
     stdout.writeln();

@@ -17,6 +17,7 @@ dart run os_intents_cli:os_intents sync --android    # also → android/…/<app
 dart run os_intents_cli:os_intents sync --check      # drift guard for CI, writes nothing
 dart run os_intents_cli:os_intents install           # add the generated folder to the Xcode target
 dart run os_intents_cli:os_intents doctor            # what will the OS actually see?
+dart run os_intents_cli:os_intents doctor --android  # …and what will an agent see?
 ```
 
 ## install
@@ -90,3 +91,43 @@ The metadata format is Apple's and undocumented. Every field
 iOS actually indexed, and the parser reports what it does not recognise instead
 of guessing — a `type #12` in the output means the format moved and the reader
 has not caught up.
+
+### doctor --android
+
+The same question on the other platform: an agent either sees your functions or
+it does not, and nothing in the build says which.
+
+```bash
+flutter build apk --debug
+dart run os_intents_cli:os_intents doctor --android
+```
+
+```
+AppFunctions the OS will see (2)
+  addTask
+      Creates a new task in the Inbox
+      title         String          required
+      dueDate       Long            optional
+  dueToday
+      Tasks due today
+
+App shortcuts XML: packaged
+```
+
+It reads the APK, not the sources — `sync --check` already proves the files on
+disk match the manifest, and only the artefact can say they were packaged. The
+AppFunction metadata is plain XML in `assets/`, so no binary XML decoding is
+involved and the reader stays pure.
+
+What it catches: a headless intent that never reached the metadata, a
+description that stopped matching the one in Dart (they travel as KDoc, so a
+stale build shows up here), a function left over from an earlier build that an
+agent may still offer, and a missing shortcuts XML.
+
+And one that is easy to get wrong by hand: **optionality**. The generated Kotlin
+lists every property in `<required>`, but `androidx.appfunctions` treats a
+nullable property as optional however it is listed — so doctor reports what the
+runtime will enforce, not what the file says.
+
+An APK with no AppFunction metadata is reported as a note rather than an error.
+That is the default state: the layer is opt-in behind `sync --android`.

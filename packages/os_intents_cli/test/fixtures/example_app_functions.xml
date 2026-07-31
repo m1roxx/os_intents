@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<appfunctions>
+    <appfunction>
+        <id>dev.osintents.appfunctions_probe.BaseOsIntentsAppFunctionService#addTask</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Creates a new task in the Inbox</description>
+        <parameters>
+            <dataTypeMetadata>
+                <dataTypeReference>dev.osintents.appfunctions_probe.AddTaskParams</dataTypeReference>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>11</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <isRequired>true</isRequired>
+            <name>params</name>
+            <description>the values for this action</description>
+        </parameters>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <dataTypeReference>dev.osintents.appfunctions_probe.OsIntentsReply</dataTypeReference>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>11</type>
+            </valueType>
+        </response>
+        <functionId>dev.osintents.appfunctions_probe.BaseOsIntentsAppFunctionService#addTask</functionId>
+    </appfunction>
+    <appfunction>
+        <id>dev.osintents.appfunctions_probe.BaseOsIntentsAppFunctionService#dueToday</id>
+        <enabledByDefault>true</enabledByDefault>
+        <description>Tasks due today</description>
+        <parameters>
+            <dataTypeMetadata>
+                <dataTypeReference>dev.osintents.appfunctions_probe.DueTodayParams</dataTypeReference>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>11</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <isRequired>true</isRequired>
+            <name>params</name>
+            <description>the values for this action</description>
+        </parameters>
+        <response>
+            <id>unused</id>
+            <valueType>
+                <dataTypeReference>dev.osintents.appfunctions_probe.OsIntentsReply</dataTypeReference>
+                <id>unused</id>
+                <isNullable>false</isNullable>
+                <type>11</type>
+            </valueType>
+        </response>
+        <functionId>dev.osintents.appfunctions_probe.BaseOsIntentsAppFunctionService#dueToday</functionId>
+    </appfunction>
+    <AppFunctionComponentMetadataDocument>
+        <dataTypes>
+            <dataTypeMetadata>
+                <id>unused</id>
+                <isNullable>true</isNullable>
+                <objectQualifiedName>dev.osintents.appfunctions_probe.AddTaskParams</objectQualifiedName>
+                <description>Parameters for "Add task".</description>
+                <properties>
+                    <dataTypeMetadata>
+                        <id>unused</id>
+                        <isNullable>false</isNullable>
+                        <description>The title of the task </description>
+                        <type>8</type>
+                    </dataTypeMetadata>
+                    <id>unused</id>
+                    <name>title</name>
+                </properties>
+                <properties>
+                    <dataTypeMetadata>
+                        <id>unused</id>
+                        <isNullable>true</isNullable>
+                        <description>Due date </description>
+                        <type>6</type>
+                    </dataTypeMetadata>
+                    <id>unused</id>
+                    <name>dueDate</name>
+                </properties>
+                <required>title</required>
+                <required>dueDate</required>
+                <type>3</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <name>dev.osintents.appfunctions_probe.AddTaskParams</name>
+        </dataTypes>
+        <dataTypes>
+            <dataTypeMetadata>
+                <id>unused</id>
+                <isNullable>true</isNullable>
+                <objectQualifiedName>dev.osintents.appfunctions_probe.DueTodayParams</objectQualifiedName>
+                <description>Parameters for "Tasks due today".</description>
+                <properties>
+                    <dataTypeMetadata>
+                        <id>unused</id>
+                        <isNullable>false</isNullable>
+                        <description>Unused; this action takes no input. </description>
+                        <type>1</type>
+                    </dataTypeMetadata>
+                    <id>unused</id>
+                    <name>unused</name>
+                </properties>
+                <type>3</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <name>dev.osintents.appfunctions_probe.DueTodayParams</name>
+        </dataTypes>
+        <dataTypes>
+            <dataTypeMetadata>
+                <id>unused</id>
+                <isNullable>true</isNullable>
+                <objectQualifiedName>dev.osintents.appfunctions_probe.OsIntentsReply</objectQualifiedName>
+                <description>What an os_intents action answers with.</description>
+                <properties>
+                    <dataTypeMetadata>
+                        <id>unused</id>
+                        <isNullable>false</isNullable>
+                        <description>What the assistant should say. </description>
+                        <type>8</type>
+                    </dataTypeMetadata>
+                    <id>unused</id>
+                    <name>spoken</name>
+                </properties>
+                <required>spoken</required>
+                <type>3</type>
+            </dataTypeMetadata>
+            <id>unused</id>
+            <name>dev.osintents.appfunctions_probe.OsIntentsReply</name>
+        </dataTypes>
+        <id>dev.osintents.appfunctions_probe.BaseOsIntentsAppFunctionService</id>
+    </AppFunctionComponentMetadataDocument>
+</appfunctions>
