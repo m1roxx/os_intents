@@ -308,7 +308,60 @@ solved something here the hard way.
 
 ---
 
-## 6. Traps worth remembering
+## 6. Before publishing
+
+Measured 2026-07-31 with `dart pub publish --dry-run` on all six packages and
+`pana` on `os_intents`, not from a checklist.
+
+### Refuses to publish
+
+- **`os_intents_gen` and `os_intents_cli` have no LICENSE file.** The other four
+  do — and all four contain `flutter create`'s placeholder, `TODO: Add your
+  license here.` The validator is satisfied by a file existing; pana is not
+  (0/10 for an OSI-approved license), and neither is anyone who wants to use
+  this legally. One decision, six identical files.
+- **CHANGELOG says `1.0.0`** in `os_intents_gen` and `os_intents_cli` while the
+  pubspec says `0.0.1`. A warning, not an error.
+
+### Decide before the first release, not after
+
+- **`^0.0.1` is tighter than it looks.** For a nought-nought version the caret
+  means `>=0.0.1 <0.0.2`, so any patch on any of the six breaks consumers and
+  forces all six out in lockstep. `0.1.0` gives `>=0.1.0 <0.2.0`.
+- **Publication is a one-way staircase:** `platform_interface` → `ios`,
+  `android` → `os_intents` → `gen` → `cli`. Nothing can be unpublished, only
+  retracted within seven days.
+- `resolution: workspace` is **not** in the way — checked by resolving a
+  consumer outside the workspace, which failed only because the siblings are not
+  on pub.dev yet.
+
+### What pana says, and what to discount
+
+40/160 for `os_intents`, but 100 of the missing points are the four checks that
+need a resolvable dependency graph — platform detection, analysis, dependency
+freshness, lower bounds — and every one fails with `SolveFailure` because the
+sibling packages do not exist on pub.dev yet. Publishing bottom-up fixes them.
+The dartdoc check reads 0/10 for the same reason; the public API is in fact
+documented throughout.
+
+Valid pubspec, README, CHANGELOG, example and current SDKs all pass.
+
+### Cosmetic, affects the page rather than the build
+
+No `topics:` or `issue_tracker:` in any pubspec. The main README is 39 lines and
+it is the pub.dev landing page. Test fixtures ship inside `os_intents_gen` and
+`os_intents_cli` — a 23 KB pbxproj among them — which `.pubignore` would trim.
+
+### Not on any checklist
+
+Six packages already occupy this space: `flutter_app_intents`, `app_intents`,
+`app_intents_annotations`, `flutter_assistant_intents`, `sirikit_media_intents`,
+`intelligence`. None has been read. Worth an hour before the README claims
+anything about being first.
+
+---
+
+## 7. Traps worth remembering
 
 Things that cost real time here, and would cost it again.
 
