@@ -76,14 +76,15 @@ class OsIntentsAndroid extends OsIntentsPlatform {
     await _channel.invokeMethod<void>('ready');
   }
 
-  /// Not implemented on Android.
+  /// Stores what `Execution.static_` intents should answer with.
   ///
-  /// `Execution.static_` exists to answer without starting an engine, which on
-  /// iOS means reading a value the app stored. The Android side has no
-  /// equivalent hook yet, so a static intent simply runs its handler headlessly
-  /// — correct, just not free.
+  /// Only the AppFunctions path can collect on this. A shortcut starts an
+  /// Activity, so the engine is up either way and there is nothing to save —
+  /// but a generated `@AppFunction` reads the store first and answers without
+  /// bringing an isolate up at all.
   @override
-  Future<void> publishStaticValues(Map<String, Object?> values) async {}
+  Future<void> publishStaticValues(Map<String, Object?> values) =>
+      _channel.invokeMethod<void>('publishStatic', values);
 
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(
@@ -98,5 +99,6 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   }
 
   @override
-  Future<String?> debugStaticValue(String id) async => null;
+  Future<String?> debugStaticValue(String id) =>
+      _debug.invokeMethod<String>('debugStaticValue', {'id': id});
 }

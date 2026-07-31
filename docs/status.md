@@ -1,8 +1,8 @@
 # Status and plan
 
 The document to read when picking this up after a gap. Last updated 2026-07-31,
-after closing the first three items in §4 plus the Swift 6 work and the Android
-app-shortcuts layer.
+after closing everything in §4 except the README GIF — doctor, install, a Swift
+compile test, the Swift 6 rewrite, and both Android layers.
 
 `README.md` is the pitch; this is the honest inventory.
 
@@ -33,6 +33,7 @@ Android on an API 36 emulator via
 | `headless_engine` | A second `FlutterEngine` started inside the app process, found the generated entrypoint by name, and ran the handler — the UI isolate's list stayed at 0 |
 | `unknown_intent_fails` | An unknown id fails loudly instead of hanging |
 | `shortcut_routing` | The Intent an app shortcut builds reaches the handler, on the UI isolate |
+| `static_round_trip` | `publishStatic` and the native read side agree, so a static intent can answer without an isolate |
 
 `dumpsys shortcut` independently shows the two generated shortcuts registered
 against the app, labelled from the generated string resources — and `addTask`
@@ -65,7 +66,7 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Health
 
-150 tests (6 in `os_intents`, 91 in `os_intents_gen`, 53 in `os_intents_cli`),
+152 tests (6 in `os_intents`, 93 in `os_intents_gen`, 53 in `os_intents_cli`),
 `flutter analyze` clean across the workspace, example app builds for iOS, probe
 app builds for Android.
 
@@ -253,9 +254,20 @@ Ordered by how much it blocks a first release.
    Activity, so `Execution.background` does not mean headless here; the plugin
    routes the launch into the UI isolate. Headless is what the AppFunctions
    layer, and its version chain, exist for.
-7. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
-   no-op there, so a static intent runs its handler headlessly: correct, but not
-   the free answer it is on iOS.
+7. ~~**`Execution.static_` does nothing on Android.**~~ Done.
+   `publishStaticValues` writes to `SharedPreferences` and a generated
+   `@AppFunction` for a static intent reads it before starting anything,
+   falling through to the handler when nothing has been published yet — a first
+   run, where running the handler beats answering with silence. The same
+   read-first shape as the generated Swift, and the same wire format, which is
+   the part that had to agree.
+
+   Stored as JSON in one entry rather than a preference per field:
+   `SharedPreferences` holds primitives and a result carries a nested snippet
+   spec. iOS solved the same problem by flattening into a property list.
+
+   Only the AppFunctions path collects on this. A shortcut starts an Activity,
+   so on that layer the engine is up regardless and there is nothing to save.
 
 ### Later
 

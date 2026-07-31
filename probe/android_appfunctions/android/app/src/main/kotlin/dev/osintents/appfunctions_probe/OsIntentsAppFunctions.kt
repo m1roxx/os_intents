@@ -73,6 +73,13 @@ abstract class BaseOsIntentsAppFunctionService : AppFunctionService() {
      */
     @AppFunction(isDescribedByKDoc = true)
     suspend fun dueToday(params: DueTodayParams): OsIntentsReply {
+        val stored = OsIntentsBridge.staticResult(
+            applicationContext,
+            "dueToday",
+        )
+        if (stored != null) {
+            return OsIntentsReply(spoken = stored["spoken"] as? String ?: "")
+        }
         val outcome = OsIntentsBridge.invoke(
             context = applicationContext,
             id = "dueToday",

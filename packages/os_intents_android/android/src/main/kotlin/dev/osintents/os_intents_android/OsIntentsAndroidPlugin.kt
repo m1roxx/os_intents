@@ -179,6 +179,19 @@ class OsIntentsAndroidPlugin :
                 result.success(null)
             }
 
+            "publishStatic" -> {
+                val context = binding?.applicationContext
+                if (context == null) {
+                    result.error("no_context", "Plugin is not attached.", null)
+                    return
+                }
+                OsIntentsBridge.publishStatic(
+                    context,
+                    call.arguments as? Map<*, *> ?: emptyMap<String, Any?>(),
+                )
+                result.success(null)
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -213,6 +226,20 @@ class OsIntentsAndroidPlugin :
             // check the routing without a launcher to tap — the emulator image
             // that boots here has none.
             "debugLastShortcut" -> result.success(lastRouted)
+
+            // Reads back exactly what a generated Execution.static_ function
+            // would see, which is the only way to check that publishStatic and
+            // the native read side agree on the format.
+            "debugStaticValue" -> {
+                val context = binding?.applicationContext
+                if (context == null) {
+                    result.error("no_context", "Plugin is not attached.", null)
+                    return
+                }
+                val id = call.argument<String>("id").orEmpty()
+                val stored = OsIntentsBridge.staticResult(context, id)
+                result.success(stored?.get("spoken") as? String)
+            }
 
             else -> result.notImplemented()
         }

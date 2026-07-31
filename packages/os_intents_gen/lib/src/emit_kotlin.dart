@@ -140,7 +140,26 @@ class KotlinEmitter {
       ..writeln('    @AppFunction(isDescribedByKDoc = true)')
       ..writeln(
         '    suspend fun ${i.id}(params: ${_paramsName(i)}): OsIntentsReply {',
-      )
+      );
+
+    if (i.execution == ExecutionMode.static_) {
+      // The whole point of Execution.static_: answer from what the app stored,
+      // without starting an isolate. Falls through when nothing was published
+      // yet — usually a first run, before publishStatic has been called — and
+      // running the handler beats answering with silence.
+      b
+        ..writeln('        val stored = OsIntentsBridge.staticResult(')
+        ..writeln('            applicationContext,')
+        ..writeln('            "${i.id}",')
+        ..writeln('        )')
+        ..writeln('        if (stored != null) {')
+        ..writeln(
+          '            return OsIntentsReply(spoken = stored["spoken"] as? String ?: "")',
+        )
+        ..writeln('        }');
+    }
+
+    b
       ..writeln('        val outcome = OsIntentsBridge.invoke(')
       ..writeln('            context = applicationContext,')
       ..writeln('            id = "${i.id}",');

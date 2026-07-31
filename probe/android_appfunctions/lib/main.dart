@@ -38,7 +38,30 @@ Future<void> _runSelfCheck() async {
   await _checkHeadlessEngine();
   await _checkUnknownIntent();
   await _checkShortcutRouting();
+  await _checkStaticRoundTrip();
   debugPrint('$_tag END');
+}
+
+/// `publishStatic` and the native read side must agree on the format.
+///
+/// Nothing in Dart can see the store, so a mismatch would surface only as a
+/// static action that answers with nothing — and only on a device.
+Future<void> _checkStaticRoundTrip() async {
+  const name = 'static_round_trip';
+  const spoken = 'Two tasks due today';
+  try {
+    await OsIntents.publishStatic({
+      'dueToday': const IntentResult.dialog(spoken),
+    });
+    final read = await OsIntents.debugStaticValue('dueToday');
+    if (read != spoken) {
+      _fail(name, 'stored "$spoken", read back ${read == null ? 'nothing' : '"$read"'}');
+      return;
+    }
+    _pass(name, 'a static intent can answer without starting an isolate');
+  } catch (e) {
+    _fail(name, e);
+  }
 }
 
 /// Did an app-shortcut launch reach the handler?

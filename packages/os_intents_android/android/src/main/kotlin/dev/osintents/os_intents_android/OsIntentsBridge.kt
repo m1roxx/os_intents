@@ -9,6 +9,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicReference
 
 /** What a Dart handler answered with. */
@@ -60,6 +63,86 @@ object OsIntentsBridge {
 
     /** Ceiling on a single handler. */
     var invokeTimeoutMs: Long = 25_000
+
+    // MARK: - Execution.static_
+    //
+    // The counterpart of the iOS `UserDefaults` store, and it exists for the
+    // same reason: a read-only action should not have to start an isolate to
+    // answer. Only the AppFunctions path can collect on that — the shortcuts
+    // layer starts an Activity, so the engine is up regardless.
+
+    private const val PREFS = "dev.osintents.static"
+    private const val PREFS_KEY = "values"
+
+    /**
+     * Stores what static intents should answer with.
+     *
+     * As JSON in a single entry, rather than one preference per field:
+     * SharedPreferences holds primitives, and a result carries a nested snippet
+     * spec. iOS had to solve the same problem and flattens into a property
+     * list; this is the same trade in the shape Android already understands.
+     */
+    fun publishStatic(context: Context, values: Map<*, *>) {
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(PREFS_KEY, toJson(values).toString())
+            .apply()
+    }
+
+    /**
+     * The whole stored result for [id], or null when nothing was published.
+     *
+     * Whole results rather than the spoken text alone, so a snippet-bearing
+     * intent has its card here too — the same choice as `staticResult` on iOS,
+     * and the wire format is shared, so the two must agree.
+     */
+    fun staticResult(context: Context, id: String): Map<String, Any?>? {
+        val raw = context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(PREFS_KEY, null)
+            ?: return null
+        return try {
+            @Suppress("UNCHECKED_CAST")
+            fromJson(JSONObject(raw))[id] as? Map<String, Any?>
+        } catch (e: JSONException) {
+            // A store written by an older version, or truncated. An action that
+            // answers with today's date is better than one that crashes.
+            null
+        }
+    }
+
+    /** Recursively converts a decoded method-channel map into JSON. */
+    private fun toJson(value: Any?): Any = when (value) {
+        null, JSONObject.NULL -> JSONObject.NULL
+        is Map<*, *> -> JSONObject().apply {
+            for ((k, v) in value) {
+                // Nulls are dropped rather than stored: every reader treats
+                // absent and null the same, and iOS drops them too.
+                if (k is String && v != null) put(k, toJson(v))
+            }
+        }
+        is List<*> -> JSONArray().apply {
+            for (v in value) put(toJson(v))
+        }
+        else -> value
+    }
+
+    /** The inverse, back into the shape the wire format uses. */
+    private fun fromJson(json: JSONObject): Map<String, Any?> {
+        val out = mutableMapOf<String, Any?>()
+        for (key in json.keys()) {
+            out[key] = unwrap(json.get(key))
+        }
+        return out
+    }
+
+    private fun unwrap(value: Any?): Any? = when (value) {
+        JSONObject.NULL -> null
+        is JSONObject -> fromJson(value)
+        is JSONArray -> (0 until value.length()).map { unwrap(value.get(it)) }
+        else -> value
+    }
 
     private val engineRef = AtomicReference<FlutterEngine?>(null)
     private val channelRef = AtomicReference<MethodChannel?>(null)

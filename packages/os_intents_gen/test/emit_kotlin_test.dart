@@ -62,6 +62,30 @@ void main() {
       );
     });
 
+    test('a static intent reads the store before starting anything', () {
+      // The whole point of Execution.static_ — and the only Android path that
+      // can collect on it, since a shortcut starts an Activity regardless.
+      final out = serviceFor([
+        intent(id: 'dueToday', execution: ExecutionMode.static_),
+      ]);
+      expect(out, contains('OsIntentsBridge.staticResult('));
+      expect(out, contains('if (stored != null) {'));
+      // And still falls through: nothing published yet is a first run, where
+      // running the handler beats answering with silence.
+      expect(out, contains('OsIntentsBridge.invoke('));
+      expect(
+        out.indexOf('staticResult('),
+        lessThan(out.indexOf('OsIntentsBridge.invoke(')),
+      );
+    });
+
+    test('a background intent does not read the store', () {
+      expect(
+        serviceFor([intent(id: 'addTask', execution: ExecutionMode.background)]),
+        isNot(contains('staticResult(')),
+      );
+    });
+
     test('a mixed manifest exposes only the headless ones', () {
       final out = serviceFor([
         intent(id: 'addTask'),
