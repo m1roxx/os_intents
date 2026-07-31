@@ -131,3 +131,33 @@ runtime will enforce, not what the file says.
 
 An APK with no AppFunction metadata is reported as a note rather than an error.
 That is the default state: the layer is opt-in behind `sync --android`.
+
+### doctor --device
+
+The third question, and the only one that needs a running device:
+
+```bash
+dart run os_intents_cli:os_intents doctor --device
+```
+
+```
+On the device, as com.example.tasks
+  dueToday        Tasks due today
+  openInbox       Open inbox
+```
+
+`sync --check` proves the generated XML matches the manifest. `--android` proves
+it was packaged. This proves the **system accepted it** — three different
+things that fail separately.
+
+`ShortcutManager` drops a shortcut it does not like without reporting it, caps
+how many it will hold, and resolves every label through the resource table. So
+the check worth having is the label: if it comes back as
+`os_intents_addTask_label_short` instead of "Add task", the string resource
+never made it into the build, and nothing but the device can tell you.
+
+It reads `adb shell dumpsys shortcut` and needs the app installed. adb is found
+on `PATH`, via `ANDROID_HOME` / `ANDROID_SDK_ROOT`, in the usual SDK location,
+or wherever `ADB_BIN` points. No device, no adb, or no applicationId are
+reported as warnings and not as errors — "could not ask" is not the same answer
+as "your shortcuts are broken".

@@ -1,6 +1,7 @@
 import 'package:os_intents_cli/src/app_functions_xml.dart';
 import 'package:os_intents_cli/src/doctor.dart';
 import 'package:os_intents_cli/src/doctor_android.dart';
+import 'package:os_intents_cli/src/dumpsys_shortcuts.dart';
 import 'package:os_intents_gen/os_intents_gen.dart';
 import 'package:test/test.dart';
 
@@ -181,5 +182,110 @@ void main() {
     final findings = diagnoseAndroid(declared: null, apk: apk(metadata('')));
     expect(errorsOf(findings), hasLength(1));
     expect(errorsOf(findings).single.detail, contains('build_runner'));
+  });
+
+  group('what the device says', () {
+    DumpsysShortcuts device(List<RegisteredShortcut> shortcuts) =>
+        DumpsysShortcuts(packageFound: true, shortcuts: shortcuts);
+
+    RegisteredShortcut live(
+      String id, {
+      String? label = 'Add task',
+      bool enabled = true,
+    }) => RegisteredShortcut(
+      id: id,
+      shortLabel: label,
+      longLabel: label,
+      activity: 'com.example/.MainActivity',
+      isEnabled: enabled,
+    );
+
+    test('an app that is not installed is not a broken app', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: DumpsysShortcuts(packageFound: false, shortcuts: const []),
+        packageName: 'com.example',
+      );
+      expect(findings.single.severity, Severity.error);
+      expect(findings.single.detail, contains('not installed'));
+    });
+
+    test('a shortcut the system silently dropped is an error', () {
+      // ShortcutManager rejects what it cannot accept without saying so, and
+      // caps how many it holds. The APK cannot tell you this happened.
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: device(const []),
+        packageName: 'com.example',
+      );
+      expect(errorsOf(findings), hasLength(1));
+      expect(errorsOf(findings).single.detail, contains('drops'));
+    });
+
+    test('a label that never resolved is an error, not a mismatch', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: device([
+          live('addTask', label: 'os_intents_addTask_label_short'),
+        ]),
+        packageName: 'com.example',
+      );
+      expect(errorsOf(findings), hasLength(1));
+      expect(errorsOf(findings).single.detail, contains('string resource'));
+    });
+
+    test('an intent with a required parameter is expected to be absent', () {
+      // The emitter leaves it out of the launcher on purpose, so its absence
+      // must not be reported as a fault.
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([
+          intent(params: [param('title')]),
+        ]),
+        device: device(const []),
+        packageName: 'com.example',
+      );
+      expect(findings, isEmpty);
+    });
+
+    test('but its presence is, since a tap cannot supply the value', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([
+          intent(params: [param('title')]),
+        ]),
+        device: device([live('addTask')]),
+        packageName: 'com.example',
+      );
+      expect(findings.single.severity, Severity.warning);
+      expect(findings.single.detail, contains('required parameter'));
+    });
+
+    test('a disabled shortcut is a warning', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: device([live('addTask', enabled: false)]),
+        packageName: 'com.example',
+      );
+      expect(findings.single.summary, contains('disabled'));
+    });
+
+    test('a stale install shows as a label that disagrees with Dart', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: device([live('addTask', label: 'Add a task')]),
+        packageName: 'com.example',
+      );
+      expect(findings.single.severity, Severity.warning);
+      expect(findings.single.detail, contains('stale install'));
+    });
+
+    test('a leftover shortcut from an earlier install is a warning', () {
+      final findings = diagnoseDeviceShortcuts(
+        declared: manifestWith([intent()]),
+        device: device([live('addTask'), live('gone', label: 'Gone')]),
+        packageName: 'com.example',
+      );
+      final leftover = findings.singleWhere((f) => f.summary.contains('gone'));
+      expect(leftover.detail, contains('Uninstall'));
+    });
   });
 }

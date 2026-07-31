@@ -76,6 +76,13 @@ invisible to the OS.
 Both readers are pure and tested against files captured from real builds, so
 they need neither Xcode nor the Android SDK to run.
 
+- **Android, on a device** — `os_intents doctor --device` asks
+  `dumpsys shortcut` what the system actually registered after install. That is
+  a third thing again: `ShortcutManager` silently drops what it will not accept,
+  caps how many it holds, and resolves labels through the resource table, none
+  of which the APK knows. Verified against a real emulator, and its parser is
+  fixture-tested against a dump captured from one.
+
 ## Verified by building, not by running
 
 - The generated Swift compiles into an app and reaches

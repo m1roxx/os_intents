@@ -1,0 +1,158 @@
+Now: [1785503257417] 2026-07-31 18:07:37  Raw last reset: [1785480921453] 2026-07-31 11:55:21  Last reset: [1785480921453] 2026-07-31 11:55:21  Next reset: [1785567321453] 2026-08-01 11:55:21
+
+  Config:    Max icon dim: 96
+    Icon format: PNG
+    Icon quality: 100
+    saveDelayMillis: 3000
+    resetInterval: 86400000
+    maxUpdatesPerInterval: 10
+    maxShortcutsPerActivity: 15
+
+  Stats:
+    getHomeActivities(): count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    Launcher permission check: count=4, total=0.0ms, avg=0.011ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    getPackageInfo(): count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    getPackageInfo(SIG): count=5, total=0.1ms, avg=0.014ms, max calls/s=3 max dur/s=0.0ms max time=0.0ms
+    getApplicationInfo: count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    cleanupDanglingBitmaps: count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    getActivity+metadata: count=4, total=0.8ms, avg=0.204ms, max calls/s=0 max dur/s=0.0ms max time=0.8ms
+    getInstalledPackages: count=1, total=0.4ms, avg=0.355ms, max calls/s=0 max dur/s=0.0ms max time=0.4ms
+    checkPackageChanges: count=1, total=5.7ms, avg=5.709ms, max calls/s=0 max dur/s=0.0ms max time=5.7ms
+    getApplicationResources: count=9, total=0.5ms, avg=0.051ms, max calls/s=0 max dur/s=0.0ms max time=0.2ms
+    resourceNameLookup: count=6, total=0.0ms, avg=0.008ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    getLauncherActivity: count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    checkLauncherActivity: count=4, total=1.6ms, avg=0.407ms, max calls/s=0 max dur/s=0.0ms max time=1.4ms
+    isActivityEnabled: count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+    packageUpdateCheck: count=4, total=0.1ms, avg=0.027ms, max calls/s=0 max dur/s=0.0ms max time=0.1ms
+    asyncPreloadUserDelay: count=1, total=1.3ms, avg=1.264ms, max calls/s=0 max dur/s=0.0ms max time=1.3ms
+    getDefaultLauncher(): count=0, total=0.0ms, avg=0.000ms, max calls/s=0 max dur/s=0.0ms max time=0.0ms
+
+  #Failures: 0
+
+  User: 0  Known locales: en-US  Last app scan: [1785503194537] 2026-07-31 18:06:34
+      Last app scan FP: Android/sdk_slim_arm64/emu64a:16/BE2A.250530.027/13847098:userdebug/test-keys
+      Restore from FP: null
+      Cached launcher: null
+
+      Package: com.android.contacts  UID: 10059
+        Calls: 0
+        Last known FG: 0
+        Last reset: [1785480921453] 2026-07-31 11:55:21
+
+        PackageInfo:
+          IsShadow: false (installed)
+          Version: 10734
+          Last package update time: 1785480917772
+
+        Shortcuts:
+          ShortcutInfo {id=shortcut-add-contact, flags=0x1a4 [ImManIc-rStr]
+            packageName=com.android.contacts
+            activity=ComponentInfo{com.android.contacts/com.android.contacts.activities.PeopleActivity}
+            shortLabel=Add contact, resId=2131821188[shortcut_add_contact]
+            longLabel=null, resId=0[null]
+            disabledMessage=null, resId=0[null]
+            disabledReason=[Not disabled]
+            categories=null
+            persons=[]
+            icon=null
+            rank=0, timestamp=1785486136758
+            intents=[Intent { act=android.intent.action.INSERT dat=content://com.android.contacts/... flg=0x1000c000 cmp=com.android.contacts/.activities.ContactEditorActivity }/null]
+            extras=null
+            iconRes=2131230865[drawable/ic_add_contact_shortcut], bitmapPath=null, iconUri=null}
+        Total bitmap size: 0 (0 B)
+
+  Pending saves: Num=0 Executor=java.util.concurrent.ThreadPoolExecutor@a536da3[Running, pool size = 1, active threads = 0, queued tasks = 0, completed tasks = 1]
+
+      Package: dev.osintents.appfunctions_probe  UID: 10104
+        Calls: 0
+        Last known FG: 0
+        Last reset: [1785480921453] 2026-07-31 11:55:21
+
+        PackageInfo:
+          IsShadow: false (installed)
+          Version: 1
+          Backup Allowed: true
+          Last package update time: 1785503242132
+
+        Shortcuts:
+          ShortcutInfo {id=dueToday, flags=0x1a0 [ImManStr]
+            packageName=dev.osintents.appfunctions_probe
+            activity=ComponentInfo{dev.osintents.appfunctions_probe/dev.osintents.appfunctions_probe.MainActivity}
+            shortLabel=Tasks due today, resId=2131492873[os_intents_dueToday_label_short]
+            longLabel=Tasks due today, resId=2131492872[os_intents_dueToday_label_long]
+            disabledMessage=null, resId=0[null]
+            disabledReason=[Not disabled]
+            categories=null
+            persons=null
+            icon=null
+            rank=0, timestamp=1785503242179
+            intents=[Intent { act=dev.osintents.action.RUN dat=osintents://intent/... flg=0x1000c000 cmp=dev.osintents.appfunctions_probe/.MainActivity }/null]
+            extras=null
+            iconRes=0[null], bitmapPath=null, iconUri=null}
+          ShortcutInfo {id=openInbox, flags=0x1a0 [ImManStr]
+            packageName=dev.osintents.appfunctions_probe
+            activity=ComponentInfo{dev.osintents.appfunctions_probe/dev.osintents.appfunctions_probe.MainActivity}
+            shortLabel=Open inbox, resId=2131492875[os_intents_openInbox_label_short]
+            longLabel=Open inbox, resId=2131492874[os_intents_openInbox_label_long]
+            disabledMessage=null, resId=0[null]
+            disabledReason=[Not disabled]
+            categories=null
+            persons=null
+            icon=null
+            rank=1, timestamp=1785503242179
+            intents=[Intent { act=dev.osintents.action.RUN dat=osintents://intent/... flg=0x1000c000 cmp=dev.osintents.appfunctions_probe/.MainActivity }/null]
+            extras=null
+            iconRes=0[null], bitmapPath=null, iconUri=null}
+        Total bitmap size: 0 (0 B)
+
+  Pending saves: Num=0 Executor=java.util.concurrent.ThreadPoolExecutor@fff88a0[Running, pool size = 1, active threads = 0, queued tasks = 0, completed tasks = 3]
+
+      Package: dev.osintents.shortcuts_probe  UID: 10100
+        Calls: 0
+        Last known FG: 0
+        Last reset: [1785480921453] 2026-07-31 11:55:21
+
+        PackageInfo:
+          IsShadow: false (installed)
+          Version: 1
+          Backup Allowed: true
+          Last package update time: 1785486196583
+
+        Shortcuts:
+          ShortcutInfo {id=dueToday, flags=0x1a0 [ImManStr]
+            packageName=dev.osintents.shortcuts_probe
+            activity=ComponentInfo{dev.osintents.shortcuts_probe/dev.osintents.shortcuts_probe.MainActivity}
+            shortLabel=Due today, resId=2131427339[probe_due_short]
+            longLabel=Tasks due today, resId=2131427338[probe_due_long]
+            disabledMessage=null, resId=0[null]
+            disabledReason=[Not disabled]
+            categories=null
+            persons=null
+            icon=null
+            rank=1, timestamp=1785503194541
+            intents=[Intent { act=dev.osintents.action.RUN.dueToday flg=0x1000c000 cmp=dev.osintents.shortcuts_probe/.MainActivity }/null]
+            extras=null
+            iconRes=0[null], bitmapPath=null, iconUri=null}
+          ShortcutInfo {id=addTask, flags=0x1a0 [ImManStr]
+            packageName=dev.osintents.shortcuts_probe
+            activity=ComponentInfo{dev.osintents.shortcuts_probe/dev.osintents.shortcuts_probe.MainActivity}
+            shortLabel=Add task, resId=2131427337[probe_add_short]
+            longLabel=Add a task to the inbox, resId=2131427336[probe_add_long]
+            disabledMessage=null, resId=0[null]
+            disabledReason=[Not disabled]
+            categories=null
+            persons=null
+            icon=null
+            rank=0, timestamp=1785503194540
+            intents=[Intent { act=dev.osintents.action.RUN dat=osintents://intent/... flg=0x1000c000 cmp=dev.osintents.shortcuts_probe/.MainActivity }/PersistableBundle[{osIntentsId=addTask}]]
+            extras=null
+            iconRes=0[null], bitmapPath=null, iconUri=null}
+        Total bitmap size: 0 (0 B)
+
+  Pending saves: Num=0 Executor=java.util.concurrent.ThreadPoolExecutor@72e1c59[Running, pool size = 1, active threads = 0, queued tasks = 0, completed tasks = 2]
+
+      Bitmap directories: 
+        Path: bitmaps/ has 0 files, size=0 (0 B)
+
+
+

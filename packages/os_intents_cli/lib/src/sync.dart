@@ -11,6 +11,22 @@ import 'manifests.dart';
 /// `build_runner` cannot write outside the paths it derives from its inputs, so
 /// it stops at `lib/*.os_intents.json` and this command carries the result the
 /// rest of the way.
+/// The app's `applicationId`, read out of the Gradle build script.
+///
+/// Both `sync` and `doctor --device` need it: it is the package name the
+/// generated shortcuts target, and the one the system files them under.
+String? readApplicationId(String root) {
+  for (final name in ['build.gradle.kts', 'build.gradle']) {
+    final f = File(p.join(root, 'android', 'app', name));
+    if (!f.existsSync()) continue;
+    final m = RegExp(
+      r'''applicationId\s*=?\s*["']([\w.]+)["']''',
+    ).firstMatch(f.readAsStringSync());
+    if (m != null) return m.group(1);
+  }
+  return null;
+}
+
 class SyncCommand extends Command<int> {
   SyncCommand() {
     argParser
@@ -347,17 +363,7 @@ class SyncCommand extends Command<int> {
   }
 
   /// Reads `applicationId = "..."` out of the app's Gradle file.
-  String? _applicationId(String root) {
-    for (final name in ['build.gradle.kts', 'build.gradle']) {
-      final f = File(p.join(root, 'android', 'app', name));
-      if (!f.existsSync()) continue;
-      final m = RegExp(
-        r'''applicationId\s*=?\s*["']([\w.]+)["']''',
-      ).firstMatch(f.readAsStringSync());
-      if (m != null) return m.group(1);
-    }
-    return null;
-  }
+  String? _applicationId(String root) => readApplicationId(root);
 
   /// Directories under `ios/` that hold dependencies rather than app source.
   ///

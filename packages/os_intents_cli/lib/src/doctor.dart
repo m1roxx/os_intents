@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 
 import 'actions_data.dart';
 import 'doctor_android.dart';
+import 'dumpsys_shortcuts.dart';
 import 'manifests.dart';
 import 'sync.dart';
 
@@ -304,6 +305,13 @@ class DoctorCommand extends Command<int> {
         help:
             'Path to a built .apk. Implies --android. Defaults to the most '
             'recent build under build/app/outputs.',
+      )
+      ..addFlag(
+        'device',
+        negatable: false,
+        help:
+            'Also ask a connected device what it actually registered, via '
+            'adb. Implies --android.',
       );
   }
 
@@ -337,7 +345,9 @@ class DoctorCommand extends Command<int> {
   Future<int> run() async {
     final root = p.absolute(argResults!.option('project')!);
 
-    if (argResults!.flag('android') || argResults!.option('apk') != null) {
+    if (argResults!.flag('android') ||
+        argResults!.flag('device') ||
+        argResults!.option('apk') != null) {
       return _runAndroid(root);
     }
 
@@ -451,10 +461,107 @@ class DoctorCommand extends Command<int> {
     reportAndroid(root, apk, inspection);
 
     final findings = diagnoseAndroid(declared: declared, apk: inspection);
+
+    if (argResults!.flag('device')) {
+      findings.addAll(await _askDevice(root, declared));
+    }
+
     _printFindings(findings, artefact: 'APK');
 
     final errors = findings.where((f) => f.severity == Severity.error).length;
     return errors == 0 ? 0 : 1;
+  }
+
+  /// Asks a connected device what it registered.
+  ///
+  /// Kept apart from the APK checks because it can fail for reasons that say
+  /// nothing about the app — no adb, no device, the wrong device — and those
+  /// have to read as "could not ask" rather than "your shortcuts are broken".
+  Future<List<Finding>> _askDevice(String root, Manifest? declared) async {
+    if (declared == null) return const [];
+
+    final packageName = readApplicationId(root);
+    if (packageName == null) {
+      return [
+        Finding(
+          Severity.warning,
+          'Could not read the applicationId, so the device was not asked.',
+          'doctor looks for it in android/app/build.gradle.kts; without it '
+              'there is no package name to look up in the dump.',
+        ),
+      ];
+    }
+
+    final adb = _findAdb();
+    if (adb == null) {
+      return [
+        Finding(
+          Severity.warning,
+          'No adb found, so the device was not asked.',
+          'Put it on PATH, or set ANDROID_HOME / ANDROID_SDK_ROOT.',
+        ),
+      ];
+    }
+
+    final ProcessResult result;
+    try {
+      result = await Process.run(adb, ['shell', 'dumpsys', 'shortcut']);
+    } on ProcessException catch (e) {
+      return [Finding(Severity.warning, 'Could not run adb.', e.message)];
+    }
+    if (result.exitCode != 0) {
+      return [
+        Finding(
+          Severity.warning,
+          'adb could not talk to a device.',
+          '${result.stderr}'.trim().isEmpty
+              ? 'Is one connected, or an emulator running?'
+              : '${result.stderr}'.trim(),
+        ),
+      ];
+    }
+
+    final device = parseDumpsysShortcuts(
+      '${result.stdout}',
+      packageName: packageName,
+    );
+    reportDevice(packageName, device);
+    return diagnoseDeviceShortcuts(
+      declared: declared,
+      device: device,
+      packageName: packageName,
+    );
+  }
+
+  /// adb, from PATH or from the usual SDK layout.
+  String? _findAdb() {
+    final env = Platform.environment;
+    if (env['ADB_BIN'] case final explicit?) return explicit;
+
+    final onPath = Process.runSync('which', ['adb']);
+    if (onPath.exitCode == 0) {
+      final found = '${onPath.stdout}'.trim();
+      if (found.isNotEmpty) return found;
+    }
+
+    final roots = [
+      ?env['ANDROID_HOME'],
+      ?env['ANDROID_SDK_ROOT'],
+      // Where the SDK lands by default, since neither variable is set by the
+      // installers and most machines have neither.
+      if (env['HOME'] case final home?) ...[
+        p.join(home, 'Library', 'Android', 'sdk'),
+        p.join(home, 'Android', 'Sdk'),
+      ],
+      if (env['LOCALAPPDATA'] case final appData?)
+        p.join(appData, 'Android', 'Sdk'),
+    ];
+    for (final sdk in roots) {
+      final exe = Platform.isWindows ? 'adb.exe' : 'adb';
+      final candidate = p.join(sdk, 'platform-tools', exe);
+      if (File(candidate).existsSync()) return candidate;
+    }
+    return null;
   }
 
   /// Picks the APK most likely to be the one just built.

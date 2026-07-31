@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 
 import 'app_functions_xml.dart';
 import 'doctor.dart';
+import 'dumpsys_shortcuts.dart';
 
 /// The generated shortcuts file, compiled into the APK as binary XML.
 ///
@@ -241,6 +242,129 @@ List<Finding> diagnoseAndroid({
   }
 
   return findings;
+}
+
+/// Compares what the system registered against what Dart declared.
+///
+/// The APK can only say a file was packaged. This says the system read it,
+/// accepted it, and resolved its labels — which are three separate things that
+/// fail separately.
+List<Finding> diagnoseDeviceShortcuts({
+  required Manifest declared,
+  required DumpsysShortcuts device,
+  required String packageName,
+}) {
+  if (!device.packageFound) {
+    return [
+      Finding(
+        Severity.error,
+        '$packageName has no section in `dumpsys shortcut`.',
+        'The app is probably not installed on the device doctor talked to. '
+            'Install it and try again — this check reads what the system holds, '
+            'not what the APK contains.',
+      ),
+    ];
+  }
+
+  final findings = <Finding>[];
+  final registered = {for (final s in device.shortcuts) s.id: s};
+
+  for (final intent in declared.intents) {
+    if (!intent.canBeLauncherShortcut) {
+      // Left out on purpose: a tap carries no values, so an intent with a
+      // required parameter would appear and then fail on use.
+      if (registered.containsKey(intent.id)) {
+        findings.add(
+          Finding(
+            Severity.warning,
+            '`${intent.id}` is registered on the device but should not be.',
+            'It has a required parameter, so the emitter leaves it out of the '
+                'launcher. Left over from an earlier install — reinstall to clear '
+                'it.',
+          ),
+        );
+      }
+      continue;
+    }
+
+    final live = registered[intent.id];
+    if (live == null) {
+      findings.add(
+        Finding(
+          Severity.error,
+          '`${intent.id}` is in the APK but the system did not register it.',
+          'ShortcutManager drops what it cannot accept without reporting it, '
+              'and caps how many it will hold. Reinstall; if it stays missing, '
+              'the shortcut is being rejected.',
+        ),
+      );
+      continue;
+    }
+
+    if (!live.isEnabled) {
+      findings.add(
+        Finding(
+          Severity.warning,
+          '`${intent.id}` is registered but disabled.',
+          'The launcher will not offer it.',
+        ),
+      );
+    }
+
+    if (live.labelLooksUnresolved) {
+      findings.add(
+        Finding(
+          Severity.error,
+          'The label of `${intent.id}` came back as its own resource name.',
+          'The system read "${live.shortLabel}" instead of a title, which '
+              'means the generated string resource never made it into the build. '
+              'Re-run `os_intents sync` and rebuild.',
+        ),
+      );
+    } else if (live.shortLabel != null && live.shortLabel != intent.title) {
+      findings.add(
+        Finding(
+          Severity.warning,
+          'The label of `${intent.id}` on the device is not its title in Dart.',
+          'Dart:   "${intent.title}"\nDevice: "${live.shortLabel}"\n'
+              'Usually a stale install.',
+        ),
+      );
+    }
+  }
+
+  final declaredIds = declared.intents.map((i) => i.id).toSet();
+  for (final live in device.shortcuts) {
+    if (declaredIds.contains(live.id)) continue;
+    findings.add(
+      Finding(
+        Severity.warning,
+        '`${live.id}` is registered on the device but no longer declared.',
+        'Left over from an earlier install. Uninstall the app to clear it.',
+      ),
+    );
+  }
+
+  return findings;
+}
+
+/// Prints what the system holds.
+void reportDevice(String packageName, DumpsysShortcuts device) {
+  stdout.writeln('\nOn the device, as $packageName');
+  if (!device.packageFound) {
+    stdout.writeln('  not installed');
+    return;
+  }
+  if (device.shortcuts.isEmpty) {
+    stdout.writeln('  installed, no shortcuts registered');
+    return;
+  }
+  for (final s in device.shortcuts) {
+    final state = s.isEnabled ? '' : '  (disabled)';
+    stdout.writeln(
+      '  ${s.id.padRight(16)}${s.shortLabel ?? '(no label)'}$state',
+    );
+  }
 }
 
 /// Prints what an agent will be offered.
