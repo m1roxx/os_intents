@@ -11,9 +11,11 @@ and Android **AppFunctions** code the system needs at compile time, so Siri,
 Spotlight, Shortcuts and on-device agents can run your app's actions — ideally
 without opening the app at all.
 
-The pitch in one line: **you never open Xcode.**
+The pitch in one line: **you never open Xcode.** The second line is the one
+nothing else in this space offers: **`os_intents doctor` opens the built bundle
+and tells you what the OS can actually see.**
 
-![Running an action from the Shortcuts app: the handler answers and the app never opens](https://raw.githubusercontent.com/m1roxx/os_intents/main/docs/media/shortcuts_demo.gif)
+![Running an action from the Shortcuts app: the handler answers and the app never opens](https://raw.githubusercontent.com/m1roxx/os_intents/main/packages/os_intents/screenshots/shortcuts_demo.gif)
 
 Not a mock-up. That is the example app's `addTask` handler, written in Dart,
 invoked by iOS from the Shortcuts app. The prompt is the `requestValueDialog`
@@ -89,28 +91,77 @@ side buffers that invocation only until this resolves.
 ## Generate
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
-dart run os_intents_cli:os_intents sync      # → ios/Runner/OsIntents/*.swift, android/…/res
-dart run os_intents_cli:os_intents install   # register the folder with the Runner target (once)
+dart run os_intents_cli:os_intents build
 ```
 
-`build_runner` derives output paths from input paths, so it cannot write into
-`ios/` or `android/` at all — it stops at a manifest next to the generated Dart,
-and the CLI carries it the rest of the way. That is why the build has two steps.
+That is the whole build. Under it are three steps, and they are three because
+`build_runner` derives output paths from input paths and therefore cannot write
+into `ios/` or `android/` at all: it stops at a manifest next to the generated
+Dart, `sync` carries that manifest into the native projects, and `install`
+registers what it wrote — the Xcode target on iOS, one `<meta-data>` element on
+Android. Run them separately if you prefer; all three are idempotent.
 
-Two more worth wiring in:
+Two more worth wiring into CI:
 
 ```bash
-dart run os_intents_cli:os_intents sync --check     # fails on drift, for CI
-dart run os_intents_cli:os_intents doctor           # what will the OS actually see?
-dart run os_intents_cli:os_intents doctor --android # …and what will an agent see?
+dart run os_intents_cli:os_intents sync --check      # generated files match the manifest
+dart run os_intents_cli:os_intents install --check   # the native projects reference them
 ```
 
-`doctor` reads `Metadata.appintents/extract.actionsdata` out of a **built**
-bundle — the file the OS itself indexes — and answers the one question no other
-step can. Generated Swift can be written, compiled and still invisible, because
-the folder never made it into the Runner target or because another
-`AppShortcutsProvider` won. Neither failure produces an error anywhere else.
+## Did it reach the OS?
+
+Every other step in the toolchain reports on itself. `build_runner` says it
+generated Dart, `sync` says it wrote Swift, Xcode says it compiled — and the
+intents can still be invisible, because another `AppShortcutsProvider` won or
+because the phrases never reached the extractor. Neither failure produces an
+error anywhere.
+
+`doctor` is the only step that asks the artefact. It reads
+`Metadata.appintents/extract.actionsdata` out of a **built** bundle — the file
+the OS itself indexes — and compares it against what you declared in Dart:
+
+```console
+$ flutter build ios --simulator --debug
+$ dart run os_intents_cli:os_intents doctor
+
+os_intents doctor
+  bundle    build/ios/iphonesimulator/Runner.app
+  extracted by xcode-tools 17A324 (format 1)
+  declared  4 intent(s), 1 entity(ies) in Dart
+
+Intents the OS will see (4)
+  AddTaskOsIntent  "Add task"
+      Creates a new task in the Inbox
+      runs without opening the app
+      title         String          required
+      dueDate       Date            optional
+      project       ProjectEntity   optional
+      priority      linkEnumeration optional
+  DueTodayOsIntent  "Tasks due today"
+      runs without opening the app
+
+Entities (1)
+  ProjectEntity  "Project"  resolved by Runner.ProjectQuery
+
+Spoken phrases (3 via Runner.OsIntentsShortcuts)
+  AddTaskOsIntent
+      "Add a task to ${applicationName}"
+      "New ${applicationName} task"
+  root.ssu.yaml  present — Siri has the phrase model
+
+Everything declared in Dart reached the bundle.
+```
+
+That is the real output of the [example app](https://github.com/m1roxx/os_intents/tree/main/packages/os_intents/example), trimmed for length. It exits
+non-zero when something declared in Dart did not arrive.
+
+Android has the same question and two more answers, because there the metadata,
+the package and the system each disagree separately:
+
+```bash
+dart run os_intents_cli:os_intents doctor --android  # what is in the APK
+dart run os_intents_cli:os_intents doctor --device   # what the system accepted
+```
 
 ## What works
 
@@ -192,6 +243,7 @@ You import `os_intents` and nothing else. The rest resolve on their own:
 
 ## More
 
+- [docs/troubleshooting.md](https://github.com/m1roxx/os_intents/blob/main/docs/troubleshooting.md) — **it built and Siri still cannot see it.** Every silent failure in this space, and the command that identifies each one.
 - [docs/verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md) — how each claim above was established, what is only compiled, and what has never been observed. Read it before trusting the table.
 - [docs/android.md](https://github.com/m1roxx/os_intents/blob/main/docs/android.md) — both Android layers and what each costs.
 - [docs/risk1.md](https://github.com/m1roxx/os_intents/blob/main/docs/risk1.md) — why generated Swift lives in the app target and not in the plugin.

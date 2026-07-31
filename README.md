@@ -11,7 +11,7 @@ without opening the app at all.
 
 The pitch in one line: **you never open Xcode.**
 
-![Running an action from the Shortcuts app: the handler answers and the app never opens](docs/media/shortcuts_demo.gif)
+![Running an action from the Shortcuts app: the handler answers and the app never opens](packages/os_intents/screenshots/shortcuts_demo.gif)
 
 Not a mock-up. That is the example app's `addTask` handler, written in Dart,
 invoked by iOS from the Shortcuts app. The prompt is the `requestValueDialog`
@@ -51,10 +51,13 @@ on your app for something only Android 16+ can run. Details in
 ## Pipeline
 
 ```bash
-dart run build_runner build   # annotations → registry + manifest
-dart run os_intents sync      # manifest → ios/Runner/OsIntents/*.swift
-dart run os_intents install   # register those files with the Runner target (once)
+dart run os_intents_cli:os_intents build
 ```
+
+One command over three steps — `build_runner` for the registry and manifest,
+`sync` to carry that manifest into `ios/` and `android/`, `install` to register
+what it wrote with the Xcode target and the Android manifest. All three are
+idempotent and can be run on their own.
 
 Verified on the example app: three intents, one entity and its query all reach
 the built bundle, and the phrases resolve to the provider the OS selects.
@@ -68,8 +71,10 @@ provider: 6Runner18OsIntentsShortcutsV
   DueTodayOsIntent: "What's due today in ${applicationName}"
 ```
 
-`os_intents sync --check` fails on drift, for CI. `os_intents doctor` reads a
-built bundle and reports what the OS will actually see.
+`sync --check` and `install --check` fail on drift, for CI — the first that the
+generated files match the manifest, the second that the native projects
+reference them. `os_intents doctor` reads a built bundle and reports what the OS
+will actually see.
 
 ## The idea
 
@@ -113,7 +118,8 @@ So what is actually different here:
 
 | | os_intents |
 |---|---|
-| Did it reach the OS? | `os_intents doctor` reads the built bundle and tells you — nothing else does |
+| Did it reach the OS? | `os_intents doctor` reads the built bundle and tells you — nothing else does. Plus `sync --check` and `install --check` as CI drift guards |
+| When it does not work | [docs/troubleshooting.md](docs/troubleshooting.md): every silent failure in this space, and the command that identifies each one |
 | Runs without opening the app | measured, from Shortcuts, on iOS 16+ — the isolated-process question settled rather than routed around |
 | Android cost | two layers; the version chain is opt-in, not imposed |
 | Claims | every one in the table above is backed by a device harness, and what is unproven says so |
@@ -134,7 +140,9 @@ packages/
 probe/
   risk1_metadata                  where may generated Swift live? (answered)
   android_appfunctions            Android feasibility and the Kotlin emitter's end-to-end check
+  run_cold_start.sh               a blank flutter create → one command → a built app
 docs/
+  troubleshooting.md              it built and Siri still cannot see it
   risk1.md                        experiment design and verdict
   android.md                      both Android layers, and what each costs
   verified.md                     what ran on a device, and what never has

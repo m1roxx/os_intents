@@ -12,35 +12,82 @@ dev_dependencies:
 ```
 
 ```bash
+dart run os_intents_cli:os_intents build             # all three steps, in order
 dart run os_intents_cli:os_intents sync              # manifest → ios/Runner/OsIntents/*.swift
 dart run os_intents_cli:os_intents sync --android    # also → android/…/<applicationId>/*.kt
 dart run os_intents_cli:os_intents sync --check      # drift guard for CI, writes nothing
-dart run os_intents_cli:os_intents install           # add the generated folder to the Xcode target
+dart run os_intents_cli:os_intents install           # register what sync wrote, per platform
+dart run os_intents_cli:os_intents install --check   # …and the drift guard for that
 dart run os_intents_cli:os_intents doctor            # what will the OS actually see?
 dart run os_intents_cli:os_intents doctor --android  # …and what will an agent see?
 ```
 
+## build
+
+One command, because the order matters and stopping one step short produces a
+build that succeeds with no intents in it:
+
+```bash
+dart run os_intents_cli:os_intents build
+```
+
+It runs `build_runner`, then `sync`, then `install`. Every step is idempotent,
+which is what makes it safe as the habitual one — run it after any change to an
+annotation and the two native projects catch up.
+
+`--android` is forwarded to `sync` and means exactly what it does there.
+`--no-codegen` skips `build_runner` for a project with a watcher already
+running. build_runner is started with the same Dart that is running the CLI, so
+an SDK pinned with fvm stays pinned.
+
 ## install
 
-Adds `ios/Runner/OsIntents` to the Runner target. Xcode 16's synchronized folder
-groups would make this unnecessary, but they need `objectVersion = 77` and
-Flutter still templates projects at 54, so the files are registered explicitly.
+Two one-time edits, one per platform, skipped where the platform is absent:
 
-Every anchor is an object id looked up in the parsed project, not one of the ids
-Flutter's template happens to use: those are not a contract, and an anchor that
-fails to match would leave the sources referenced but in no build phase — an app
-that builds cleanly with no intents in it. The edited text is parsed again and
-checked before anything is written, so a missed insertion is a message rather
-than a quiet success.
+| | |
+|---|---|
+| `ios/Runner.xcodeproj` | adds `ios/Runner/OsIntents` to the Runner target |
+| `AndroidManifest.xml` | points the launcher `<activity>` at `@xml/os_intents_shortcuts` |
 
-It is idempotent, repairs a project left half-edited, and refuses rather than
-guesses when the project is not a shape it understands — a target under another
+They are the same kind of thing. `sync` writes files that both native builds
+will happily ignore until the project is told they exist, and neither omission
+produces an error anywhere — just an app whose intents are not there.
+
+Both edits are decided against the parsed project, applied as text so the diff
+stays small (five lines in the manifest, four per Swift file in the pbxproj),
+and parsed again before anything is written. On iOS every anchor is an object id
+looked up in the parsed project, not one of the ids Flutter's template happens
+to use: those are not a contract, and an anchor that fails to match would leave
+the sources referenced but in no build phase.
+
+Both are idempotent, repair a project left half-edited, and refuse rather than
+guess when the project is not a shape they understand — a target under another
 name (`--target`), a file already referenced elsewhere, a project using
-synchronized folders. Every refusal names the manual step, which works just as
-well: the rest of the toolchain does not care how the folder got into the
-target, and `doctor` confirms the result either way.
+synchronized folders, an app with two launcher activities, an activity already
+pointing `android.app.shortcuts` at a shortcuts file of its own. Every refusal
+names the manual step, which works just as well: the rest of the toolchain does
+not care how the registration happened, and `doctor` confirms the result either
+way.
 
-A backup is left at `project.pbxproj.os_intents.bak`.
+`--no-xcode` and `--no-manifest` restrict it to one platform. Backups are left
+next to each edited file, as `*.os_intents.bak`.
+
+### install --check
+
+The companion to `sync --check`, and the half that catches a different failure.
+`sync --check` proves the generated files match the manifest; this proves the
+native projects reference them:
+
+```
+  missing: Runner does not compile these, so they reach the build as nothing:
+    • OsIntentsEnums.swift
+```
+
+Writes nothing, exits non-zero, and reports both platforms rather than stopping
+at the first. The case it exists for is not hypothetical: this check was written
+after a new emitter output — `OsIntentsEnums.swift` — turned out to have been
+generated into the example and never registered, so it compiled into nothing
+while `build_runner`, `sync` and Xcode all reported success.
 
 ## doctor
 

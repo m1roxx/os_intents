@@ -1,5 +1,5 @@
 name: os_intents_gen
-description: "Code generator for os_intents: emits the Dart dispatcher plus the Swift and Kotlin sources the OS needs at compile time."
+description: "The build_runner generator for os_intents. Emits the Dart dispatcher and the Swift and Kotlin the OS needs at compile time."
 version: 0.1.0
 repository: https://github.com/m1roxx/os_intents
 issue_tracker: https://github.com/m1roxx/os_intents/issues

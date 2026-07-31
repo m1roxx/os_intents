@@ -100,7 +100,7 @@ was written: the whole file builds there, and both a data URI and a nested
 </shortcut>
 ```
 
-The manual step is one element, on the launcher activity:
+One element has to reach the launcher activity:
 
 ```xml
 <meta-data
@@ -109,8 +109,20 @@ The manual step is one element, on the launcher activity:
 ```
 
 No `intent-filter`: a shortcut names its target component, so filter matching
-never runs. `sync` prints this snippet when it writes the files and the manifest
-does not already carry it.
+never runs.
+
+`os_intents install` writes it — the Android half of the same command that
+registers the generated Swift with the Xcode target, and the same shape of edit:
+the manifest is parsed to find the single MAIN/LAUNCHER activity, the element is
+spliced in as text at that activity's own indentation so the diff is five lines,
+and the result is parsed again before anything is written. It refuses rather
+than guesses when there is no launcher activity, when there are two, or when one
+already points `android.app.shortcuts` at a shortcuts file of its own — Android
+reads exactly one per activity, so a second would not be merged. Every refusal
+names the manual step, and adding the element by hand works identically.
+
+It will not write the element before `res/xml/os_intents_shortcuts.xml` exists:
+aapt fails the build outright on a resource that is not there.
 
 ### It always opens the app
 

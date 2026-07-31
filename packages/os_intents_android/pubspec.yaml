@@ -1,5 +1,5 @@
 name: os_intents_android
-description: "Android implementation of os_intents — bridges generated AppFunctions into Dart."
+description: "Android implementation of os_intents: bridges generated AppFunctions and shortcuts into Dart. You want os_intents — this resolves with it."
 version: 0.1.0
 repository: https://github.com/m1roxx/os_intents
 issue_tracker: https://github.com/m1roxx/os_intents/issues

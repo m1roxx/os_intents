@@ -1,5 +1,5 @@
 name: os_intents_cli
-description: "Carries generated os_intents code into the native project, and verifies it arrived."
+description: "The os_intents command line tool: build, sync, install and doctor. A dev dependency of any app that uses os_intents."
 version: 0.1.0
 repository: https://github.com/m1roxx/os_intents
 issue_tracker: https://github.com/m1roxx/os_intents/issues

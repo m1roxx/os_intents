@@ -91,6 +91,18 @@ they need neither Xcode nor the Android SDK to run.
 - The generated Kotlin compiles, KSP accepts it, and the descriptions written in
   Dart come out the far end in the APK's AppFunction metadata. A foreground
   intent is correctly left out.
+- **The whole toolchain, from a blank `flutter create`** —
+  [`probe/run_cold_start.sh`](../probe/run_cold_start.sh). A throwaway project
+  *outside* the workspace, two annotated functions and an `@AppEnum`, one
+  `os_intents build`: the registry and manifest are generated, the Swift and the
+  shortcuts XML written, the Runner target and `AndroidManifest.xml` edited, and
+  both `flutter build apk --debug` and `flutter build ios` then accept the
+  result. The APK is the check that matters for the manifest edit, since aapt
+  rejects a `<meta-data>` pointing at a resource it cannot find.
+
+  Outside the workspace on purpose: every other check here resolves the six
+  packages locally, which is not what a consumer from pub.dev gets, and that
+  difference has already hidden a missing dependency once.
 
 ## Not verified at all
 
@@ -167,11 +179,21 @@ which is exactly why it survives the gap entities fall into. The wire value is
 the constant's own name on both platforms, so reordering the Dart enum cannot
 silently repoint a shortcut someone already built.
 
+An enum parameter is confirmed in the built bundle, not only in the emitters:
+`doctor` reads it back out of the example's `extract.actionsdata` as
+`priority linkEnumeration optional`.
+
 ## Health
 
-171 tests — 6 in `os_intents`, 93 in `os_intents_gen`, 72 in `os_intents_cli` —
+228 tests — 7 in `os_intents`, 109 in `os_intents_gen`, 112 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
+
+Analysis covers **generated** Dart too. Excluding `**/*.g.dart` is the ordinary
+thing to do and it hid a real defect here: the generator emitted the literal
+word `null` as a type name, the example stopped compiling, and analyze stayed
+green because it never looked. The emitter writes `// ignore_for_file: type=lint`
+into everything it produces, so what analysis sees there is errors only.
 
 The device harnesses are the reason this file can be specific. Re-run them when
 Flutter, Xcode or `androidx.appfunctions` moves:

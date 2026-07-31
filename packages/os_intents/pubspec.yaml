@@ -6,6 +6,15 @@ issue_tracker: https://github.com/m1roxx/os_intents/issues
 topics: [app-intents, siri, shortcuts, assistant, codegen]
 resolution: workspace
 
+# Rendered on the package page and in search results. The path has to be inside
+# the published package, which is why the GIF lives here rather than in docs/.
+screenshots:
+  - description: >-
+      Running a Dart-declared action from the iOS Shortcuts app. iOS prompts for
+      the missing parameter, runs the handler in the background, and shows what
+      it returned — the app never appears.
+    path: screenshots/shortcuts_demo.gif
+
 environment:
   sdk: ^3.12.2
   flutter: ">=3.27.0"

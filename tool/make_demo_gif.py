@@ -10,7 +10,7 @@ The assembled GIF is committed; the three source frames are not — 857 KB of
 input to a script nobody but the author runs. Re-capture them from a run of
 `probe/run_integration.sh` if the demo ever needs rebuilding.
 
-    python3 tool/make_demo_gif.py <frames-dir> docs/media/shortcuts_demo.gif
+    python3 tool/make_demo_gif.py <frames-dir> packages/os_intents/screenshots/shortcuts_demo.gif
 """
 import sys
 from PIL import Image, ImageDraw, ImageFont
