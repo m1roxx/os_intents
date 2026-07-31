@@ -10,6 +10,10 @@ import 'package:os_intents_platform_interface/os_intents_platform_interface.dart
 class OsIntentsAndroid extends OsIntentsPlatform {
   static const MethodChannel _channel = MethodChannel('dev.osintents/background');
 
+  /// Development hooks, served by the plugin on whichever engine it attached
+  /// to — normally the UI one.
+  static const MethodChannel _debug = MethodChannel('dev.osintents/debug');
+
   IntentInvocationHandler? _handler;
   EntityQueryHandler? _entities;
   bool _wired = false;
@@ -62,8 +66,14 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   }
 
   @override
-  Future<void> ready({bool background = false}) =>
-      _channel.invokeMethod<void>('ready');
+  Future<void> ready({bool background = false}) async {
+    // Only the headless engine has a bridge listening on this channel. Calling
+    // it from the UI isolate would raise MissingPluginException, and there is
+    // nothing to announce anyway: Android has no foreground invocation path,
+    // because an AppFunctionService never has an Activity.
+    if (!background) return;
+    await _channel.invokeMethod<void>('ready');
+  }
 
   /// Not implemented on Android.
   ///
@@ -78,7 +88,13 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   Future<Map<String, Object?>?> debugInvokeBackground(
     String id,
     Map<String, Object?> args,
-  ) async => null;
+  ) async {
+    final out = await _debug.invokeMethod<Map<Object?, Object?>>(
+      'debugInvokeBackground',
+      {'id': id, 'args': args},
+    );
+    return out?.cast<String, Object?>();
+  }
 
   @override
   Future<String?> debugStaticValue(String id) async => null;

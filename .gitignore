@@ -29,3 +29,5 @@ probe/android_appfunctions/android/.gradle/
 probe/android_appfunctions/android/local.properties
 probe/**/integration-results/
 probe/integration-results/
+probe/**/android-results/
+probe/android-results/

@@ -16,7 +16,15 @@ Future<IntentResult> addTask({
   @Param(title: 'Title', description: 'The title of the task')
   required String title,
   @Param(title: 'Due date') DateTime? dueDate,
-}) async => IntentResult.dialog('Added "$title"');
+}) async {
+  // Per-isolate on purpose: the self-check asserts the UI isolate's copy does
+  // NOT grow, which is what proves the work happened somewhere else.
+  createdTitles.add(title);
+  return IntentResult.dialog('Added "$title"');
+}
+
+/// Titles created in whichever isolate is running.
+final List<String> createdTitles = [];
 
 @AppIntent(
   title: 'Tasks due today',

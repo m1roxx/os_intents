@@ -138,9 +138,50 @@ On the third: Flutter's manifest template already carries
 produces a duplicate attribute and the manifest merger fails with nothing more
 useful than a parse error.
 
-## Not answered
+## The runtime, verified
 
-No emulator is configured on this machine, so **nothing here has been run** —
-only built and inspected. In particular `OsIntentsBridge`'s headless
-`FlutterEngine`, the Android counterpart of the work already verified on iOS,
-has never started. Treat the Android runtime as unproven until it has.
+`probe/run_android_integration.sh`, on an API 36 emulator:
+
+```
+✓ headless_engine — ran in a second isolate, UI list stayed at 0
+✓ unknown_intent_fails — reported by the Dart registry
+```
+
+The first is the whole Android runtime in one line: `FlutterLoader` initialised,
+a second `FlutterEngine` came up, `osIntentsBackgroundEntrypoint` was found by
+name in the right library, plugins registered, and the round trip over the
+method channel worked. The list staying at 0 is what proves a *second* isolate
+did the work — the UI isolate has its own copy and never saw the write.
+
+### Getting an emulator to boot here at all
+
+Four configurations crashed before one worked, and the reason is worth writing
+down because it will cost the next person the same hour.
+
+The emulator install has **no `lib64/gles_swiftshader`** — there is no software
+GL renderer, only MoltenVK. So every GPU mode on a Google APIs image segfaults
+or wedges headless: `swiftshader_indirect` is rejected as invalid and falls back
+to `auto`, `-gpu off` still routes through the ranchu graphics HAL and dies the
+moment surfaceflinger touches the composer, and windowed mode survives longer
+but `adbd` never comes up.
+
+What works is an **AOSP ATD image** — built for headless CI, with the graphics
+stack stripped:
+
+```bash
+sdkmanager "system-images;android-36;aosp_atd;arm64-v8a"
+avdmanager create avd -n os_intents_atd -k "system-images;android-36;aosp_atd;arm64-v8a"
+emulator -avd os_intents_atd -no-window -no-audio -no-snapshot -no-boot-anim -gpu off
+```
+
+It boots in about 40 seconds. Two consequences for the harness: an ATD image
+ships no launcher, so `monkey -c LAUNCHER` exits -5 and the app has to be
+started with `am start -n <pkg>/.MainActivity`; and `adb logcat -d` returns
+instantly, so a polling loop without a pause finishes long before a second
+engine has started.
+
+## Still not answered
+
+An agent actually invoking one of these `@AppFunction` methods. Gemini's
+integration is in a private EAP, so the path from a real assistant through
+`AppFunctionService` into the bridge has never run — only the bridge half has.

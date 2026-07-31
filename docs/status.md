@@ -8,13 +8,12 @@ The document to read when picking this up after a gap. Last updated 2026-07-31.
 
 ## 1. Where the project stands
 
-**Pre-alpha, nothing published.** The iOS pipeline works end to end and is
-verified on a device. The Android pipeline generates and compiles, but has never
-run — there is no emulator here.
+**Pre-alpha, nothing published.** Both pipelines work end to end and are
+verified on a device: iOS on a simulator, Android on an API 36 emulator.
 
-### Verified on a simulator
+### Verified on a device
 
-Not "compiles" — actually ran, on an iPhone 17 simulator, via
+Not "compiles" — actually ran. iOS on an iPhone 17 simulator via
 [`probe/run_integration.sh`](../probe/run_integration.sh):
 
 | Check | What it proves |
@@ -23,6 +22,14 @@ Not "compiles" — actually ran, on an iPhone 17 simulator, via
 | `static_round_trip` | `publishStatic` and the native read side agree |
 | `entity_queries` | `@EntityQuery` answers, and the wire keys match what the generated Swift reads |
 | `snippet_round_trip` | A card survives the store, spec and spoken text both |
+
+Android on an API 36 emulator via
+[`probe/run_android_integration.sh`](../probe/run_android_integration.sh):
+
+| Check | What it proves |
+|---|---|
+| `headless_engine` | A second `FlutterEngine` started inside the app process, found the generated entrypoint by name, and ran the handler — the UI isolate's list stayed at 0 |
+| `unknown_intent_fails` | An unknown id fails loudly instead of hanging |
 
 Independently, iOS itself indexed the generated intents: the Shortcuts daemon
 logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
@@ -45,8 +52,9 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 - **A real background launch.** `Execution.background` is proven by forcing the
   headless path while the app is open. iOS launching the app cold *from* an
   intent has never been observed here.
-- **Anything on an Android device.** No AVD is configured; the Android work is
-  build-and-inspect only.
+- **An agent invoking an AppFunction.** The bridge half is proven; the path
+  from a real assistant through `AppFunctionService` has never run, because
+  Gemini's integration is in a private EAP.
 
 ### Health
 
@@ -119,7 +127,8 @@ probe/
                                 end-to-end check (answered)
   fixtures                      probe-only sources, copied in per run so they
                                 never ship inside the published plugin
-  run_integration.sh            device self-check
+  run_integration.sh            iOS device self-check
+  run_android_integration.sh    Android device self-check
 docs/
   risk1.md                      Risk #1 and #1b, design and verdicts
   android.md                    Android feasibility, cost, emitter constraints
@@ -156,20 +165,16 @@ Ordered by how much it blocks a first release.
 
 ### Blocking Android
 
-5. **The Android runtime has never executed.** `OsIntentsBridge` starts a
-   headless `FlutterEngine` from an `AppFunctionService`; it compiles, and that
-   is all anyone knows. Needs an emulator and the Android equivalent of
-   `run_integration.sh`.
-6. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
+5. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
    most projects do not have, so the default path for everyone else — shortcuts
    / capabilities — is still missing.
-7. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
+6. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
    no-op there, so a static intent runs its handler headlessly: correct, but not
    the free answer it is on iOS.
 
 ### Later
 
-8. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
+7. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
    (`IntentResult.needsConfirmation` is modelled but nothing consumes it),
    `IntentResult.value` chaining in Shortcuts.
 
