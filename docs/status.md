@@ -25,6 +25,25 @@ Not "compiles" — actually ran. iOS on an iPhone 17 simulator via
 | `entity_queries` | `@EntityQuery` answers, and the wire keys match what the generated Swift reads |
 | `snippet_round_trip` | A card survives the store, spec and spoken text both |
 
+And once by hand, which is the check that matters most. Tapping an App Shortcut
+in the **Shortcuts app** — a real, system-initiated invocation — produced:
+
+```
+Runner[91295] OSINTENTS_HOST intent=addTask process=Runner
+              bundle=dev.osintents.osIntentsExample uiEngine=yes
+```
+
+iOS launched the app's own process **in the background** (background assertion,
+never foregrounded), prompted for the missing parameter using the
+`requestValueDialog` written in Dart, ran `perform()` in that process, and
+Shortcuts displayed `Added "…"` — the Dart handler's own return value. The app
+never appeared on screen.
+
+That is the whole pitch, minus the voice: the OS invoked it, the handler ran, the
+app stayed out of sight. It also settles the `WFIsolatedShortcutRunner` question
+that the neighbours' designs turn on — that process exists and is running here,
+but an intent compiled into the app target does not execute inside it.
+
 Android on an API 36 emulator via
 [`probe/run_android_integration.sh`](../probe/run_android_integration.sh):
 
@@ -54,12 +73,15 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Not verified at all
 
-- **Invocation by Siri.** Everything short of the OS actually calling
-  `perform()` is covered; getting a simulator to speak a phrase is not something
-  this setup can arrange.
-- **A real background launch.** `Execution.background` is proven by forcing the
-  headless path while the app is open. iOS launching the app cold *from* an
-  intent has never been observed here.
+- **Invocation by Siri specifically.** The OS calling `perform()` is now
+  covered — from the Shortcuts app, see above. Getting a simulator to speak a
+  phrase is still not something this setup can arrange, so the voice path in
+  particular remains unobserved.
+- **The dedicated headless engine under a real invocation.** iOS launching the
+  app cold from an intent *has* now been observed — but it launched the app's
+  own process with its normal engine, so `OsIntentsBackgroundEngine` was not
+  the thing that served it. The case it was built for has still never been
+  seen.
 - **An agent invoking an AppFunction.** The bridge half is proven; the path
   from a real assistant through `AppFunctionService` has never run, because
   Gemini's integration is in a private EAP.
@@ -196,22 +218,17 @@ Ordered by how much it blocks a first release.
    and an error under the Swift 6 language mode. Fixed in the plugin — the
    initializer is `nonisolated` and `Row` moved out of the view, since a type
    nested in a `View` inherits its main-actor isolation.
-4. **The headless claim may not survive a real invocation.** The whole pitch is
-   that a handler runs without opening the app, and that has only ever been
-   observed by forcing the headless path *from inside the running app* — the one
-   process where a `FlutterEngine` is certainly available.
+4. ~~**The headless claim may not survive a real invocation.**~~ Measured, and
+   it survives — see §1. `WFIsolatedShortcutRunner` is real and busy on this
+   system, but it is not where an app-target intent executes: iOS launched the
+   app's own process in the background and ran `perform()` there. The app was
+   never shown; Shortcuts rendered the handler's answer.
 
-   `app_intents` routes every iOS intent through a URL scheme instead, and says
-   why: App Intents may run in an isolated process (`WFIsolatedShortcutRunner`)
-   where the Flutter engine is not available, so a URL scheme guarantees the app
-   is up first. `flutter_assistant_intents`, which does keep a headless engine,
-   carries an `appNotReady` error with a grace period — which reads like the
-   same wall, handled rather than avoided.
-
-   Both compile their intents into the app target, as this does. If the OS runs
-   `perform()` out of process, `OsIntentsBackgroundEngine` may simply fail to
-   start, and the central promise fails in exactly the path nobody here has
-   watched. Until it is measured, the README should not promise headless.
+   What this did **not** establish is that `OsIntentsBackgroundEngine` is
+   needed. On this path the app's normal engine was already up, so the router
+   used the UI isolate and the headless engine never started. Its rationale —
+   that a background launch attaches no scene and therefore no engine — is now
+   less established than it was assumed to be, not more.
 5. **README needs the GIF.** The whole pitch is "Siri runs your action without
    opening the app" and there is no picture of it.
 6. ~~**The plugin is not Swift 6 ready.**~~ Done — and it turned out to be

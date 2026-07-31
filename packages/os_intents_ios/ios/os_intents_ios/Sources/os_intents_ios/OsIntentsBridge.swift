@@ -187,11 +187,35 @@ public final class OsIntentsBridge: @unchecked Sendable {
     id: String, args: [String: Any?]
   ) async throws -> IntentOutcome {
     let uiReady = lock.withLock { isReady && channel != nil }
+    logInvocationHost(id: id, uiReady: uiReady)
 
     if uiReady {
       return try await invoke(id: id, args: args)
     }
     return try await OsIntentsBackgroundEngine.shared.invoke(id: id, args: args)
+  }
+
+  /// Records which process the OS chose to run `perform()` in.
+  ///
+  /// This is not decoration. Whether a handler can run without opening the app
+  /// depends entirely on the answer: App Intents may be executed in an isolated
+  /// system process where no Flutter engine can be started, and an intent that
+  /// arrives there cannot be served headlessly no matter what this package
+  /// does. Every headless run observed here has been forced from inside the
+  /// live app — the one process where an engine is certainly available — so the
+  /// interesting case is precisely the one that only a real invocation reaches.
+  ///
+  /// One line, at the only moment that can tell them apart.
+  private func logInvocationHost(id: String, uiReady: Bool) {
+    let process = ProcessInfo.processInfo
+    NSLog(
+      "OSINTENTS_HOST intent=%@ process=%@ pid=%d bundle=%@ uiEngine=%@",
+      id,
+      process.processName,
+      process.processIdentifier,
+      Bundle.main.bundleIdentifier ?? "<none>",
+      uiReady ? "yes" : "no"
+    )
   }
 
   public func invoke(id: String, args: [String: Any?]) async throws -> IntentOutcome {
