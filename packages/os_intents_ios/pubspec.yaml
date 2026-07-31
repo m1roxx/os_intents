@@ -1,7 +1,9 @@
 name: os_intents_ios
 description: "iOS implementation of os_intents — bridges generated App Intents into Dart."
 version: 0.1.0
-repository: https://github.com/nugmanov/os_intents
+repository: https://github.com/m1roxx/os_intents
+issue_tracker: https://github.com/m1roxx/os_intents/issues
+topics: [app-intents, siri, shortcuts, assistant]
 resolution: workspace
 
 environment:

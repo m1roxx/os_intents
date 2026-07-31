@@ -1,9 +1,15 @@
 # os_intents_cli
 
-The only part of os_intents that touches a native project. `build_runner`
-derives its output paths from its input paths, so it cannot write into `ios/` or
-`android/` at all; it stops at a manifest next to the generated Dart and this
-CLI carries the manifest the rest of the way.
+The only part of [`os_intents`](https://pub.dev/packages/os_intents) that
+touches a native project. `build_runner` derives its output paths from its input
+paths, so it cannot write into `ios/` or `android/` at all; it stops at a
+manifest next to the generated Dart and this CLI carries the manifest the rest
+of the way.
+
+```yaml
+dev_dependencies:
+  os_intents_cli: ^0.1.0
+```
 
 ```bash
 dart run os_intents_cli:os_intents sync              # manifest → ios/Runner/OsIntents/*.swift

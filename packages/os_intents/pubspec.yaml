@@ -1,7 +1,9 @@
 name: os_intents
 description: "Declare OS-level app actions in Dart. Generates iOS App Intents and Android AppFunctions — no Swift or Kotlin by hand."
 version: 0.1.0
-repository: https://github.com/nugmanov/os_intents
+repository: https://github.com/m1roxx/os_intents
+issue_tracker: https://github.com/m1roxx/os_intents/issues
+topics: [app-intents, siri, shortcuts, assistant, codegen]
 resolution: workspace
 
 environment:

@@ -1,39 +1,39 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# os_intents_platform_interface
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+The common platform interface for
+[`os_intents`](https://pub.dev/packages/os_intents).
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+This package is not meant to be imported by apps. It declares the contract that
+the platform implementations — [`os_intents_ios`](https://pub.dev/packages/os_intents_ios)
+and [`os_intents_android`](https://pub.dev/packages/os_intents_android) — fulfil,
+so the app-facing package can talk to either without knowing which.
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## What the contract covers
 
-## Features
+- installing the handler the native side routes an invocation to, on the UI
+  isolate or the headless one;
+- installing the handler that answers entity queries — `entities.byIds`,
+  `entities.matching`, `entities.suggested`;
+- publishing static values, which is how `Execution.static_` answers with no
+  Dart running at all.
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+The `background` flag on the handler setters is not a detail: the headless
+engine has its own binary messenger, so it needs its own channel. A channel
+created in one isolate is invisible to the other.
 
-## Getting started
+## The wire format is the real contract
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Both implementations decode the same shapes, and no compiler can catch a
+disagreement — change one side and the other breaks silently, at run time rather
+than at build time.
 
-## Usage
+- `DateTime` crosses as **epoch milliseconds, UTC**.
+- An entity crosses as **its identifier**, not as an object.
+- An `IntentResult` crosses as a tagged map: `done`, `dialog`, `value`,
+  `snippet`, `confirm`, `openApp`.
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+## Implementing it
 
-```dart
-const like = 'sample';
-```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+Extend `OsIntentsPlatform` rather than implementing it, and pass the
+verification token. `implements` would let a method added later break your class
+silently, which is exactly what the token exists to prevent.

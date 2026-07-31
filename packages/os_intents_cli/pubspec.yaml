@@ -1,7 +1,9 @@
 name: os_intents_cli
 description: "Carries generated os_intents code into the native project, and verifies it arrived."
 version: 0.1.0
-repository: https://github.com/nugmanov/os_intents
+repository: https://github.com/m1roxx/os_intents
+issue_tracker: https://github.com/m1roxx/os_intents/issues
+topics: [app-intents, siri, shortcuts, codegen, cli]
 resolution: workspace
 
 environment:
