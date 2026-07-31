@@ -12,6 +12,8 @@ workspace:
   - packages/os_intents/example
   - packages/os_intents_platform_interface
   - packages/os_intents_ios
+  - packages/os_intents_android
   - packages/os_intents_gen
   - packages/os_intents_cli
   - probe/risk1_metadata
+  - probe/android_appfunctions

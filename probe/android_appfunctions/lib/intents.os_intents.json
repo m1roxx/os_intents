@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "source": "appfunctions_probe|lib/intents.dart",
+  "libraryUri": "package:appfunctions_probe/intents.dart",
+  "intents": [
+    {
+      "id": "addTask",
+      "functionName": "addTask",
+      "title": "Add task",
+      "description": "Creates a new task in the Inbox",
+      "phrases": [
+        "Add a task to $app"
+      ],
+      "execution": "background",
+      "showsInSpotlight": true,
+      "showsSnippet": false,
+      "params": [
+        {
+          "name": "title",
+          "title": "Title",
+          "type": "string",
+          "isRequired": true,
+          "description": "The title of the task"
+        },
+        {
+          "name": "dueDate",
+          "title": "Due date",
+          "type": "dateTime",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "id": "dueToday",
+      "functionName": "dueToday",
+      "title": "Tasks due today",
+      "phrases": [],
+      "execution": "static",
+      "showsInSpotlight": true,
+      "showsSnippet": false,
+      "params": []
+    },
+    {
+      "id": "openInbox",
+      "functionName": "openInbox",
+      "title": "Open inbox",
+      "phrases": [],
+      "execution": "foreground",
+      "showsInSpotlight": true,
+      "showsSnippet": false,
+      "params": []
+    }
+  ],
+  "entities": []
+}

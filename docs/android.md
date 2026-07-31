@@ -92,9 +92,55 @@ The probe pins down the shape, and it differs from iOS in ways that matter:
 - The imports are `androidx.appfunctions.*`. `androidx.appfunctions.service.*`
   does not exist — `appfunctions-service` was dropped in alpha10, on 1 July 2026.
 
+## The emitter, and how to switch it on
+
+`KotlinEmitter` implements the above. It is **off by default** — generating it
+unconditionally would impose the whole version chain on every consumer for a
+feature nothing invokes yet:
+
+```bash
+dart run os_intents sync --android
+```
+
+Output goes into the app's own package under
+`android/app/src/main/kotlin/<applicationId>/`, not a directory of our own,
+because `@AppFunctionServiceEntryPoint` produces a service the manifest has to
+name and Kotlin's package must match its source path.
+
+Only `Execution.background` and `Execution.static_` intents are exposed. A
+foreground intent needs an Activity, which an `AppFunctionService` has none of;
+offering one to an agent would produce an action that always fails.
+
+Verified end to end in `probe/android_appfunctions` — Dart annotations through
+to metadata in the APK:
+
+```
+• …BaseOsIntentsAppFunctionService#addTask
+    desc: Creates a new task in the Inbox     ← from the Dart @AppIntent
+    param params: the values for this action
+• …BaseOsIntentsAppFunctionService#dueToday
+    desc: Tasks due today
+
+openInbox (Execution.foreground) — correctly absent
+```
+
+### Three things the CLI will not do to your build
+
+1. `compileSdk 37` + `compileSdkMinor`, AGP 9.1.1+, Gradle 9.3.1+, and the KSP
+   plugin.
+2. The `androidx.appfunctions` dependency and its compiler.
+3. `OsIntentsSetup.configure()` from `Application.onCreate`, plus the generated
+   service in `AndroidManifest.xml`.
+
+On the third: Flutter's manifest template already carries
+`android:name="${applicationName}"`, so the way to install a custom
+`Application` is to replace that placeholder — adding a second `android:name`
+produces a duplicate attribute and the manifest merger fails with nothing more
+useful than a parse error.
+
 ## Not answered
 
-No emulator is configured on this machine, so nothing here has been *run* — only
-built and inspected. Whether a background `FlutterEngine` can be started from
-inside an `AppFunctionService`, which is the Android counterpart of the headless
-work already verified on iOS, remains open.
+No emulator is configured on this machine, so **nothing here has been run** —
+only built and inspected. In particular `OsIntentsBridge`'s headless
+`FlutterEngine`, the Android counterpart of the work already verified on iOS,
+has never started. Treat the Android runtime as unproven until it has.

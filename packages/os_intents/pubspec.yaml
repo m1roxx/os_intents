@@ -13,6 +13,7 @@ dependencies:
     sdk: flutter
   meta: ^1.16.0
   os_intents_platform_interface: ^0.0.1
+  os_intents_android: ^0.0.1
   os_intents_ios: ^0.0.1
 
 dev_dependencies:

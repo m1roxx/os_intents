@@ -1,7 +1,6 @@
 # Status and plan
 
-The document to read when picking this up after a gap. Last updated 2026-07-31,
-at commit `715b301`.
+The document to read when picking this up after a gap. Last updated 2026-07-31.
 
 `README.md` is the pitch; this is the honest inventory.
 
@@ -9,9 +8,9 @@ at commit `715b301`.
 
 ## 1. Where the project stands
 
-**Pre-alpha, iOS only, nothing published.** The iOS pipeline works end to end
-and is verified on a device. Android has been probed for feasibility but not
-implemented.
+**Pre-alpha, nothing published.** The iOS pipeline works end to end and is
+verified on a device. The Android pipeline generates and compiles, but has never
+run — there is no emulator here.
 
 ### Verified on a simulator
 
@@ -34,8 +33,9 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 - The generated Swift compiles into an app and reaches
   `Metadata.appintents/extract.actionsdata` with entities, queries and phrases
   intact.
-- Android AppFunctions compiles inside a Flutter module and produces complete
-  metadata in the APK.
+- The generated Kotlin compiles, KSP accepts it, and the descriptions written in
+  Dart come out the far end in the APK's AppFunction metadata. A foreground
+  intent is correctly left out.
 
 ### Not verified at all
 
@@ -50,7 +50,7 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Health
 
-57 tests (6 in `os_intents`, 51 in `os_intents_gen`), `flutter analyze` clean
+75 tests (6 in `os_intents`, 69 in `os_intents_gen`), `flutter analyze` clean
 across the workspace, example app builds for iOS, probe app builds for Android.
 
 ---
@@ -85,6 +85,7 @@ preference — it is the only way to reach `ios/`.
 annotations → build_runner → *.g.dart  (registry, background entrypoint)
                            → *.json    (manifest)
             → os_intents sync          → ios/Runner/OsIntents/*.swift
+            → os_intents sync --android → android/…/<applicationId>/*.kt
             → os_intents install       → project.pbxproj  (once)
 ```
 
@@ -108,12 +109,14 @@ packages/
   os_intents                    annotations, IntentResult, registry, IntentHarness
   os_intents_platform_interface the contract platform implementations fulfil
   os_intents_ios                bridge, headless engine, snippet view (Swift)
-  os_intents_gen                build_runner builder → Dart + manifest + Swift
+  os_intents_android            headless engine bridge (Kotlin)
+  os_intents_gen                build_runner builder → Dart + manifest + Swift/Kotlin
   os_intents_cli                sync / install / doctor
   os_intents/example            worked example; also the self-check host
 probe/
   risk1_metadata                where may generated Swift live? (answered)
-  android_appfunctions          does AppFunctions work in a Flutter module? (answered)
+  android_appfunctions          Android feasibility, and now the Kotlin emitter's
+                                end-to-end check (answered)
   fixtures                      probe-only sources, copied in per run so they
                                 never ship inside the published plugin
   run_integration.sh            device self-check
@@ -153,15 +156,20 @@ Ordered by how much it blocks a first release.
 
 ### Blocking Android
 
-5. **Kotlin emitter.** Deliberately not started: its shape depends on the
-   two-layer decision below, and the constraints are already written down in
-   [android.md](android.md).
-6. **Background `FlutterEngine` inside an `AppFunctionService`** — the Android
-   counterpart of the headless work already proven on iOS. Needs an emulator.
+5. **The Android runtime has never executed.** `OsIntentsBridge` starts a
+   headless `FlutterEngine` from an `AppFunctionService`; it compiles, and that
+   is all anyone knows. Needs an emulator and the Android equivalent of
+   `run_integration.sh`.
+6. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
+   most projects do not have, so the default path for everyone else — shortcuts
+   / capabilities — is still missing.
+7. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
+   no-op there, so a static intent runs its handler headlessly: correct, but not
+   the free answer it is on iOS.
 
 ### Later
 
-7. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
+8. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
    (`IntentResult.needsConfirmation` is modelled but nothing consumes it),
    `IntentResult.value` chaining in Shortcuts.
 
@@ -169,12 +177,10 @@ Ordered by how much it blocks a first release.
 
 ## 5. Decisions waiting on a human
 
-**How should Android AppFunctions be gated?** Shipping it by default forces
-every consuming app onto AGP 9.1.1, Gradle 9.3.1 and `compileSdk 37`, to reach
-a feature that runs on Android 16+ and that Gemini does not invoke yet (private
-EAP). The recommendation in [android.md](android.md) is two layers — app
-shortcuts by default, AppFunctions opt-in — but that doubles the Android surface
-and is a real cost.
+**~~How should Android AppFunctions be gated?~~** Decided: opt-in, behind
+`os_intents sync --android`, so the version chain is never imposed on anyone who
+did not ask. The other half of that recommendation — an app-shortcuts layer as
+the default for everyone else — is not built.
 
 **Is `install`'s pbxproj editing acceptable, or should the provider file be a
 documented manual step?** One file, added once. Automatic is nicer; manual never

@@ -12,6 +12,7 @@ library;
 
 export 'src/builder.dart';
 export 'src/emit_dart.dart';
+export 'src/emit_kotlin.dart';
 export 'src/emit_swift.dart';
 export 'src/model.dart';
 export 'src/parser.dart' show ParseFailure;

@@ -23,6 +23,13 @@ class SyncCommand extends Command<int> {
         help: 'Verify the generated Swift is up to date; write nothing. '
             'Exits non-zero on drift — meant for CI.',
         negatable: false,
+      )
+      ..addFlag(
+        'android',
+        help: 'Also generate Android AppFunctions. Off by default: it requires '
+            'compileSdk 37, AGP 9.1.1 and Gradle 9.3.1, and only runs on '
+            'Android 16+. See docs/android.md.',
+        negatable: false,
       );
   }
 
@@ -81,6 +88,11 @@ class SyncCommand extends Command<int> {
     final files = SwiftEmitter(merged).emit();
     final target = Directory(p.join(root, outputDir));
 
+    if (argResults!.flag('android')) {
+      final rc = _syncAndroid(root, merged, checkOnly: checkOnly);
+      if (rc != 0) return rc;
+    }
+
     // A provider declared anywhere else in the app target silently wins or
     // loses against ours — Apple picks exactly one and never says which.
     final rival = _findRivalProvider(root, target.path);
@@ -138,6 +150,79 @@ class SyncCommand extends Command<int> {
       );
     }
     return 0;
+  }
+
+  /// Writes the Kotlin next to the app's own sources.
+  ///
+  /// Generated into the application id's package rather than a directory of our
+  /// own, because `AppFunctionServiceEntryPoint` produces a service the
+  /// manifest has to name, and Kotlin's package has to match the source path.
+  int _syncAndroid(String root, Manifest merged, {required bool checkOnly}) {
+    final appId = _applicationId(root);
+    if (appId == null) {
+      stderr.writeln(
+        'Could not read the applicationId from android/app/build.gradle.kts.\n'
+        'Generated Kotlin has to live in the app\'s own package, so this is not '
+        'something os_intents can guess.',
+      );
+      return 66;
+    }
+
+    final emitter = KotlinEmitter(merged, packageName: appId);
+    final files = emitter.emit();
+    if (files.isEmpty) {
+      stdout.writeln(
+        'os_intents: nothing to generate for Android — every intent is '
+        'Execution.foreground, and an AppFunctionService has no Activity to '
+        'bring forward.',
+      );
+      return 0;
+    }
+
+    final dir = Directory(
+      p.join(root, 'android/app/src/main/kotlin', appId.replaceAll('.', '/')),
+    );
+
+    var changed = 0;
+    for (final entry in files.entries) {
+      final out = File(p.join(dir.path, entry.key));
+      final existing = out.existsSync() ? out.readAsStringSync() : null;
+      if (existing == entry.value) continue;
+      changed++;
+      if (checkOnly) {
+        stderr.writeln('  drift: ${p.relative(out.path, from: root)}');
+        continue;
+      }
+      out.parent.createSync(recursive: true);
+      out.writeAsStringSync(entry.value);
+      stdout.writeln('  wrote ${p.relative(out.path, from: root)}');
+    }
+
+    if (!checkOnly && changed > 0) {
+      stdout.writeln(
+        '\nAndroid needs three things os_intents will not do to your build for '
+        'you:\n'
+        '  1. compileSdk 37 + compileSdkMinor, AGP 9.1.1+, Gradle 9.3.1+\n'
+        '  2. the androidx.appfunctions dependency and its KSP compiler\n'
+        '  3. a call to OsIntentsSetup.configure() from Application.onCreate,\n'
+        '     and the generated service declared in AndroidManifest.xml\n'
+        'docs/android.md has the exact snippets and why each is required.',
+      );
+    }
+    return 0;
+  }
+
+  /// Reads `applicationId = "..."` out of the app's Gradle file.
+  String? _applicationId(String root) {
+    for (final name in ['build.gradle.kts', 'build.gradle']) {
+      final f = File(p.join(root, 'android', 'app', name));
+      if (!f.existsSync()) continue;
+      final m = RegExp(
+        r'''applicationId\s*=?\s*["']([\w.]+)["']''',
+      ).firstMatch(f.readAsStringSync());
+      if (m != null) return m.group(1);
+    }
+    return null;
   }
 
   /// Directories under `ios/` that hold dependencies rather than app source.

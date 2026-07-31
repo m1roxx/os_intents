@@ -1,0 +1,29 @@
+name: os_intents_android
+description: "Android implementation of os_intents — bridges generated AppFunctions into Dart."
+version: 0.0.1
+repository: https://github.com/nugmanov/os_intents
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  os_intents_platform_interface: ^0.0.1
+  plugin_platform_interface: ^2.1.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    implements: os_intents
+    platforms:
+      android:
+        package: dev.osintents.os_intents_android
+        pluginClass: OsIntentsAndroidPlugin
+        dartPluginClass: OsIntentsAndroid
