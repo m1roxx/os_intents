@@ -160,6 +160,13 @@ the library, and written up in [android.md](android.md).
 Snippet cards have no Android counterpart either; an assistant renders its own
 presentation from what the function returns.
 
+**Enums are the part that does work on both.** A Dart enum annotated
+`@AppEnum` becomes a real `AppEnum` on iOS and an
+`@AppFunctionStringValueConstraint` on Android — a closed set needs no query,
+which is exactly why it survives the gap entities fall into. The wire value is
+the constant's own name on both platforms, so reordering the Dart enum cannot
+silently repoint a shortcut someone already built.
+
 ## Health
 
 171 tests — 6 in `os_intents`, 93 in `os_intents_gen`, 72 in `os_intents_cli` —

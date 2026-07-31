@@ -21,6 +21,7 @@ ParamSpec param(
   ParamType type = ParamType.string,
   bool required = true,
   String? entityTypeName,
+  String? enumTypeName,
   String? description,
 }) => ParamSpec(
   name: name,
@@ -28,6 +29,7 @@ ParamSpec param(
   type: type,
   isRequired: required,
   entityTypeName: entityTypeName,
+  enumTypeName: enumTypeName,
   description: description,
 );
 
@@ -234,6 +236,76 @@ void main() {
     test('is generated into the app package, so the manifest can see it', () {
       final out = emitter([intent()]).emit()['OsIntentsSetup.kt']!;
       expect(out, contains('package com.example.app'));
+    });
+  });
+
+  group('enum parameters', () {
+    Manifest withPriority() => Manifest(
+      source: 'app|lib/intents.dart',
+      intents: [
+        intent(
+          params: [
+            param('priority', type: ParamType.enum_, enumTypeName: 'Priority'),
+          ],
+        ),
+      ],
+      enums: [
+        EnumSpec(
+          typeName: 'Priority',
+          dartClassName: 'Priority',
+          values: [
+            EnumValueSpec(name: 'whenever', title: 'Whenever'),
+            EnumValueSpec(name: 'veryUrgent', title: 'Very urgent'),
+          ],
+        ),
+      ],
+    );
+
+    String kotlin(Manifest m) => KotlinEmitter(
+      m,
+      packageName: 'com.example.app',
+    ).emit()['OsIntentsAppFunctions.kt']!;
+
+    test('become a String narrowed by a value constraint', () {
+      // The only parameter narrowing Android offers — a fixed set decided at
+      // compile time. Nothing here asks the app anything; see docs/android.md.
+      final out = kotlin(withPriority());
+      expect(
+        out,
+        contains(
+          '@AppFunctionStringValueConstraint('
+          'enumValues = ["whenever", "veryUrgent"])',
+        ),
+      );
+      expect(out, contains('val priority: String,'));
+    });
+
+    test('the constraint carries constant names, not display titles', () {
+      // The wire value is the Dart constant's own name on both platforms. Send
+      // the title instead and the handler would fail to decode it.
+      final out = kotlin(withPriority());
+      expect(out, isNot(contains('"Very urgent"')));
+    });
+
+    test('the import it needs is emitted', () {
+      expect(
+        kotlin(withPriority()),
+        contains(
+          'import androidx.appfunctions.AppFunctionStringValueConstraint',
+        ),
+      );
+    });
+
+    test('a parameter of another type gets no constraint', () {
+      final out = kotlin(
+        Manifest(
+          source: 'app|lib/intents.dart',
+          intents: [
+            intent(params: [param('title')]),
+          ],
+        ),
+      );
+      expect(out, isNot(contains('AppFunctionStringValueConstraint(')));
     });
   });
 }

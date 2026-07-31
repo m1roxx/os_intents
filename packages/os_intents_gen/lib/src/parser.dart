@@ -28,9 +28,14 @@ class SpecParser {
 
   final List<IntentSpec> _intents = [];
   final List<EntitySpec> _entities = [];
+  final List<EnumSpec> _enums = [];
 
-  Manifest get manifest =>
-      Manifest(source: source, intents: _intents, entities: _entities);
+  Manifest get manifest => Manifest(
+    source: source,
+    intents: _intents,
+    entities: _entities,
+    enums: _enums,
+  );
 
   // ── intents ────────────────────────────────────────────────────────────────
 
@@ -181,13 +186,74 @@ class SpecParser {
           ConstantReader(entityAnn).read('typeName').stringValue,
         );
       }
+      final enumAnn = _annotationNamed(type.element, 'AppEnum');
+      if (enumAnn != null) {
+        _collectEnum(type.element, ConstantReader(enumAnn));
+        return (
+          ParamType.enum_,
+          ConstantReader(enumAnn).read('typeName').stringValue,
+        );
+      }
+      // A bare Dart enum is the mistake worth naming, because it looks like it
+      // should just work and the fix is one annotation.
+      if (type.element is EnumElement) {
+        throw ParseFailure(
+          'Parameter "$pName" of intent "$iId" takes the enum $display, which '
+          'is not annotated. Add @AppEnum(typeName: \'$display\') to it so '
+          'the system knows what the choices are called.',
+        );
+      }
     }
 
     throw ParseFailure(
       'Parameter "$pName" of intent "$iId" has unsupported type $display. '
-      'Use String, int, double, bool, DateTime, or a class annotated with '
-      '@AppEntity.',
+      'Use String, int, double, bool, DateTime, a class annotated with '
+      '@AppEntity, or an enum annotated with @AppEnum.',
     );
+  }
+
+  // ── enums ──────────────────────────────────────────────────────────────────
+
+  /// Records an `@AppEnum` the first time a parameter refers to it.
+  ///
+  /// Collected from use rather than from a separate builder pass: an enum with
+  /// no parameter taking it has nothing to appear in, and emitting a type
+  /// nobody can choose would just be noise in the Shortcuts editor.
+  void _collectEnum(InterfaceElement element, ConstantReader annotation) {
+    final typeName = annotation.read('typeName').stringValue;
+    if (_enums.any((e) => e.typeName == typeName)) return;
+
+    final values = <EnumValueSpec>[];
+    for (final field in element.fields) {
+      if (!field.isEnumConstant) continue;
+      final valueAnn = _annotationNamed(field, 'AppEnumValue');
+      values.add(
+        EnumValueSpec(
+          name: field.displayName,
+          title: valueAnn == null
+              ? _humanise(field.displayName)
+              : ConstantReader(valueAnn).read('title').stringValue,
+        ),
+      );
+    }
+
+    _enums.add(
+      EnumSpec(
+        typeName: typeName,
+        dartClassName: element.displayName,
+        displayName: _stringOrNull(annotation, 'displayName'),
+        values: values,
+      ),
+    );
+  }
+
+  /// `veryUrgent` reads badly in a picker; `Very urgent` does not.
+  static String _humanise(String name) {
+    final spaced = name.replaceAllMapped(
+      RegExp('([a-z0-9])([A-Z])'),
+      (m) => '${m[1]} ${m[2]!.toLowerCase()}',
+    );
+    return spaced[0].toUpperCase() + spaced.substring(1);
   }
 
   // ── entities ───────────────────────────────────────────────────────────────

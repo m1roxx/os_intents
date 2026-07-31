@@ -31,7 +31,11 @@ enum ParamType {
   double_('double', 'Double', 'Double'),
   bool_('bool', 'Bool', 'Boolean'),
   dateTime('DateTime', 'Date', 'Long'),
-  entity('<entity>', '<entity>', '<entity>');
+  entity('<entity>', '<entity>', '<entity>'),
+  // A Dart enum crosses as its constant name, so the Kotlin side is a plain
+  // String narrowed by @AppFunctionStringValueConstraint. Swift gets a real
+  // AppEnum, which is the only place the two platforms differ in kind.
+  enum_('<enum>', '<enum>', 'String');
 
   const ParamType(this.dart, this.swift, this.kotlin);
 
@@ -41,7 +45,8 @@ enum ParamType {
 
   static ParamType? fromDart(String name) {
     for (final t in values) {
-      if (t != ParamType.entity && t.dart == name) return t;
+      if (t == ParamType.entity || t == ParamType.enum_) continue;
+      if (t.dart == name) return t;
     }
     return null;
   }
@@ -54,6 +59,7 @@ class ParamSpec {
     required this.type,
     required this.isRequired,
     this.entityTypeName,
+    this.enumTypeName,
     this.description,
     this.requestValueDialog,
     this.androidCapabilityParameter,
@@ -66,6 +72,9 @@ class ParamSpec {
   /// Set when [type] is [ParamType.entity]; names the `@AppEntity` typeName.
   final String? entityTypeName;
 
+  /// Set when [type] is [ParamType.enum_]; names the `@AppEnum` typeName.
+  final String? enumTypeName;
+
   final bool isRequired;
   final String? description;
   final String? requestValueDialog;
@@ -74,14 +83,18 @@ class ParamSpec {
   final String? androidCapabilityParameter;
 
   /// Swift type used in the generated `@Parameter` declaration.
-  String get swiftType =>
-      type == ParamType.entity ? '${entityTypeName}Entity' : type.swift;
+  String get swiftType => switch (type) {
+    ParamType.entity => '${entityTypeName}Entity',
+    ParamType.enum_ => '${enumTypeName}Enum',
+    _ => type.swift,
+  };
 
   Map<String, Object?> toJson() => {
     'name': name,
     'title': title,
     'type': type.name,
     if (entityTypeName != null) 'entityTypeName': entityTypeName,
+    if (enumTypeName != null) 'enumTypeName': enumTypeName,
     'isRequired': isRequired,
     if (description != null) 'description': description,
     if (requestValueDialog != null) 'requestValueDialog': requestValueDialog,
@@ -94,6 +107,7 @@ class ParamSpec {
     title: j['title']! as String,
     type: ParamType.values.byName(j['type']! as String),
     entityTypeName: j['entityTypeName'] as String?,
+    enumTypeName: j['enumTypeName'] as String?,
     isRequired: j['isRequired']! as bool,
     description: j['description'] as String?,
     requestValueDialog: j['requestValueDialog'] as String?,
@@ -280,6 +294,66 @@ class EntityPropertySpec {
       );
 }
 
+/// One case of an `@AppEnum`.
+class EnumValueSpec {
+  EnumValueSpec({required this.name, required this.title});
+
+  /// The Dart constant's own name. This is what crosses the wire, so renaming
+  /// a constant breaks shortcuts users already built — same rule as an intent
+  /// id.
+  final String name;
+
+  /// What the system shows for it.
+  final String title;
+
+  Map<String, Object?> toJson() => {'name': name, 'title': title};
+
+  static EnumValueSpec fromJson(Map<String, Object?> j) =>
+      EnumValueSpec(name: j['name']! as String, title: j['title']! as String);
+}
+
+/// A Dart enum offered to the system as a fixed set of choices.
+///
+/// The closed counterpart of [EntitySpec]: no query, no callback, no running
+/// app, because every case is known when the code is generated.
+class EnumSpec {
+  EnumSpec({
+    required this.typeName,
+    required this.dartClassName,
+    required this.values,
+    this.displayName,
+  });
+
+  final String typeName;
+  final String dartClassName;
+  final String? displayName;
+  final List<EnumValueSpec> values;
+
+  String get swiftTypeName => '${typeName}Enum';
+
+  List<String> validate() => [
+    if (values.isEmpty)
+      'Enum "$typeName" has no values, so nothing could ever be chosen.',
+  ];
+
+  Map<String, Object?> toJson() => {
+    'typeName': typeName,
+    'dartClassName': dartClassName,
+    if (displayName != null) 'displayName': displayName,
+    'values': [for (final v in values) v.toJson()],
+  };
+
+  static EnumSpec fromJson(Map<String, Object?> j) => EnumSpec(
+    typeName: j['typeName']! as String,
+    dartClassName: j['dartClassName']! as String,
+    displayName: j['displayName'] as String?,
+    values: [
+      for (final v in (j['values'] as List? ?? const []))
+        EnumValueSpec.fromJson((v as Map).cast<String, Object?>()),
+    ],
+  );
+}
+
 class EntitySpec {
   EntitySpec({
     required this.typeName,
@@ -346,6 +420,7 @@ class Manifest {
     required this.source,
     this.intents = const [],
     this.entities = const [],
+    this.enums = const [],
     String? libraryUri,
   }) : libraryUri = libraryUri ?? _uriFromSource(source);
 
@@ -371,6 +446,9 @@ class Manifest {
   final List<IntentSpec> intents;
   final List<EntitySpec> entities;
 
+  /// Fixed sets of choices. Closed, so unlike [entities] they need no query.
+  final List<EnumSpec> enums;
+
   static const int formatVersion = 1;
 
   /// Library the background engine must start, or null when nothing needs it.
@@ -383,6 +461,7 @@ class Manifest {
   List<String> validate() => [
     for (final i in intents) ...i.validate(),
     for (final e in entities) ...e.validate(),
+    for (final e in enums) ...e.validate(),
   ];
 
   /// An entity used as a parameter must be resolvable, or the generated Dart
@@ -420,6 +499,7 @@ class Manifest {
     if (libraryUri != null) 'libraryUri': libraryUri,
     'intents': [for (final i in intents) i.toJson()],
     'entities': [for (final e in entities) e.toJson()],
+    if (enums.isNotEmpty) 'enums': [for (final e in enums) e.toJson()],
   });
 
   static Manifest decode(String json) {
@@ -442,6 +522,10 @@ class Manifest {
         for (final e in (j['entities'] as List? ?? const []))
           EntitySpec.fromJson((e as Map).cast<String, Object?>()),
       ],
+      enums: [
+        for (final e in (j['enums'] as List? ?? const []))
+          EnumSpec.fromJson((e as Map).cast<String, Object?>()),
+      ],
     );
   }
 
@@ -462,6 +546,7 @@ class Manifest {
       libraryUri: backgroundUris.length == 1 ? backgroundUris.first : null,
       intents: [for (final p in list) ...p.intents],
       entities: [for (final p in list) ...p.entities],
+      enums: [for (final p in list) ...p.enums],
     ).._backgroundUris = backgroundUris;
   }
 

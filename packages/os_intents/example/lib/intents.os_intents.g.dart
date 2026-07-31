@@ -17,7 +17,12 @@ final IntentRegistry $osIntentsRegistry = IntentRegistry({
       title: _require(args['title'] as String?, 'title'),
       dueDate: args['dueDate'] == null ? null : DateTime.fromMillisecondsSinceEpoch(args['dueDate']! as int, isUtc: true),
       project: await _resolveProject(args['project'] as String?),
+      priority: args['priority'] == null ? null : null.values.byName(args['priority']! as String),
     ),
+  ),
+  'dueToday': IntentBinding(
+    id: 'dueToday',
+    invoke: (args) => dueToday(),
   ),
   'countOpenTasks': IntentBinding(
     id: 'countOpenTasks',

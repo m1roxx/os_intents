@@ -19,11 +19,14 @@ struct AddTaskOsIntent: AppIntent {
   var dueDate: Date?
   @Parameter(title: "Project")
   var project: ProjectEntity?
+  @Parameter(title: "Priority")
+  var priority: nullEnum?
 
   static var parameterSummary: some ParameterSummary {
     Summary("Add task \(\.$title)") {
       \.$dueDate
       \.$project
+      \.$priority
     }
   }
 
@@ -34,9 +37,34 @@ struct AddTaskOsIntent: AppIntent {
         "title": title,
         "dueDate": dueDate.map { Int($0.timeIntervalSince1970 * 1000) },
         "project": project?.id,
+        "priority": priority?.rawValue,
       ]
     )
     return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))
+  }
+}
+
+
+@available(iOS 16.0, *)
+struct DueTodayOsIntent: AppIntent {
+  static let title: LocalizedStringResource = "Tasks due today"
+  static let openAppWhenRun = false
+
+  func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
+    // Execution.static_: answered from stored state, with no
+    // Dart engine started.
+    if let stored = OsIntentsBridge.shared.staticResult(for: "dueToday") {
+      let outcome = IntentOutcome(wire: stored)
+      return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
+    }
+    // Nothing published yet — usually a first run, before the
+    // app has had a chance to call publishStatic. Fall back to
+    // running the handler rather than answering with silence.
+    let outcome = try await OsIntentsBridge.shared.invokeBackground(
+      id: "dueToday",
+      args: [:]
+    )
+    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
   }
 }
 

@@ -131,6 +131,13 @@ final _full = Manifest(
           entityTypeName: 'Project',
           isRequired: false,
         ),
+        ParamSpec(
+          name: 'priority',
+          title: 'Priority',
+          type: ParamType.enum_,
+          enumTypeName: 'Priority',
+          isRequired: false,
+        ),
       ],
     ),
     IntentSpec(
@@ -187,6 +194,20 @@ final _full = Manifest(
       execution: ExecutionMode.background,
       returnType: ParamType.dateTime,
       showsSnippet: true,
+    ),
+  ],
+  enums: [
+    // AppEnum is a protocol with real requirements — RawRepresentable,
+    // CaseIterable, and a caseDisplayRepresentations keyed by Self. Getting
+    // any of them wrong is a compile error, which is the point of this test.
+    EnumSpec(
+      typeName: 'Priority',
+      dartClassName: 'Priority',
+      displayName: 'Priority',
+      values: [
+        EnumValueSpec(name: 'whenever', title: 'Whenever'),
+        EnumValueSpec(name: 'veryUrgent', title: 'Very urgent'),
+      ],
     ),
   ],
   entities: [

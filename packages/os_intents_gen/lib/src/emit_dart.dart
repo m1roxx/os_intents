@@ -104,6 +104,12 @@ String _decode(ParamSpec p, Map<String, EntitySpec> entities) {
     ParamType.double_ => '($raw as num?)?.toDouble()',
     ParamType.bool_ => '$raw as bool?',
     ParamType.entity => throw StateError('handled above'),
+    // An enum crosses as its constant's own name, so the decode is a lookup by
+    // name. `byName` throws on an unknown one, which is the right shape: a
+    // value the system invented is a bug, not a null.
+    ParamType.enum_ =>
+      '$raw == null ? null : '
+          '${p.enumTypeName}.values.byName($raw! as String)',
   };
 
   return p.isRequired ? "_require($expr, '${p.name}')" : expr;

@@ -20,13 +20,51 @@ Future<IntentResult> addTask({
   required String title,
   @Param(title: 'Due date') DateTime? dueDate,
   @Param(title: 'Project') ProjectEntity? project,
+  @Param(title: 'Priority') Priority? priority,
 }) async {
   final task = await TaskRepo.instance.create(
     title: title,
     dueDate: dueDate,
     projectId: project?.id,
   );
-  return IntentResult.dialog('Added "${task.title}"');
+  final note = priority == null ? '' : ' (${priority.name})';
+  return IntentResult.dialog('Added "${task.title}"$note');
+}
+
+/// A closed set, so the OS can offer the choices without asking the app.
+///
+/// The cheap half of "the system fills this in": an entity needs a query
+/// because its values live in your data, an enum does not because they are
+/// known when the code is generated. It is also the only kind of narrowing
+/// Android offers — iOS gets an `AppEnum`, Android a value constraint.
+@AppEnum(typeName: 'Priority', displayName: 'Priority')
+enum Priority {
+  @AppEnumValue(title: 'Whenever')
+  whenever,
+  @AppEnumValue(title: 'Normal')
+  normal,
+  // No title: the generator humanises the constant's own name.
+  veryUrgent,
+}
+
+/// Read-only, so no engine has to start at all.
+@AppIntent(
+  title: 'Tasks due today',
+  phrases: [r"What's due today in $app"],
+  systemImageName: 'calendar',
+  execution: Execution.static_,
+  showsSnippet: true,
+)
+Future<IntentResult> dueToday() async {
+  final tasks = await TaskRepo.instance.dueToday();
+  return IntentResult.snippet(
+    SnippetSpec(
+      title: 'Due today',
+      subtitle: '${tasks.length} task(s)',
+      rows: [for (final t in tasks.take(3)) SnippetRow(t.title, t.projectName)],
+      imageSystemName: 'calendar',
+    ),
+  );
 }
 
 /// Hands a number back, so a Shortcut can feed it into its next step.

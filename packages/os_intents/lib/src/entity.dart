@@ -17,6 +17,47 @@ class AppEntity {
   final String? displayName;
 }
 
+/// Marks a Dart enum as a fixed set of choices the system can offer.
+///
+/// The other half of "the OS fills this in for you", and the cheap half: an
+/// entity needs a query because the set is open and lives in your data, while
+/// an enum is closed and known at build time. So this needs no callback and no
+/// running app — the values are compiled in.
+///
+/// ```dart
+/// @AppEnum(typeName: 'Priority', displayName: 'Priority')
+/// enum Priority {
+///   @AppEnumValue(title: 'Low') low,
+///   @AppEnumValue(title: 'Urgent') urgent,
+/// }
+/// ```
+///
+/// It is also the only kind of parameter narrowing Android offers: iOS gets an
+/// `AppEnum`, Android an `@AppFunctionStringValueConstraint`. Entities have no
+/// Android counterpart at all — see `docs/android.md`.
+@immutable
+@Target({TargetKind.enumType})
+class AppEnum {
+  const AppEnum({required this.typeName, this.displayName});
+
+  /// Stable type name on the wire, for the same reason [AppEntity.typeName] is.
+  final String typeName;
+
+  final String? displayName;
+}
+
+/// The title the system shows for one case.
+///
+/// Optional: without it the constant's own name is used, which is fine for
+/// `low` and poor for `veryUrgent`.
+@immutable
+@Target({TargetKind.enumValue})
+class AppEnumValue {
+  const AppEnumValue({required this.title});
+
+  final String title;
+}
+
 /// The property holding the entity's stable identifier.
 @immutable
 @Target({TargetKind.field, TargetKind.getter})

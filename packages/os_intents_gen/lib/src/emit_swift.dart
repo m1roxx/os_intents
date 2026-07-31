@@ -17,6 +17,7 @@ class SwiftEmitter {
     'OsIntentsGenerated.swift': _intentsFile(),
     if (manifest.entities.isNotEmpty)
       'OsIntentsEntities.swift': _entitiesFile(),
+    if (manifest.enums.isNotEmpty) 'OsIntentsEnums.swift': _enumsFile(),
     'OsIntentsShortcuts.swift': _shortcutsFile(),
     if (_needsBackground) 'OsIntentsBackground.swift': _backgroundFile(),
   };
@@ -231,6 +232,7 @@ class SwiftEmitter {
     ParamType.bool_ => 'outcome.boolValue ?? false',
     ParamType.dateTime => 'outcome.dateValue ?? Date(timeIntervalSince1970: 0)',
     ParamType.entity => throw StateError('entity returns are not supported'),
+    ParamType.enum_ => throw StateError('enum returns are not supported'),
   };
 
   String _parameter(ParamSpec p) {
@@ -256,8 +258,58 @@ class SwiftEmitter {
           : '${p.name}.map { Int(\$0.timeIntervalSince1970 * 1000) }',
     // Entities travel as their identifier; the app resolves them itself.
     ParamType.entity => p.isRequired ? '${p.name}.id' : '${p.name}?.id',
+    // An enum travels as its Dart constant's name, which is exactly the raw
+    // value the generated AppEnum is backed by.
+    ParamType.enum_ =>
+      p.isRequired ? '${p.name}.rawValue' : '${p.name}?.rawValue',
     _ => p.name,
   };
+
+  // ── enums ──────────────────────────────────────────────────────────────────
+
+  /// One `AppEnum` per `@AppEnum`, backed by the Dart constant names.
+  ///
+  /// `String` raw values rather than the default `Int`, so the wire carries the
+  /// name: reordering the Dart enum would otherwise silently repoint every
+  /// shortcut a user had already built.
+  String _enumsFile() {
+    final b = StringBuffer()
+      ..writeln(_header)
+      ..writeln('import AppIntents')
+      ..writeln('import Foundation')
+      ..writeln();
+
+    for (final e in manifest.enums) {
+      b
+        ..writeln('@available(iOS 16.0, *)')
+        ..writeln('enum ${e.swiftTypeName}: String, AppEnum, CaseIterable {');
+      for (final v in e.values) {
+        b.writeln('  case ${v.name}');
+      }
+      b
+        ..writeln()
+        ..writeln(
+          '  static var typeDisplayRepresentation: TypeDisplayRepresentation {',
+        )
+        ..writeln('    ${_str(e.displayName ?? e.typeName)}')
+        ..writeln('  }')
+        ..writeln()
+        ..writeln(
+          '  static var caseDisplayRepresentations: '
+          '[${e.swiftTypeName}: DisplayRepresentation] {',
+        )
+        ..writeln('    [');
+      for (final v in e.values) {
+        b.writeln('      .${v.name}: ${_str(v.title)},');
+      }
+      b
+        ..writeln('    ]')
+        ..writeln('  }')
+        ..writeln('}')
+        ..writeln();
+    }
+    return b.toString();
+  }
 
   // ── entities ───────────────────────────────────────────────────────────────
 

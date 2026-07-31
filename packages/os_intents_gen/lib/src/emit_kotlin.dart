@@ -53,6 +53,7 @@ class KotlinEmitter {
       ..writeln('import androidx.annotation.RequiresApi')
       ..writeln('import androidx.appfunctions.AppFunction')
       ..writeln('import androidx.appfunctions.AppFunctionSerializable')
+      ..writeln('import androidx.appfunctions.AppFunctionStringValueConstraint')
       ..writeln('import androidx.appfunctions.AppFunctionService')
       ..writeln('import androidx.appfunctions.AppFunctionServiceEntryPoint')
       ..writeln('import dev.osintents.os_intents_android.OsIntentsBridge')
@@ -124,9 +125,17 @@ class KotlinEmitter {
         ..writeln('    val unused: Boolean = true,');
     }
     for (final p in i.params) {
-      b
-        ..writeln('    /** ${_escapeDoc(p.description ?? p.title)} */')
-        ..writeln('    val ${p.name}: ${_kotlinType(p)},');
+      b.writeln('    /** ${_escapeDoc(p.description ?? p.title)} */');
+      // The only parameter narrowing Android offers. It is a fixed set decided
+      // here, not a query — nothing on this platform asks the app what the
+      // valid values are. See docs/android.md.
+      if (_enumValues(p) case final values?) {
+        b.writeln(
+          '    @AppFunctionStringValueConstraint(enumValues = ['
+          '${values.map((v) => '"$v"').join(', ')}])',
+        );
+      }
+      b.writeln('    val ${p.name}: ${_kotlinType(p)},');
     }
     b.write(')');
     return b.toString();
@@ -229,6 +238,17 @@ class KotlinEmitter {
       '${i.id[0].toUpperCase()}${i.id.substring(1)}Params';
 
   /// Kotlin type for a parameter, using the same wire shapes as iOS.
+  /// The constant names of the enum this parameter takes, if it takes one.
+  List<String>? _enumValues(ParamSpec p) {
+    if (p.type != ParamType.enum_) return null;
+    for (final e in manifest.enums) {
+      if (e.typeName == p.enumTypeName) {
+        return [for (final v in e.values) v.name];
+      }
+    }
+    return null;
+  }
+
   static String _kotlinType(ParamSpec p) {
     final base = switch (p.type) {
       // Epoch milliseconds, matching the iOS side.
