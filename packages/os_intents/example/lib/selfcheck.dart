@@ -11,6 +11,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:os_intents/os_intents.dart';
 
+import 'intents.dart';
+
 const _tag = 'OSINTENTS_SELFCHECK';
 
 /// True when the app was launched with
@@ -35,6 +37,7 @@ Future<void> runSelfCheck({
   await _checkStaticRoundTrip();
   await _checkEntityQueries(registry);
   await _checkSnippetRoundTrip();
+  await _checkDonation();
 
   debugPrint('$_tag END');
 }
@@ -149,6 +152,43 @@ Future<void> _checkSnippetRoundTrip() async {
       return;
     }
     _pass(name, 'spec and spoken text both stored');
+  } catch (e) {
+    _fail(name, e);
+  }
+}
+
+/// The donation chain has four links and only the last one is Apple's.
+///
+/// Dart → method channel → `NSClassFromString("OsIntentsDonor")` → a real
+/// `AppIntent` struct rebuilt from wire values → `IntentDonationManager`. A
+/// `true` here means every one of them held: the generated class was found by
+/// name, the id matched a case, the values decoded, and the system accepted the
+/// intent. Three of those four fail silently on their own.
+///
+/// What it cannot show is whether iOS ever *suggests* the action afterwards.
+/// Nothing observable from here does, so the claim stops at "accepted".
+Future<void> _checkDonation() async {
+  const name = 'donation';
+  try {
+    final donated = await OsIntents.donate('addTask', {
+      'title': 'from the self-check',
+      'dueDate': DateTime.now().toUtc(),
+      'priority': Priority.veryUrgent,
+    });
+    final unknown = await OsIntents.donate('nothing_declares_this');
+
+    // This host is iOS-only. Android's half of the contract — that donate
+    // declines rather than throwing — is checked by the probe app, which is
+    // where an Android build of this package's runtime actually runs.
+    if (!donated) {
+      _fail(name, 'the platform reported nothing was donated');
+      return;
+    }
+    if (unknown) {
+      _fail(name, 'an unknown id reported success');
+      return;
+    }
+    _pass(name, 'accepted, and an unknown id is refused');
   } catch (e) {
     _fail(name, e);
   }

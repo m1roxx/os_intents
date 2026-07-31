@@ -33,6 +33,27 @@ public class OsIntentsIosPlugin: NSObject, FlutterPlugin {
     _ = (cls as AnyObject).perform(selector)
   }
 
+  /// The generated donor, looked up once by its ObjC name.
+  ///
+  /// Same trick as `configureBackgroundEngine`, and stored rather than resolved
+  /// per call — `NSClassFromString` walks the runtime's class list, and a
+  /// donation happens on a path the user is waiting on.
+  ///
+  /// `nonisolated(unsafe)`: written once, on the first donation, from the
+  /// platform thread that every method call arrives on.
+  private nonisolated(unsafe) static var cachedDonor: OsIntentsDonating?
+  private nonisolated(unsafe) static var lookedUpDonor = false
+
+  private static var donor: OsIntentsDonating? {
+    if lookedUpDonor { return cachedDonor }
+    lookedUpDonor = true
+    guard let cls = NSClassFromString("OsIntentsDonor") as? NSObject.Type else {
+      return nil
+    }
+    cachedDonor = cls.init() as? OsIntentsDonating
+    return cachedDonor
+  }
+
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "ready":
@@ -41,6 +62,21 @@ public class OsIntentsIosPlugin: NSObject, FlutterPlugin {
     case "publishStatic":
       OsIntentsBridge.shared.publishStatic(call.arguments as? [String: Any] ?? [:])
       result(nil)
+
+    case "donate":
+      let args = call.arguments as? [String: Any] ?? [:]
+      guard let donor = Self.donor else {
+        // Nothing generated to donate, or a build that predates it. Not an
+        // error: Dart is told nothing happened and carries on.
+        result(false)
+        return
+      }
+      donor.donate(
+        id: args["id"] as? String ?? "",
+        wire: args["args"] as? [String: Any] ?? [:]
+      ) { donated in
+        result(donated)
+      }
 
     case "debugStaticValue":
       // Reads back exactly what a generated Execution.static_ intent would see.

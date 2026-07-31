@@ -20,6 +20,7 @@ class SwiftEmitter {
     if (manifest.enums.isNotEmpty) 'OsIntentsEnums.swift': _enumsFile(),
     'OsIntentsShortcuts.swift': _shortcutsFile(),
     if (_needsBackground) 'OsIntentsBackground.swift': _backgroundFile(),
+    'OsIntentsDonations.swift': _donationsFile(),
   };
 
   bool get _needsBackground =>
@@ -55,6 +56,114 @@ class SwiftEmitter {
       ..writeln('  }')
       ..writeln('}');
     return b.toString();
+  }
+
+  // ── donations ──────────────────────────────────────────────────────────────
+
+  /// Rebuilds an intent from wire values so it can be handed to
+  /// `IntentDonationManager`.
+  ///
+  /// The wire format finally runs in both directions here. Everywhere else it
+  /// goes intent → Dart: `perform()` encodes its parameters and a handler
+  /// decodes them. A donation starts in Dart and has to arrive as a real
+  /// `AppIntent` struct, so this is the decode half, and it has to agree with
+  /// the encode in [_intentsFile] value for value.
+  ///
+  /// Found by the plugin through `NSClassFromString`, the same way as
+  /// [_backgroundFile]: the structs live in the app target and a package cannot
+  /// import them.
+  String _donationsFile() {
+    final b = StringBuffer()
+      ..writeln(_header)
+      ..writeln('import AppIntents')
+      ..writeln('import Foundation')
+      ..writeln('import os_intents_ios')
+      ..writeln()
+      ..writeln('@objc(OsIntentsDonor)')
+      ..writeln('final class OsIntentsDonor: NSObject, OsIntentsDonating {')
+      ..writeln('  func donate(')
+      ..writeln('    id: String,')
+      ..writeln('    wire: [String: Any],')
+      ..writeln('    completion: @escaping (Bool) -> Void')
+      ..writeln('  ) {')
+      ..writeln('    guard #available(iOS 16.0, *) else {')
+      ..writeln('      completion(false)')
+      ..writeln('      return')
+      ..writeln('    }')
+      ..writeln('    Task {')
+      ..writeln('      switch id {');
+
+    for (final intent in manifest.intents) {
+      // `let`, even though every line below assigns to it. `@Parameter`'s
+      // setter is nonmutating — it writes into the wrapper's own storage, not
+      // into the struct — so `var` earns "variable was never mutated", and the
+      // compile test counts a warning as a failure.
+      b
+        ..writeln('      case ${_str(intent.id)}:')
+        ..writeln('        let intent = ${intent.swiftTypeName}()');
+      for (final p in intent.params) {
+        b.writeln('        ${_donationAssignment(p)}');
+      }
+      // `donate` throws. Reporting the failure rather than swallowing it with
+      // `try?` costs nothing here and is the difference between "the system
+      // declined this" and "nothing was wired up".
+      b
+        ..writeln('        do {')
+        ..writeln(
+          '          _ = try await IntentDonationManager.shared.donate(',
+        )
+        ..writeln('            intent: intent')
+        ..writeln('          )')
+        ..writeln('          completion(true)')
+        ..writeln('        } catch {')
+        ..writeln('          completion(false)')
+        ..writeln('        }');
+    }
+
+    b
+      ..writeln('      default:')
+      ..writeln('        completion(false)')
+      ..writeln('      }')
+      ..writeln('    }')
+      ..writeln('  }')
+      ..writeln('}');
+    return b.toString();
+  }
+
+  /// One parameter, decoded out of the wire map and assigned if it is there.
+  ///
+  /// Every assignment is conditional, including the required ones: a donation
+  /// says "this happened", and a caller who knows only some of the values is
+  /// better served by a partial donation than by none. An unset parameter keeps
+  /// whatever `init()` gave it.
+  String _donationAssignment(ParamSpec p) {
+    final raw = 'wire[${_str(p.name)}]';
+    final expr = switch (p.type) {
+      // Numbers arrive as NSNumber whatever Dart sent, so `as? Int` on a value
+      // Dart wrote as a double would succeed and silently truncate.
+      ParamType.int_ => '($raw as? NSNumber)?.intValue',
+      ParamType.double_ => '($raw as? NSNumber)?.doubleValue',
+      ParamType.bool_ => '($raw as? NSNumber)?.boolValue',
+      // Epoch milliseconds, UTC — the same shape perform() writes out.
+      //
+      // Parenthesised closures throughout rather than trailing ones: this whole
+      // expression is the condition of an `if let`, where swiftc warns that a
+      // trailing closure is confusable with the statement's body.
+      ParamType.dateTime =>
+        '($raw as? NSNumber).map({ Date(timeIntervalSince1970: '
+            r'$0.doubleValue / 1000) })',
+      ParamType.string => '$raw as? String',
+      // An entity crosses as its identifier, so this is the one value a
+      // donation cannot fully rebuild: the other properties are display-only
+      // and the system re-resolves them through the query.
+      ParamType.entity =>
+        '($raw as? String).map({ ${p.entityTypeName}Entity(wire: ["id": '
+            r'$0]) })',
+      ParamType.enum_ =>
+        '($raw as? String).flatMap({ ${p.enumTypeName}Enum(rawValue: '
+            r'$0) })',
+    };
+    return 'if let value = $expr { intent.${p.name} = value }';
   }
 
   // ── intents ────────────────────────────────────────────────────────────────

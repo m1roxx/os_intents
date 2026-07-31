@@ -20,6 +20,7 @@ Not "compiles" — actually ran. iOS via [`probe/run_integration.sh`](../probe/r
 | `static_round_trip` | `publishStatic` and the native read side agree |
 | `entity_queries` | `@EntityQuery` answers, and the wire keys match what the generated Swift reads |
 | `snippet_round_trip` | A card survives the store, spec and spoken text both |
+| `donation` | Dart → channel → the generated class found by ObjC name → a real `AppIntent` rebuilt from wire values → `IntentDonationManager` accepted it. An unknown id is refused |
 
 And once by hand, which is the check that matters most. Tapping an App Shortcut
 in the **Shortcuts app** — a real, system-initiated invocation — produced:
@@ -48,6 +49,7 @@ Android via [`probe/run_android_integration.sh`](../probe/run_android_integratio
 | `unknown_intent_fails` | An unknown id fails loudly instead of hanging |
 | `shortcut_routing` | The Intent an app shortcut builds reaches the handler, on the UI isolate |
 | `static_round_trip` | `publishStatic` and the native read side agree, so a static intent can answer without an isolate |
+| `donation_declined` | `donate` returns false rather than throwing — the documented contract, so one code path can call it on both platforms |
 
 `dumpsys shortcut` independently shows the two generated shortcuts registered
 against the app, labelled from the generated string resources — and `addTask`
@@ -120,6 +122,11 @@ they need neither Xcode nor the Android SDK to run.
 - **The timeout paths in the iOS bridge.** They were rewritten to fix three
   hangs, and they compile and pass their unit tests — but provoking one on a
   device means a Dart side that never answers, which nothing here can arrange.
+- **A donation actually producing a suggestion.** `IntentDonationManager`
+  accepting the intent is verified on a device, which covers every link the
+  package owns. Whether iOS then puts the action in front of the user is a
+  decision by a ranking model over days of real use, and nothing observable
+  from here reports on it. The claim stops at "accepted".
 
 ## What a handler can answer with
 
@@ -185,7 +192,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-228 tests — 7 in `os_intents`, 109 in `os_intents_gen`, 112 in `os_intents_cli` —
+234 tests — 7 in `os_intents`, 115 in `os_intents_gen`, 112 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

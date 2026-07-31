@@ -126,6 +126,51 @@ class OsIntents {
         for (final e in results.entries) e.key: e.value.toWire(),
       });
 
+  /// Tells the system an intent just happened, so it can offer it back later.
+  ///
+  /// Declaring an intent makes it *available*: a user who goes looking will
+  /// find it in Shortcuts and Spotlight. Donating one makes it *suggested* —
+  /// iOS learns that this action, with these values, follows this moment, and
+  /// starts putting it in front of the user unasked. Call it from the same
+  /// place that did the work:
+  ///
+  /// ```dart
+  /// await TaskRepo.instance.create(title: title);
+  /// await OsIntents.donate('addTask', {'title': title});
+  /// ```
+  ///
+  /// [args] takes the values your handler would have received: a `DateTime` or
+  /// an enum constant as itself, an entity as its identifier. Every one is
+  /// optional, and donating with no values at all is meaningful — it says the
+  /// action happened. Anything the system cannot fill in keeps whatever the
+  /// intent's own default is.
+  ///
+  /// Returns whether the platform did anything, and **false on Android**,
+  /// where there is nothing to donate to. That is not a gap waiting to be
+  /// filled: Android's nearest equivalent is a dynamic shortcut, which is a
+  /// launcher entry the app manages by hand rather than a hint to a ranking
+  /// model. Guarding on the result is unnecessary — a donation that goes
+  /// nowhere costs nothing.
+  static Future<bool> donate(
+    String id, [
+    Map<String, Object?> args = const {},
+  ]) => OsIntentsPlatform.instance.donate(id, {
+    for (final e in args.entries) e.key: _toWire(e.value),
+  });
+
+  /// Puts a value into the form the generated native decode expects.
+  ///
+  /// The method channel carries neither of these, and both are what a handler
+  /// deals in — so converting here keeps the wire format an implementation
+  /// detail rather than something a caller has to know. It is the same shape
+  /// `perform()` writes on the way in: epoch milliseconds UTC for a date, the
+  /// constant's own name for an enum.
+  static Object? _toWire(Object? value) => switch (value) {
+    final DateTime d => d.toUtc().millisecondsSinceEpoch,
+    final Enum e => e.name,
+    _ => value,
+  };
+
   /// Reads back what a generated `Execution.static_` intent would answer with.
   ///
   /// For development: confirms [publishStatic] and the native read side agree,

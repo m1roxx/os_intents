@@ -88,6 +88,18 @@ class OsIntentsIos extends OsIntentsPlatform {
   Future<void> publishStaticValues(Map<String, Object?> values) =>
       _foreground.invokeMethod<void>('publishStatic', values);
 
+  /// Hands the intent to `IntentDonationManager`.
+  ///
+  /// Always through the foreground channel: donation is about what the user
+  /// just did in the app, so there is an app in the foreground by definition.
+  @override
+  Future<bool> donate(String id, Map<String, Object?> args) async =>
+      await _foreground.invokeMethod<bool>('donate', {
+        'id': id,
+        'args': args,
+      }) ??
+      false;
+
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(
     String id,

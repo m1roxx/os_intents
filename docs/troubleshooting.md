@@ -69,6 +69,30 @@ work.
 expands to `\(.applicationName)`. The generator refuses a phrase without it, so
 this fails at build time rather than at App Review.
 
+### `OsIntents.donate` returns false
+
+On **Android** that is the documented answer: there is nothing to donate to.
+
+On iOS it means one of the links broke, and the check that separates them is
+`doctor` — a donation needs the same generated code an invocation does. Most
+often the app was built before `OsIntentsDonations.swift` existed, or that file
+is not in the Runner target:
+
+```bash
+dart run os_intents_cli:os_intents build
+```
+
+An id nothing declares also returns false, deliberately: a typo in a donation
+should not throw in a code path that only exists to help the user later.
+
+### iOS never suggests the action, even though donations succeed
+
+Donation is a hint to a ranking model, not an instruction. iOS decides what to
+surface from days of real use, so a handful of donations on a simulator will
+not produce a suggestion, and nothing in this package can make one appear.
+`donate` returning true means the system accepted the intent — that is the
+whole of what is observable.
+
 ### The app opens when it was supposed to stay closed
 
 `Execution.foreground` opens the app by design. `Execution.background` does not

@@ -89,6 +89,27 @@ public enum OsIntentsError: Error, LocalizedError {
   }
 }
 
+/// What generated code exposes so the plugin can donate an intent it cannot
+/// name.
+///
+/// The dependency runs the other way everywhere else: generated Swift calls
+/// `OsIntentsBridge`, and a package never reaches into the app target. Donation
+/// inverts it — Dart asks for an intent to be donated, and only the app target
+/// has the struct — so the generated class registers under a fixed ObjC name
+/// and the plugin finds it at runtime. Same shape as the background-engine
+/// hook, and for the same reason: the alternative is a line pasted into
+/// AppDelegate.
+///
+/// A completion handler rather than `async` so the declaration stays
+/// representable in Objective-C, which is what `NSClassFromString` needs.
+@objc public protocol OsIntentsDonating: NSObjectProtocol {
+  func donate(
+    id: String,
+    wire: [String: Any],
+    completion: @escaping (Bool) -> Void
+  )
+}
+
 /// The single point every generated `AppIntent` struct calls into.
 ///
 /// Generated Swift never touches Flutter APIs directly — it only knows

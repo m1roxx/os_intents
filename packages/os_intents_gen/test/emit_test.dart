@@ -234,6 +234,99 @@ void main() {
     });
   });
 
+  group('Swift donations', () {
+    String donationsFor(Manifest m) =>
+        SwiftEmitter(m).emit()['OsIntentsDonations.swift']!;
+
+    test('registers under a fixed ObjC name the plugin can find', () {
+      // A package cannot import the app target, so the lookup is by name and
+      // the name is the contract. Changing it silently stops every donation.
+      final out = donationsFor(manifest(intents: [intent()]));
+      expect(out, contains('@objc(OsIntentsDonor)'));
+      expect(out, contains('NSObject, OsIntentsDonating'));
+    });
+
+    test('rebuilds the intent and hands it to IntentDonationManager', () {
+      final out = donationsFor(manifest(intents: [intent()]));
+      expect(out, contains('case "addTask":'));
+      expect(out, contains('let intent = AddTaskOsIntent()'));
+      expect(out, contains('IntentDonationManager.shared.donate('));
+    });
+
+    test('an unknown id answers false rather than throwing', () {
+      expect(donationsFor(manifest(intents: [intent()])), contains('default:'));
+    });
+
+    test('every value decodes the way perform() encoded it', () {
+      // The wire format's only round trip. perform() writes these out; this
+      // reads them back, and the two have to agree value for value.
+      final out = donationsFor(
+        manifest(
+          enums: [
+            EnumSpec(
+              typeName: 'Priority',
+              dartClassName: 'Priority',
+              values: [EnumValueSpec(name: 'normal', title: 'Normal')],
+            ),
+          ],
+          intents: [
+            intent(
+              params: [
+                param('title'),
+                param('due', type: ParamType.dateTime, required: false),
+                param('count', type: ParamType.int_, required: false),
+                param(
+                  'project',
+                  type: ParamType.entity,
+                  required: false,
+                  entityTypeName: 'Project',
+                ),
+                param(
+                  'priority',
+                  type: ParamType.enum_,
+                  required: false,
+                  enumTypeName: 'Priority',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      expect(out, contains('wire["title"] as? String'));
+      // Millis, UTC — the same shape the intent writes out.
+      expect(
+        out,
+        contains('Date(timeIntervalSince1970: \$0.doubleValue / 1000)'),
+      );
+      // Through NSNumber: the channel decodes every number as one, so `as? Int`
+      // on a value Dart sent as a double would truncate in silence.
+      expect(out, contains('(wire["count"] as? NSNumber)?.intValue'));
+      // An entity crosses as its identifier and nothing else.
+      expect(out, contains('ProjectEntity(wire: ["id": \$0])'));
+      expect(out, contains('PriorityEnum(rawValue: \$0)'));
+    });
+
+    test('assignments are conditional, including the required ones', () {
+      // A donation says "this happened". A caller who knows some of the values
+      // is better served by a partial donation than by none.
+      final out = donationsFor(
+        manifest(
+          intents: [
+            intent(params: [param('title')]),
+          ],
+        ),
+      );
+      expect(out, contains('if let value = wire["title"] as? String'));
+    });
+
+    test('is emitted even for an app with no intents at all', () {
+      // The plugin looks the class up unconditionally, and "absent" and
+      // "present but knows no ids" have to look the same from Dart.
+      expect(donationsFor(manifest()), contains('@objc(OsIntentsDonor)'));
+    });
+  });
+
   group('Swift shortcuts provider', () {
     String shortcutsFor(Manifest m) =>
         SwiftEmitter(m).emit()['OsIntentsShortcuts.swift']!;

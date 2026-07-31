@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		27D436513B9F13C559A3BAA4 /* OsIntentsDonations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */; };
 		7063029AFBAB444FB07E31A2 /* OsIntentsEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5492B94897476416F50E7BB /* OsIntentsEnums.swift */; };
 		B25A0CCD585712AD2CAEFBC6 /* OsIntentsBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23305AC6F0DBE007A01540E7 /* OsIntentsBackground.swift */; };
 		12D8EB98876DF0492A3FC971 /* OsIntentsShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F19806958ABDB6C91F4C115 /* OsIntentsShortcuts.swift */; };
@@ -47,6 +48,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsDonations.swift; sourceTree = "<group>"; };
 		C5492B94897476416F50E7BB /* OsIntentsEnums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsEnums.swift; sourceTree = "<group>"; };
 		23305AC6F0DBE007A01540E7 /* OsIntentsBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsBackground.swift; sourceTree = "<group>"; };
 		1F19806958ABDB6C91F4C115 /* OsIntentsShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsShortcuts.swift; sourceTree = "<group>"; };
@@ -142,6 +144,7 @@
 		DB067D25CD9598A839231707 /* OsIntents */ = {
 			isa = PBXGroup;
 			children = (
+				A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */,
 				C5492B94897476416F50E7BB /* OsIntentsEnums.swift */,
 				23305AC6F0DBE007A01540E7 /* OsIntentsBackground.swift */,
 				355ABF3E01485B73AD598C49 /* OsIntentsGenerated.swift */,
@@ -304,6 +307,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27D436513B9F13C559A3BAA4 /* OsIntentsDonations.swift in Sources */,
 				7063029AFBAB444FB07E31A2 /* OsIntentsEnums.swift in Sources */,
 				B25A0CCD585712AD2CAEFBC6 /* OsIntentsBackground.swift in Sources */,
 				12D8EB98876DF0492A3FC971 /* OsIntentsShortcuts.swift in Sources */,

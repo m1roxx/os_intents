@@ -39,6 +39,7 @@ Future<void> _runSelfCheck() async {
   await _checkUnknownIntent();
   await _checkShortcutRouting();
   await _checkStaticRoundTrip();
+  await _checkDonationDeclined();
   debugPrint('$_tag END');
 }
 
@@ -159,4 +160,29 @@ class ProbeApp extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Android has nothing to donate to, and has to say so.
+///
+/// The check exists because "returns false" is a documented contract rather
+/// than an accident: `OsIntents.donate` is in the shared API, an app that calls
+/// it on both platforms must not break here, and a future Android
+/// implementation must not start reporting success by inheriting one.
+///
+/// The iOS side is verified from the other direction — that a donation reaches
+/// `IntentDonationManager` and is accepted.
+Future<void> _checkDonationDeclined() async {
+  const name = 'donation_declined';
+  try {
+    final donated = await OsIntents.donate('addTask', {'title': 'ignored'});
+    if (donated) {
+      _fail(name, 'reported a donation Android cannot make');
+      return;
+    }
+    _pass(name, 'declined, as documented — there is nothing to donate to');
+  } catch (e) {
+    // Throwing would be worse than returning false: a caller sharing one code
+    // path across platforms would have to guard on the platform.
+    _fail(name, 'threw instead of declining: $e');
+  }
 }

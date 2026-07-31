@@ -54,6 +54,13 @@ abstract class OsIntentsPlatform extends PlatformInterface {
   /// Publishes values the `Execution.static_` path reads without an engine.
   Future<void> publishStaticValues(Map<String, Object?> values);
 
+  /// Tells the system this intent just happened, so it can offer it later.
+  ///
+  /// Returns whether the platform did anything. False is a real answer, not a
+  /// failure: donation is an iOS 16+ concept and Android has no counterpart to
+  /// route it to.
+  Future<bool> donate(String id, Map<String, Object?> args);
+
   /// Forces an invocation through the headless engine, for development.
   ///
   /// Returns null on platforms with no background support.
@@ -84,6 +91,9 @@ class _UnimplementedOsIntents extends OsIntentsPlatform {
 
   @override
   Future<void> publishStaticValues(Map<String, Object?> values) async {}
+
+  @override
+  Future<bool> donate(String id, Map<String, Object?> args) async => false;
 
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(

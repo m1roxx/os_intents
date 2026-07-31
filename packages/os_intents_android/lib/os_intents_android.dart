@@ -85,6 +85,23 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   Future<void> publishStaticValues(Map<String, Object?> values) =>
       _channel.invokeMethod<void>('publishStatic', values);
 
+  /// Android has nothing to donate to, and says so rather than pretending.
+  ///
+  /// iOS donation feeds Siri's suggestion model: the app reports what the user
+  /// just did, and the system offers it back later. Android's nearest
+  /// equivalent is a **dynamic shortcut** pushed through `ShortcutManager`,
+  /// which is not the same thing — it is a launcher entry the app manages by
+  /// hand, with a rank, an icon and a cap of a few per app, not a hint to a
+  /// ranking model. Mapping one onto the other would mean deciding when to
+  /// evict somebody else's shortcut, which is the app's call and not this
+  /// package's.
+  ///
+  /// So this returns false, and `OsIntents.donate` documents that. Publishing
+  /// dynamic shortcuts from Dart is worth having on its own terms, under its
+  /// own name.
+  @override
+  Future<bool> donate(String id, Map<String, Object?> args) async => false;
+
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(
     String id,
