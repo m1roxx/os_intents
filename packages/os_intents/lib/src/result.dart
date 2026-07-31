@@ -2,8 +2,12 @@ import 'package:meta/meta.dart';
 
 /// What a handler hands back to the system.
 ///
-/// Mirrors the shapes `IntentResult` can take on iOS; the Android side maps
-/// what it can and degrades the rest to a plain value.
+/// Every shape here is one the generated native code actually acts on. Three
+/// others were modelled before they were wired — a returned value, a
+/// confirmation prompt, and a request to open the app — and are not in this
+/// release, because a factory whose name promises something the system never
+/// does is worse than its absence. What each needs is in
+/// `docs/verified.md`; they will come back as additions, not as replacements.
 @immutable
 sealed class IntentResult {
   const IntentResult();
@@ -15,19 +19,13 @@ sealed class IntentResult {
   const factory IntentResult.dialog(String spoken, {String? displayed}) =
       DialogResult;
 
-  /// Succeeded, returning a value that can feed the next step of a Shortcut.
-  const factory IntentResult.value(Object value) = ValueResult;
-
   /// Succeeded, with a card to render.
+  ///
+  /// Needs `showsSnippet: true` on the intent: Swift fixes `perform()`'s
+  /// return type at compile time, so whether a card can be attached is decided
+  /// when the code is generated, not when the handler runs.
   const factory IntentResult.snippet(SnippetSpec spec, {String? spoken}) =
       SnippetResult;
-
-  /// Ask the user to confirm before the action is treated as done.
-  const factory IntentResult.needsConfirmation(String prompt) =
-      ConfirmationResult;
-
-  /// Give up on running headless and open the app instead.
-  const factory IntentResult.openApp({String? deepLink}) = OpenAppResult;
 
   Map<String, Object?> toWire();
 }
@@ -50,13 +48,6 @@ final class DialogResult extends IntentResult {
   };
 }
 
-final class ValueResult extends IntentResult {
-  const ValueResult(this.value);
-  final Object value;
-  @override
-  Map<String, Object?> toWire() => {'kind': 'value', 'value': value};
-}
-
 final class SnippetResult extends IntentResult {
   const SnippetResult(this.spec, {this.spoken});
   final SnippetSpec spec;
@@ -67,20 +58,6 @@ final class SnippetResult extends IntentResult {
     'spoken': spoken,
     'spec': spec.toWire(),
   };
-}
-
-final class ConfirmationResult extends IntentResult {
-  const ConfirmationResult(this.prompt);
-  final String prompt;
-  @override
-  Map<String, Object?> toWire() => {'kind': 'confirm', 'prompt': prompt};
-}
-
-final class OpenAppResult extends IntentResult {
-  const OpenAppResult({this.deepLink});
-  final String? deepLink;
-  @override
-  Map<String, Object?> toWire() => {'kind': 'openApp', 'deepLink': deepLink};
 }
 
 /// A declarative card.

@@ -6,10 +6,12 @@
 import Foundation
 
 /// What a Dart handler answered with.
+///
+/// An unrecognised `kind` reads as `done`, so a newer app package can add one
+/// without breaking an app built against this version of the plugin.
 public struct IntentOutcome {
   public let kind: String
   public let spoken: String?
-  public let value: Any?
 
   /// Wire form of a `SnippetSpec`, when the handler returned one.
   public let snippet: [String: Any]?
@@ -17,7 +19,6 @@ public struct IntentOutcome {
   public init(wire: [String: Any]) {
     kind = wire["kind"] as? String ?? "done"
     spoken = wire["spoken"] as? String ?? wire["displayed"] as? String
-    value = wire["value"]
     snippet = wire["spec"] as? [String: Any]
   }
 }

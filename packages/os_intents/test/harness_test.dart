@@ -15,7 +15,9 @@ final registry = IntentRegistry({
   ),
   'dueToday': IntentBinding(
     id: 'dueToday',
-    invoke: (_) async => const IntentResult.value(3),
+    invoke: (_) async => const IntentResult.snippet(
+      SnippetSpec(title: 'Due today', subtitle: '3 tasks'),
+    ),
   ),
 });
 

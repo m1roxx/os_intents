@@ -29,8 +29,10 @@ than at build time.
 
 - `DateTime` crosses as **epoch milliseconds, UTC**.
 - An entity crosses as **its identifier**, not as an object.
-- An `IntentResult` crosses as a tagged map: `done`, `dialog`, `value`,
-  `snippet`, `confirm`, `openApp`.
+- An `IntentResult` crosses as a tagged map: `done`, `dialog`, `snippet`. The
+  tag is open on purpose — a native side that meets a kind it does not know
+  should treat it as `done` rather than fail, so a newer app package can add
+  one without breaking an older implementation.
 
 ## Implementing it
 

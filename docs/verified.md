@@ -83,12 +83,48 @@ and `LNQueryMetadata` for the example's bundle.
   hangs, and they compile and pass their unit tests — but provoking one on a
   device means a Dart side that never answers, which nothing here can arrange.
 
-## Not implemented yet
+## What a handler can answer with
 
-Interactive snippets; `AssistantIntent` schemas (iOS 18+); confirmation flows
-(`IntentResult.needsConfirmation` is modelled, but nothing consumes it yet);
-`IntentResult.value` chaining in Shortcuts. Entities and snippet cards are iOS
-only.
+Three shapes, and the generated code acts on all three:
+
+| | |
+|---|---|
+| `IntentResult.done()` | succeeded, nothing to say |
+| `IntentResult.dialog(spoken)` | succeeded, and Siri speaks it |
+| `IntentResult.snippet(spec)` | succeeded, with a card — needs `showsSnippet: true` |
+
+Three more were modelled in Dart before anything was wired to them, and are
+**not** in this release. The generated `perform()` did not branch on the result
+kind, so each was encoded, sent across the wire, and dropped:
+
+- **`IntentResult.value`** — a value that feeds the next step of a Shortcut.
+  Needs a typed return: Swift fixes `perform()`'s return type at compile time,
+  while `value(Object)` is untyped in Dart, so the annotation has to carry the
+  type before this can work at all.
+- **`IntentResult.needsConfirmation`** — the modelling was wrong, not just the
+  wiring. The handler has already run and already had its effect by the time it
+  returns anything, so "ask the user first" cannot be expressed as a return
+  value. It needs a two-phase call, which is a design change rather than a fix.
+- **`IntentResult.openApp`** — `openAppWhenRun` is a compile-time constant
+  derived from `Execution`, not a decision a handler can make at run time.
+
+They were removed rather than documented as broken: a factory whose name
+promises something the system never does is worse than its absence, and in a
+0.1.0 with no dependents removal costs nothing. Each returns as an addition,
+which is not a breaking change; leaving them in and fixing them later would
+have been.
+
+## Also not implemented
+
+Interactive snippets, and `AssistantIntent` schemas (iOS 18+).
+
+Entities and snippet cards are iOS only. On Android an entity parameter does
+cross — as its identifier, same wire format as iOS, resolved by your handler —
+but there is no counterpart to `@EntityQuery`, where the OS calls back to turn
+a spoken name into an entity. Android inverts that: entities are published to
+a system index rather than pulled from a running app. Snippet cards have no
+Android counterpart at all; an assistant renders its own presentation from
+what the function returns.
 
 ## Health
 
