@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Must match .fvmrc. The generated Swift is type-checked against this SDK's
+  # Flutter.xcframework, so a drift here is not cosmetic.
+  FLUTTER_VERSION: 3.44.8
+
+jobs:
+  check:
+    name: format, analyze, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # One resolve at the root: this is a pub workspace, and every package
+      # here is a member of it.
+      - run: flutter pub get
+
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      # Per package, from its own directory. Running `flutter test` over
+      # several package paths at once mis-resolves and reports phantom
+      # "loading" failures.
+      - name: test os_intents
+        working-directory: packages/os_intents
+        run: flutter test
+      - name: test os_intents_gen
+        working-directory: packages/os_intents_gen
+        run: dart test
+      - name: test os_intents_cli
+        working-directory: packages/os_intents_cli
+        run: dart test
+
+  drift:
+    name: generated code is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      # Two different kinds of drift, and only the second has a command of its
+      # own. build_runner's output is committed, so regenerating it must be a
+      # no-op; `sync --check` then proves the Swift, Kotlin and XML in the
+      # example's native projects still match that output.
+      - name: build_runner is a no-op
+        working-directory: packages/os_intents/example
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- .
+
+      - name: native sources match the manifest
+        working-directory: packages/os_intents/example
+        run: dart run os_intents_cli:os_intents sync --check
+
+  swift:
+    name: emitted Swift type-checks
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      # swift_compiles_test.dart runs `swiftc -typecheck` over the emitter's
+      # output against the real os_intents_ios module, so it needs the SDK's
+      # Flutter.xcframework on disk. Without it the test skips with a reason
+      # and this job would pass while checking nothing.
+      - run: flutter precache --ios
+
+      - name: swiftc -typecheck the emitter's output
+        working-directory: packages/os_intents_gen
+        run: dart test test/swift_compiles_test.dart
