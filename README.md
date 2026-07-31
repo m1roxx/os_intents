@@ -1,5 +1,9 @@
 # os_intents
 
+[![pub package](https://img.shields.io/pub/v/os_intents.svg)](https://pub.dev/packages/os_intents)
+[![CI](https://github.com/m1roxx/os_intents/actions/workflows/ci.yml/badge.svg)](https://github.com/m1roxx/os_intents/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Declare OS-level app actions in Dart. The generator emits the iOS **App Intents**
 and Android **AppFunctions** code the system needs at compile time, so Siri,
 Spotlight, Shortcuts and on-device agents can run your app's actions — ideally
@@ -23,7 +27,7 @@ Runner[91295] OSINTENTS_HOST intent=addTask process=Runner uiEngine=yes
 > and are verified on a device — iOS on a simulator, Android on an API 36
 > emulator — by the two harnesses in [`probe/`](probe/). What is verified, what
 > is only compiled, and what has never been observed is listed honestly in
-> [docs/status.md](docs/status.md). The one thing still unobserved is Siri
+> [docs/verified.md](docs/verified.md). The one thing still unobserved is Siri
 > invoking a phrase by voice.
 
 ## What works
@@ -114,11 +118,8 @@ So what is actually different here:
 | Android cost | two layers; the version chain is opt-in, not imposed |
 | Claims | every one in the table above is backed by a device harness, and what is unproven says so |
 
-Where the project stands, what is missing, and the decisions still open:
-**[docs/status.md](docs/status.md)** — including a full read of the neighbours.
-
-Where the project stands, what is missing, and the decisions still open:
-**[docs/status.md](docs/status.md)**.
+Every claim in that table, with the evidence behind it and the list of things
+still unobserved: **[docs/verified.md](docs/verified.md)**.
 
 ## Layout
 
@@ -133,67 +134,34 @@ packages/
 probe/
   risk1_metadata                  where may generated Swift live? (answered)
   android_appfunctions            Android feasibility and the Kotlin emitter's end-to-end check
-  android_shortcuts               what may a generated shortcuts.xml contain? (answered)
 docs/
   risk1.md                        experiment design and verdict
   android.md                      both Android layers, and what each costs
-  status.md                       the honest inventory
+  verified.md                     what ran on a device, and what never has
 ```
 
 Pub workspace — one `flutter pub get` at the root resolves everything.
 Flutter version is pinned per-repo via fvm (`.fvmrc`, currently 3.44.8) so this
 work cannot disturb other projects on the machine.
 
-## Risk #1 — the question that shapes the architecture
+## Why there is an Xcode step at all
 
 App Intents are registered **at compile time**: Xcode extracts metadata from
-Swift types into `Metadata.appintents` inside the app bundle. Nothing declared
-at runtime from Dart is ever visible to Siri. So the generator has to put Swift
-somewhere the extractor will look — and the open question is whether a Flutter
-plugin module counts.
+Swift types into `Metadata.appintents` inside the app bundle, and nothing
+declared at runtime from Dart is ever visible to Siri. So the generated Swift has
+to land somewhere the extractor will look — and that is your app target, at
+`ios/Runner/OsIntents/`. Registering that folder once is the whole of
+`os_intents install`.
 
-**Answered: it does.** On Flutter 3.44.8 / Xcode 26.0 (Swift Package Manager
-integration), an intent declared inside the plugin module lands in
-`Metadata.appintents/extract.actionsdata` by itself — no `AppIntentsPackage`
-bridge, without ever being referenced from Dart or from the app target:
+It could have been the plugin instead, and a probe showed that would actually
+work — but a published package lives in `~/.pub-cache`, shared between projects
+and wiped by `pub cache repair`, so per-project generated sources could never
+live there. Spoken phrases settled it regardless: an `AppShortcutsProvider`
+declared in a plugin is dropped in silence, no error and no warning, and Siri
+never gets the utterance.
 
-```json
-"fullyQualifiedTypeName": "os_intents_ios.ProbePodIntent",
-"isDiscoverable": true,
-"openAppWhenRun": false
-```
-
-**But the generator does not use that.** Two things overrode it. A published
-package lives in `~/.pub-cache`, shared between projects and wiped by
-`pub cache repair`, so per-project generated sources could never be written
-there; and `build_runner` derives output paths from input paths, so it cannot
-reach `ios/` at all. Risk #1b then forced one file into the app target anyway.
-Once the Runner target has to be touched once, putting everything there costs
-nothing extra — so generated Swift goes to `ios/Runner/OsIntents/`.
-
-What Risk #1 did buy: the runtime bridge ships inside the plugin rather than
-being copied into every app, and an app that wants no spoken phrases could skip
-the Xcode step entirely.
-
-**Risk #1b, the follow-up: spoken phrases are the exception.** Siri utterances
-come from an `AppShortcutsProvider`, and a second probe showed the extractor
-takes one only from the app's own module. Declared in a plugin it is silently
-ignored — no error, no warning, `root.ssu.yaml` simply never gets written.
-
-| capability | declared in | status |
-|---|---|---|
-| intents, entities, queries — Shortcuts, Spotlight, agents | plugin module | free |
-| spoken "Hey Siri …" phrases | app target, one provider per app | CLI writes one file |
-
-So the iOS half of `os_intents_cli install` is exactly one job: put
-`ios/Runner/OsIntentsShortcuts.swift` into the Runner target, once.
-
-Reproduce both:
-
-```bash
-./probe/risk1_metadata/run_probe.sh
-./probe/risk1_metadata/run_probe_1b.sh
-```
+The experiments, their measurements and both verdicts:
+[docs/risk1.md](docs/risk1.md).
 
 ## License
 
