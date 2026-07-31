@@ -13,6 +13,28 @@ dart run os_intents_cli:os_intents install           # add the generated folder 
 dart run os_intents_cli:os_intents doctor            # what will the OS actually see?
 ```
 
+## install
+
+Adds `ios/Runner/OsIntents` to the Runner target. Xcode 16's synchronized folder
+groups would make this unnecessary, but they need `objectVersion = 77` and
+Flutter still templates projects at 54, so the files are registered explicitly.
+
+Every anchor is an object id looked up in the parsed project, not one of the ids
+Flutter's template happens to use: those are not a contract, and an anchor that
+fails to match would leave the sources referenced but in no build phase — an app
+that builds cleanly with no intents in it. The edited text is parsed again and
+checked before anything is written, so a missed insertion is a message rather
+than a quiet success.
+
+It is idempotent, repairs a project left half-edited, and refuses rather than
+guesses when the project is not a shape it understands — a target under another
+name (`--target`), a file already referenced elsewhere, a project using
+synchronized folders. Every refusal names the manual step, which works just as
+well: the rest of the toolchain does not care how the folder got into the
+target, and `doctor` confirms the result either way.
+
+A backup is left at `project.pbxproj.os_intents.bak`.
+
 ## doctor
 
 Everything else in the toolchain reports on its own step. `build_runner` says it

@@ -151,6 +151,11 @@ loose parameters. Do not try to make the two emitters symmetrical.
   the whole app down until payloads were made property-list-safe.
 - `AppIntentsPackage` is iOS 17+ while `AppIntent` is iOS 16+.
 - A provider declared in a plugin is dropped in silence — no error, no warning.
+- `project.pbxproj` object ids are not a contract. `install` looks the target,
+  its Sources phase and the app group up in the parsed project
+  (`os_intents_cli/lib/src/pbxproj.dart`) and re-parses its own output before
+  writing — anchoring on the template's ids silently produced a project where
+  the sources were referenced but in no build phase.
 - Flutter's Android manifest already carries `android:name="${applicationName}"`;
   install a custom `Application` by replacing that placeholder, not by adding a
   second attribute.
