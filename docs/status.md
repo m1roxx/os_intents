@@ -196,9 +196,25 @@ Ordered by how much it blocks a first release.
    and an error under the Swift 6 language mode. Fixed in the plugin — the
    initializer is `nonisolated` and `Row` moved out of the view, since a type
    nested in a `View` inherits its main-actor isolation.
-4. **README needs the GIF.** The whole pitch is "Siri runs your action without
+4. **The headless claim may not survive a real invocation.** The whole pitch is
+   that a handler runs without opening the app, and that has only ever been
+   observed by forcing the headless path *from inside the running app* — the one
+   process where a `FlutterEngine` is certainly available.
+
+   `app_intents` routes every iOS intent through a URL scheme instead, and says
+   why: App Intents may run in an isolated process (`WFIsolatedShortcutRunner`)
+   where the Flutter engine is not available, so a URL scheme guarantees the app
+   is up first. `flutter_assistant_intents`, which does keep a headless engine,
+   carries an `appNotReady` error with a grace period — which reads like the
+   same wall, handled rather than avoided.
+
+   Both compile their intents into the app target, as this does. If the OS runs
+   `perform()` out of process, `OsIntentsBackgroundEngine` may simply fail to
+   start, and the central promise fails in exactly the path nobody here has
+   watched. Until it is measured, the README should not promise headless.
+5. **README needs the GIF.** The whole pitch is "Siri runs your action without
    opening the app" and there is no picture of it.
-5. ~~**The plugin is not Swift 6 ready.**~~ Done — and it turned out to be
+6. ~~**The plugin is not Swift 6 ready.**~~ Done — and it turned out to be
    hiding three real bugs rather than being cosmetic.
 
    The 21 warnings are gone: scoped `withLock` in place of `lock()`/`unlock()`
@@ -232,7 +248,7 @@ Ordered by how much it blocks a first release.
 
 ### Blocking Android
 
-6. ~~**No app-shortcuts layer.**~~ Done. `sync` now writes
+7. ~~**No app-shortcuts layer.**~~ Done. `sync` now writes
    `res/xml/os_intents_shortcuts.xml` and the strings it needs, with no flag and
    no version chain — a launcher shortcut per intent, plus an Assistant
    capability for each one that names a built-in intent through the new
@@ -254,7 +270,7 @@ Ordered by how much it blocks a first release.
    Activity, so `Execution.background` does not mean headless here; the plugin
    routes the launch into the UI isolate. Headless is what the AppFunctions
    layer, and its version chain, exist for.
-7. ~~**`Execution.static_` does nothing on Android.**~~ Done.
+8. ~~**`Execution.static_` does nothing on Android.**~~ Done.
    `publishStaticValues` writes to `SharedPreferences` and a generated
    `@AppFunction` for a static intent reads it before starting anything,
    falling through to the handler when nothing has been published yet — a first
@@ -271,7 +287,7 @@ Ordered by how much it blocks a first release.
 
 ### Later
 
-8. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
+9. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
    (`IntentResult.needsConfirmation` is modelled but nothing consumes it),
    `IntentResult.value` chaining in Shortcuts.
 
@@ -352,12 +368,33 @@ No `topics:` or `issue_tracker:` in any pubspec. The main README is 39 lines and
 it is the pub.dev landing page. Test fixtures ship inside `os_intents_gen` and
 `os_intents_cli` — a 23 KB pbxproj among them — which `.pubignore` would trim.
 
-### Not on any checklist
+### The neighbours, read 2026-07-31
 
-Six packages already occupy this space: `flutter_app_intents`, `app_intents`,
-`app_intents_annotations`, `flutter_assistant_intents`, `sirikit_media_intents`,
-`intelligence`. None has been read. Worth an hour before the README claims
-anything about being first.
+Not first, and not alone. Six packages occupy this space; two of them are alive
+and overlap heavily. Sources read, not just pub.dev pages.
+
+| package | platforms | source of truth | iOS execution | traction | last release |
+|---|---|---|---|---|---|
+| `intelligence` | iOS | hand-written Swift | opens app | 50 ♥, ~10k | 17 mo |
+| `flutter_app_intents` | iOS | hand-written Swift | limited | 6 ♥ | 10 mo |
+| **`app_intents`** (+annotations, +codegen) | iOS 17+, Android 16+ | Dart annotations | **URL scheme — opens the app** | 2 ♥, 13★ | 40 days |
+| **`flutter_assistant_intents`** | iOS 16+, Android | YAML | **headless engine** | 1 ♥, 20.3k dl | 17 days |
+| `sirikit_media_intents` | iOS | — | media only | 2 ♥ | 15 mo |
+
+`app_intents` is the same shape as this project and has a wider API: `@EnumSpec`
+for AppEnum, `@UnionValue`, `PersonName`, `Duration`, `EntityCollection`,
+donation, App Schema and semantic indexing, String Catalog localisation, and
+dual-branch WWDC26 output behind `#if`. Their emitter is `swiftc -typecheck`ed
+too — in both branches.
+
+`flutter_assistant_intents` has a headless iOS engine of its own
+(`configureHeadlessBoot(entrypoint:registrant:)`), dynamic Android shortcuts
+published from Dart, and an AppFunctions integration.
+
+So what is actually left that is ours: `doctor`, which nothing else has anything
+like; iOS 16 rather than 17; the Android version chain gated rather than
+imposed; and claims backed by device harnesses. That is a smaller list than it
+looked before anyone read them.
 
 ---
 
