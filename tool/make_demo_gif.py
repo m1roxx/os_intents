@@ -5,6 +5,12 @@ machine, and three chosen moments read better in a README than a blurry clip.
 Each frame carries its own caption so the picture does not need the prose
 around it to be understood — and so the claim it makes is the one that was
 actually measured.
+
+The assembled GIF is committed; the three source frames are not — 857 KB of
+input to a script nobody but the author runs. Re-capture them from a run of
+`probe/run_integration.sh` if the demo ever needs rebuilding.
+
+    python3 tool/make_demo_gif.py <frames-dir> docs/media/shortcuts_demo.gif
 """
 import sys
 from PIL import Image, ImageDraw, ImageFont

@@ -4,7 +4,7 @@
 /// than of the Kotlin one. `KotlinEmitter` produces AppFunctions, which run
 /// headless but drag `compileSdk 37`, AGP 9.1.1 and Gradle 9.3.1 into every
 /// consuming app for something only Android 16+ can run. This costs nothing —
-/// measured, in `probe/android_shortcuts`, on a stock `flutter create` project.
+/// measured on a stock `flutter create` project before any of it was written.
 ///
 /// What it buys is different, and the difference is not cosmetic: a shortcut's
 /// `<intent>` starts an Activity, so **this layer always opens the app**.
@@ -46,23 +46,24 @@ class ShortcutsEmitter {
   static const shortcutsFile = 'xml/os_intents_shortcuts.xml';
   static const stringsFile = 'values/os_intents_strings.xml';
 
-  List<IntentSpec> get _exposed =>
-      [for (final i in manifest.intents) if (i.hasAndroidShortcut) i];
+  List<IntentSpec> get _exposed => [
+    for (final i in manifest.intents)
+      if (i.hasAndroidShortcut) i,
+  ];
 
   Map<String, String> emit() {
     final exposed = _exposed;
     if (exposed.isEmpty) return const {};
-    return {
-      shortcutsFile: _shortcuts(exposed),
-      stringsFile: _strings(exposed),
-    };
+    return {shortcutsFile: _shortcuts(exposed), stringsFile: _strings(exposed)};
   }
 
   String _shortcuts(List<IntentSpec> intents) {
     final b = StringBuffer()
       ..writeln('<?xml version="1.0" encoding="utf-8"?>')
       ..write(_header)
-      ..writeln('<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">');
+      ..writeln(
+        '<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">',
+      );
 
     for (final intent in intents) {
       if (intent.canBeLauncherShortcut) {
@@ -135,7 +136,9 @@ class ShortcutsEmitter {
     for (final p in parameters) {
       b
         ..writeln('$indent  <parameter')
-        ..writeln('$indent      android:name="${_attr(p.androidCapabilityParameter!)}"')
+        ..writeln(
+          '$indent      android:name="${_attr(p.androidCapabilityParameter!)}"',
+        )
         ..writeln('$indent      android:key="${_attr(p.name)}" />');
     }
     b.writeln('$indent</intent>');

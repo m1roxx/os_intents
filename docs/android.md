@@ -86,10 +86,9 @@ android/app/src/main/res/values/os_intents_strings.xml
 The second exists because `shortcutShortLabel` refuses a literal — a label has
 to be a string resource, so every shortcut drags an entry along with it.
 
-Shapes were measured before the emitter was written, in
-[`probe/android_shortcuts`](../probe/android_shortcuts): the whole file builds on
-a **stock** `flutter create` project, and both a data URI and a nested `<extra>`
-survive into the Intent the system builds. The id rides in the URI:
+Shapes were measured on a **stock** `flutter create` project before the emitter
+was written: the whole file builds there, and both a data URI and a nested
+`<extra>` survive into the Intent the system builds. The id rides in the URI:
 
 ```xml
 <shortcut android:shortcutId="dueToday" …>
