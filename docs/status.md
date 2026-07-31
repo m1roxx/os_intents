@@ -1,7 +1,8 @@
 # Status and plan
 
-The document to read when picking this up after a gap. Last updated 2026-07-31
-(doctor).
+The document to read when picking this up after a gap. Last updated 2026-07-31,
+after closing the first three items in §4 — doctor, install, and a compile test
+for the generated Swift.
 
 `README.md` is the pitch; this is the honest inventory.
 
@@ -59,7 +60,7 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Health
 
-128 tests (6 in `os_intents`, 69 in `os_intents_gen`, 53 in `os_intents_cli`),
+131 tests (6 in `os_intents`, 72 in `os_intents_gen`, 53 in `os_intents_cli`),
 `flutter analyze` clean across the workspace, example app builds for iOS, probe
 app builds for Android.
 
@@ -172,25 +173,43 @@ Ordered by how much it blocks a first release.
    `flutter create`, then `plutil`, `xcodebuild -list` and a full
    `flutter build ios` all accepted it, and the four sources come out in the
    built `Runner.swiftmodule`.
-3. **No test for the generated Swift itself.** The emitters are covered by
-   string assertions; whether the output compiles is only ever discovered by
-   building the example. A fixture that compiles generated Swift in CI would
-   close that.
+3. ~~**No test for the generated Swift itself.**~~ Done.
+   `os_intents_gen/test/swift_compiles_test.dart` type-checks the emitter's
+   output — every parameter type, all three execution modes, an entity with a
+   query, and strings full of quotes and backslashes — against the *real*
+   `os_intents_ios` module rather than a stub, so the emitter and
+   `OsIntentsBridge` disagreeing about a signature is a test failure rather than
+   a device-only surprise. Warnings fail it too. Runs in about eight seconds,
+   and skips with a reason where there is no Xcode.
+
+   It found something on its first run: the generated snippet path built
+   `OsIntentsSnippetView` from a nonisolated context, which is a warning today
+   and an error under the Swift 6 language mode. Fixed in the plugin — the
+   initializer is `nonisolated` and `Row` moved out of the view, since a type
+   nested in a `View` inherits its main-actor isolation.
 4. **README needs the GIF.** The whole pitch is "Siri runs your action without
    opening the app" and there is no picture of it.
+5. **The plugin is not Swift 6 ready.** Measured while building the compile
+   test: `OsIntentsBridge` and `OsIntentsBackgroundEngine` take an `NSLock`
+   across `await` points in about a dozen places, which the compiler already
+   warns is an error in the Swift 6 language mode, and both capture
+   `FlutterMethodChannel` in `@Sendable` closures. The generated Swift is clean;
+   this is the runtime bridge, and it wants an actor rather than a lock — a real
+   change to code that already works, so it is written down rather than done in
+   passing.
 
 ### Blocking Android
 
-5. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
+6. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
    most projects do not have, so the default path for everyone else — shortcuts
    / capabilities — is still missing.
-6. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
+7. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
    no-op there, so a static intent runs its handler headlessly: correct, but not
    the free answer it is on iOS.
 
 ### Later
 
-7. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
+8. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
    (`IntentResult.needsConfirmation` is modelled but nothing consumes it),
    `IntentResult.value` chaining in Shortcuts.
 

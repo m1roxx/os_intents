@@ -36,6 +36,12 @@ cd packages/os_intents_gen  && fvm dart test test/emit_kotlin_test.dart -n "fore
 Running `flutter test` over several package paths at once mis-resolves and
 reports phantom "loading" failures. Run each package in its own directory.
 
+`os_intents_gen/test/swift_compiles_test.dart` is the exception to "unit tests
+are strings": it runs `swiftc -typecheck` over the emitter's output against the
+**real** `os_intents_ios` module, so a signature drifting from `OsIntentsBridge`
+fails a test instead of a device. Warnings fail it too. It needs Xcode and the
+pinned Flutter's `Flutter.xcframework`, and skips with a reason without them.
+
 ## Device checks
 
 Unit tests cover the emitters as strings. Everything that actually matters —

@@ -16,4 +16,7 @@ dependencies:
 dev_dependencies:
   build_runner: ^2.4.13
   lints: ^6.0.0
+  # Only for swift_compiles_test.dart, which reaches across the workspace to
+  # type-check the emitter's output against the real plugin sources.
+  path: ^1.9.0
   test: ^1.25.0

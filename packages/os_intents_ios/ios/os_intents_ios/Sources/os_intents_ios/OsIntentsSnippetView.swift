@@ -10,12 +10,19 @@ import SwiftUI
 ///
 /// Lives in the plugin rather than in generated code: it is the same for every
 /// app, and shipping it once keeps the generated output readable.
+/// One label/value line of a snippet.
+///
+/// Top-level rather than nested in the view: a type declared inside a `View`
+/// inherits the main-actor isolation that conformance implies, which would make
+/// `[Row]` unusable from the nonisolated initializer below.
+public struct OsIntentsSnippetRow: Hashable, Sendable {
+  public let label: String
+  public let value: String
+}
+
 @available(iOS 16.0, *)
 public struct OsIntentsSnippetView: View {
-  public struct Row: Hashable {
-    public let label: String
-    public let value: String
-  }
+  public typealias Row = OsIntentsSnippetRow
 
   private let title: String
   private let subtitle: String?
@@ -25,7 +32,12 @@ public struct OsIntentsSnippetView: View {
   /// Builds from the wire form. A malformed or absent spec produces an empty
   /// title rather than a crash — a blank card is a better failure than taking
   /// the whole action down.
-  public init(wire: [String: Any]?) {
+  ///
+  /// `nonisolated` because conforming to `View` isolates the whole type to the
+  /// main actor, and a generated `perform()` is not on it. Storing four values
+  /// touches nothing that isolation protects; without this, every snippet
+  /// intent builds with a warning that becomes an error in Swift 6.
+  public nonisolated init(wire: [String: Any]?) {
     let spec = wire ?? [:]
     title = spec["title"] as? String ?? ""
     subtitle = spec["subtitle"] as? String
