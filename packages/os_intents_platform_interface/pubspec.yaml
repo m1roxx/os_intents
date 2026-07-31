@@ -1,6 +1,6 @@
 name: os_intents_platform_interface
 description: "Platform interface for the os_intents plugin."
-version: 0.0.1
+version: 0.1.0
 repository: https://github.com/nugmanov/os_intents
 resolution: workspace
 

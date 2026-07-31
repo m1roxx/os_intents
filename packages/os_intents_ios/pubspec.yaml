@@ -1,6 +1,6 @@
 name: os_intents_ios
 description: "iOS implementation of os_intents — bridges generated App Intents into Dart."
-version: 0.0.1
+version: 0.1.0
 repository: https://github.com/nugmanov/os_intents
 resolution: workspace
 
@@ -11,7 +11,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  os_intents_platform_interface: ^0.0.1
+  os_intents_platform_interface: ^0.1.0
   plugin_platform_interface: ^2.1.8
 
 dev_dependencies:

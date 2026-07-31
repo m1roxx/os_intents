@@ -197,4 +197,9 @@ Reproduce both:
 
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).
+
+**The code os_intents generates is yours.** The Swift, Kotlin and XML written
+into your project by `build_runner` and `os_intents sync` are the output of a
+tool, like a compiler's, and carry no obligation from this licence — no notice
+to keep, no attribution to add. The licence covers os_intents itself.
