@@ -1,8 +1,8 @@
 # Status and plan
 
 The document to read when picking this up after a gap. Last updated 2026-07-31,
-after closing the first three items in §4 plus the Swift 6 work — doctor,
-install, a compile test for the generated Swift, and a concurrency rewrite.
+after closing the first three items in §4 plus the Swift 6 work and the Android
+app-shortcuts layer.
 
 `README.md` is the pitch; this is the honest inventory.
 
@@ -32,6 +32,11 @@ Android on an API 36 emulator via
 |---|---|
 | `headless_engine` | A second `FlutterEngine` started inside the app process, found the generated entrypoint by name, and ran the handler — the UI isolate's list stayed at 0 |
 | `unknown_intent_fails` | An unknown id fails loudly instead of hanging |
+| `shortcut_routing` | The Intent an app shortcut builds reaches the handler, on the UI isolate |
+
+`dumpsys shortcut` independently shows the two generated shortcuts registered
+against the app, labelled from the generated string resources — and `addTask`
+correctly absent, since a tap could not supply its required parameter.
 
 Independently, iOS itself indexed the generated intents: the Shortcuts daemon
 logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
@@ -60,7 +65,7 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Health
 
-132 tests (6 in `os_intents`, 73 in `os_intents_gen`, 53 in `os_intents_cli`),
+150 tests (6 in `os_intents`, 91 in `os_intents_gen`, 53 in `os_intents_cli`),
 `flutter analyze` clean across the workspace, example app builds for iOS, probe
 app builds for Android.
 
@@ -96,6 +101,7 @@ preference — it is the only way to reach `ios/`.
 annotations → build_runner → *.g.dart  (registry, background entrypoint)
                            → *.json    (manifest)
             → os_intents sync          → ios/Runner/OsIntents/*.swift
+                                       → android/…/res/xml + res/values
             → os_intents sync --android → android/…/<applicationId>/*.kt
             → os_intents install       → project.pbxproj  (once)
 ```
@@ -121,13 +127,15 @@ packages/
   os_intents_platform_interface the contract platform implementations fulfil
   os_intents_ios                bridge, headless engine, snippet view (Swift)
   os_intents_android            headless engine bridge (Kotlin)
-  os_intents_gen                build_runner builder → Dart + manifest + Swift/Kotlin
+  os_intents_gen                build_runner builder → Dart + manifest, and the
+                                Swift / Kotlin / shortcuts-XML emitters
   os_intents_cli                sync / install / doctor
   os_intents/example            worked example; also the self-check host
 probe/
   risk1_metadata                where may generated Swift live? (answered)
   android_appfunctions          Android feasibility, and now the Kotlin emitter's
                                 end-to-end check (answered)
+  android_shortcuts             what may a generated shortcuts.xml contain? (answered)
   fixtures                      probe-only sources, copied in per run so they
                                 never ship inside the published plugin
   run_integration.sh            iOS device self-check
@@ -223,9 +231,28 @@ Ordered by how much it blocks a first release.
 
 ### Blocking Android
 
-6. **No app-shortcuts layer.** AppFunctions needs Android 16+ and a toolchain
-   most projects do not have, so the default path for everyone else — shortcuts
-   / capabilities — is still missing.
+6. ~~**No app-shortcuts layer.**~~ Done. `sync` now writes
+   `res/xml/os_intents_shortcuts.xml` and the strings it needs, with no flag and
+   no version chain — a launcher shortcut per intent, plus an Assistant
+   capability for each one that names a built-in intent through the new
+   `androidCapability`. The manifest change is a single `<meta-data>` element.
+
+   Shapes were measured first, in
+   [`probe/android_shortcuts`](../probe/android_shortcuts): the file builds on a
+   stock `flutter create` project, a data URI survives into the Intent the
+   system builds, and no `intent-filter` is needed because a shortcut names its
+   target component.
+
+   Two things it deliberately will not do. It leaves an intent with a **required
+   parameter** out of the launcher — a tap carries no values, so the shortcut
+   would appear and then fail on use — and says so. And it will not guess a
+   built-in intent from `phrases`: Android matches against Google's fixed
+   catalogue, not the app's own wording.
+
+   **This layer always opens the app.** A `shortcuts.xml` `<intent>` starts an
+   Activity, so `Execution.background` does not mean headless here; the plugin
+   routes the launch into the UI isolate. Headless is what the AppFunctions
+   layer, and its version chain, exist for.
 7. **`Execution.static_` does nothing on Android.** `publishStaticValues` is a
    no-op there, so a static intent runs its handler headlessly: correct, but not
    the free answer it is on iOS.

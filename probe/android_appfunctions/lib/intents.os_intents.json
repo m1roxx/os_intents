@@ -14,13 +14,16 @@
       "execution": "background",
       "showsInSpotlight": true,
       "showsSnippet": false,
+      "androidShortcut": true,
+      "androidCapability": "actions.intent.CREATE_TASK",
       "params": [
         {
           "name": "title",
           "title": "Title",
           "type": "string",
           "isRequired": true,
-          "description": "The title of the task"
+          "description": "The title of the task",
+          "androidCapabilityParameter": "task.name"
         },
         {
           "name": "dueDate",
@@ -38,6 +41,7 @@
       "execution": "static",
       "showsInSpotlight": true,
       "showsSnippet": false,
+      "androidShortcut": true,
       "params": []
     },
     {
@@ -48,6 +52,7 @@
       "execution": "foreground",
       "showsInSpotlight": true,
       "showsSnippet": false,
+      "androidShortcut": true,
       "params": []
     }
   ],

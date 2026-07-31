@@ -18,6 +18,11 @@ ADB="${ADB_BIN:-$HOME/Library/Android/sdk/platform-tools/adb}"
 APP_ID="dev.osintents.appfunctions_probe"
 RESULTS="$ROOT/probe/android-results"
 
+# The intent the harness launches through the app-shortcuts path. Must have no
+# required parameters — a shortcut tap cannot supply one, and the emitter leaves
+# such intents out of the launcher for exactly that reason.
+EXPECT_SHORTCUT="openInbox"
+
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 step() { printf '\n\033[1;34m▶ %s\033[0m\n' "$1"; }
 fail() { printf '\033[1;31m%s\033[0m\n' "$1"; }
@@ -51,7 +56,8 @@ echo "  ok"
 
 step "Building"
 if ! ( cd "$APP" && "$FLUTTER" build apk --debug \
-        --dart-define=OS_INTENTS_SELFCHECK=true ) \
+        --dart-define=OS_INTENTS_SELFCHECK=true \
+        --dart-define=OS_INTENTS_EXPECT_SHORTCUT="$EXPECT_SHORTCUT" ) \
       > "$RESULTS/build.log" 2>&1; then
   fail "build failed"
   grep -E "^e: |error:|What went wrong" "$RESULTS/build.log" | head -10
@@ -69,7 +75,13 @@ fi
 # `am start` on the activity, not `monkey -c LAUNCHER`: an ATD image — the one
 # configuration that boots headless on this machine — ships no launcher, so
 # resolving a LAUNCHER category finds nothing and monkey exits -5.
+#
+# Started with the Intent an app shortcut builds, rather than a plain launch.
+# Same reason: there is no launcher to tap the shortcut in, so the harness
+# reproduces the Intent the system was measured to build from the generated
+# shortcuts.xml (probe/android_shortcuts) and checks it reaches the handler.
 if ! "$ADB" shell am start -n "$APP_ID/.MainActivity" \
+      -a dev.osintents.action.RUN -d "osintents://intent/$EXPECT_SHORTCUT" \
       > "$RESULTS/launch.log" 2>&1; then
   fail "am start failed"; tail -5 "$RESULTS/launch.log"; exit 1
 fi

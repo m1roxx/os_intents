@@ -66,13 +66,72 @@ AGP 9.1.1, Gradle 9.3.1 and `compileSdk 37`, to reach a feature that only runs
 on Android 16+ and that nothing invokes yet. That is a bad trade to impose by
 default.
 
-So the Android half should be two layers:
+So the Android half is two layers, and both now exist:
 
 1. **Default: app shortcuts / capabilities.** Works on the Android versions
    people actually run, is invocable today, and needs none of the above.
-2. **Opt-in: AppFunctions**, generated only when the project already meets the
-   requirements. `os_intents doctor` should say plainly why it is off rather
-   than generating code that will not build.
+   Emitted by `sync` with no flag — see below.
+2. **Opt-in: AppFunctions**, behind `--android`, generated only when the project
+   already meets the requirements.
+
+## Layer 1: app shortcuts and capabilities
+
+`ShortcutsEmitter` writes two files into the app's own resources:
+
+```
+android/app/src/main/res/xml/os_intents_shortcuts.xml
+android/app/src/main/res/values/os_intents_strings.xml
+```
+
+The second exists because `shortcutShortLabel` refuses a literal — a label has
+to be a string resource, so every shortcut drags an entry along with it.
+
+Shapes were measured before the emitter was written, in
+[`probe/android_shortcuts`](../probe/android_shortcuts): the whole file builds on
+a **stock** `flutter create` project, and both a data URI and a nested `<extra>`
+survive into the Intent the system builds. The id rides in the URI:
+
+```xml
+<shortcut android:shortcutId="dueToday" …>
+  <intent
+      android:action="dev.osintents.action.RUN"
+      android:targetPackage="…"
+      android:targetClass="….MainActivity"
+      android:data="osintents://intent/dueToday" />
+</shortcut>
+```
+
+The manual step is one element, on the launcher activity:
+
+```xml
+<meta-data
+    android:name="android.app.shortcuts"
+    android:resource="@xml/os_intents_shortcuts" />
+```
+
+No `intent-filter`: a shortcut names its target component, so filter matching
+never runs. `sync` prints this snippet when it writes the files and the manifest
+does not already carry it.
+
+### It always opens the app
+
+A `shortcuts.xml` `<intent>` starts an Activity. There is no way to answer one
+without a UI, so on this layer `Execution.background` does **not** mean headless
+— the plugin routes the launch into the UI isolate and the handler runs there,
+seeing the state the user is looking at. Headless execution is the whole reason
+the AppFunctions layer, and its version chain, exist at all.
+
+### Two things it will not do
+
+- **A launcher shortcut for an intent with a required parameter.** A tap carries
+  no values — there is nowhere in `shortcuts.xml` to put one and nobody to ask —
+  so the shortcut would appear and fail on use. `sync` says which intents this
+  skipped and why. A capability is exempt: Assistant fills the built-in intent's
+  parameters before launching anything.
+- **Guess a built-in intent.** `androidCapability` has to be written out
+  (`actions.intent.CREATE_TASK`), because Android matches against Google's fixed
+  catalogue rather than against the app's own wording. `phrases` cannot be
+  translated into one.
 
 ## Constraints the Kotlin emitter has to respect
 

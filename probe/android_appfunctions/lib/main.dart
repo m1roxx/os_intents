@@ -37,7 +37,38 @@ Future<void> _runSelfCheck() async {
   debugPrint('$_tag BEGIN');
   await _checkHeadlessEngine();
   await _checkUnknownIntent();
+  await _checkShortcutRouting();
   debugPrint('$_tag END');
+}
+
+/// Did an app-shortcut launch reach the handler?
+///
+/// Only meaningful when the harness started the app with the Intent a shortcut
+/// builds, so it reports SKIP otherwise rather than failing an ordinary run.
+///
+/// The invocation arrives from outside — the plugin reads the Activity's launch
+/// Intent and calls in — so unlike every other check here there is nothing to
+/// await. It polls instead, briefly.
+Future<void> _checkShortcutRouting() async {
+  const name = 'shortcut_routing';
+  const shortcutId = String.fromEnvironment('OS_INTENTS_EXPECT_SHORTCUT');
+  if (shortcutId.isEmpty) {
+    debugPrint('$_tag SKIP $name — not launched from a shortcut');
+    return;
+  }
+
+  for (var i = 0; i < 40; i++) {
+    if (openedFromShortcut.isNotEmpty) {
+      _pass(name, 'ran on the UI isolate, in the app the user is looking at');
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  _fail(
+    name,
+    'nothing arrived for "$shortcutId" within 4s. Either the launch Intent did '
+    'not match, or the manifest is missing the shortcuts meta-data.',
+  );
 }
 
 /// The whole Android runtime in one check.

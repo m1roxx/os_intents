@@ -51,6 +51,8 @@ class AppIntent {
     this.identifier,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.androidShortcut = true,
+    this.androidCapability,
   });
 
   /// Human-readable name, shown in Shortcuts and Spotlight.
@@ -83,6 +85,27 @@ class AppIntent {
   /// With this false, an `IntentResult.snippet` still speaks its `spoken` text
   /// — the card is simply not shown.
   final bool showsSnippet;
+
+  /// Android: offer this action as a launcher shortcut.
+  ///
+  /// On by default, since an action nobody can reach is not worth declaring.
+  /// Turn it off for actions that only make sense to an assistant, or to keep
+  /// a long list from crowding the launcher — how many it shows is the
+  /// launcher's decision, and the order here is the order it ranks them in.
+  final bool androidShortcut;
+
+  /// Android: the built-in intent this action fulfils, for example
+  /// `actions.intent.CREATE_TASK`.
+  ///
+  /// This is what lets Assistant invoke the action by voice, and it is the
+  /// Android counterpart of [phrases] — but it cannot be derived from them.
+  /// Android matches an app action against Google's fixed catalogue of
+  /// built-in intents rather than against wording the app chooses, so the right
+  /// name is a lookup, not a translation.
+  ///
+  /// Without one, the action still gets a launcher shortcut; it just has no
+  /// spoken trigger.
+  final String? androidCapability;
 }
 
 /// Describes a single parameter of an [AppIntent] handler.
@@ -94,6 +117,7 @@ class Param {
     this.description,
     this.requestValueDialog,
     this.defaultValue,
+    this.androidCapabilityParameter,
   });
 
   final String title;
@@ -104,4 +128,13 @@ class Param {
   final String? requestValueDialog;
 
   final Object? defaultValue;
+
+  /// Android: the built-in intent parameter this value comes from, for example
+  /// `task.name`.
+  ///
+  /// Only meaningful on an intent that sets `androidCapability`, and only these
+  /// parameters can be filled by voice: Assistant supplies what the built-in
+  /// intent defines and nothing else. A parameter without one is still passed
+  /// when the action is opened from a launcher shortcut, just never spoken.
+  final String? androidCapabilityParameter;
 }

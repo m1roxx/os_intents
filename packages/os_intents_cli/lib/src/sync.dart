@@ -86,6 +86,11 @@ class SyncCommand extends Command<int> {
     final files = SwiftEmitter(merged).emit();
     final target = Directory(p.join(root, outputDir));
 
+    // Not behind --android: the shortcuts layer costs nothing. Everything the
+    // flag gates is the AppFunctions version chain, and this needs none of it.
+    final rcShortcuts = _syncShortcuts(root, merged, checkOnly: checkOnly);
+    if (rcShortcuts != 0) return rcShortcuts;
+
     if (argResults!.flag('android')) {
       final rc = _syncAndroid(root, merged, checkOnly: checkOnly);
       if (rc != 0) return rc;
@@ -148,6 +153,131 @@ class SyncCommand extends Command<int> {
       );
     }
     return 0;
+  }
+
+  /// Writes `res/xml/os_intents_shortcuts.xml` and the strings it references.
+  ///
+  /// Silent no-op when there is no Android project — an iOS-only app should not
+  /// have to know this exists.
+  int _syncShortcuts(String root, Manifest merged, {required bool checkOnly}) {
+    final manifestFile = File(
+      p.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+    );
+    if (!manifestFile.existsSync()) return 0;
+
+    final appId = _applicationId(root);
+    if (appId == null) {
+      stderr.writeln(
+        'Could not read the applicationId from android/app/build.gradle.kts, '
+        'so the generated shortcuts have no target package to name.',
+      );
+      return 66;
+    }
+
+    final manifestText = manifestFile.readAsStringSync();
+    final activity = _launcherActivity(manifestText, root: root);
+    if (activity == null) {
+      stderr.writeln(
+        'Could not find a launcher activity in android/app/src/main/'
+        'AndroidManifest.xml.\n'
+        'A shortcut has to name the Activity it starts, and guessing it wrong '
+        'produces shortcuts that fail at the tap rather than at build time.',
+      );
+      return 66;
+    }
+
+    final files = ShortcutsEmitter(
+      merged,
+      applicationId: appId,
+      activityClass: activity,
+    ).emit();
+    if (files.isEmpty) return 0;
+
+    final resDir = p.join(root, 'android', 'app', 'src', 'main', 'res');
+    var changed = 0;
+    for (final entry in files.entries) {
+      final out = File(p.join(resDir, entry.key));
+      final existing = out.existsSync() ? out.readAsStringSync() : null;
+      if (existing == entry.value) continue;
+      changed++;
+      if (checkOnly) {
+        stderr.writeln('  drift: ${p.relative(out.path, from: root)}');
+        continue;
+      }
+      out.parent.createSync(recursive: true);
+      out.writeAsStringSync(entry.value);
+      stdout.writeln('  wrote ${p.relative(out.path, from: root)}');
+    }
+
+    if (!checkOnly) {
+      for (final intent in merged.intents) {
+        if (intent.canBeLauncherShortcut) continue;
+        final blockers = intent.androidShortcutBlockers;
+        if (blockers.isEmpty) continue;
+        stdout.writeln(
+          '  note: "${intent.id}" gets no launcher shortcut — a tap cannot '
+          'supply ${blockers.join(', ')}.',
+        );
+      }
+    }
+
+    if (!checkOnly && changed > 0 && !_declaresShortcutsMetaData(manifestText)) {
+      stdout.writeln(
+        '\nOne line left to add, to the launcher <activity> in '
+        'android/app/src/main/AndroidManifest.xml:\n'
+        '  <meta-data\n'
+        '      android:name="android.app.shortcuts"\n'
+        '      android:resource="@xml/os_intents_shortcuts" />\n'
+        'Without it Android never reads the file and no shortcut appears. '
+        'That is the\nwhole manifest change — a shortcut names its target '
+        'component, so no intent-filter\nis needed.',
+      );
+    }
+    return 0;
+  }
+
+  static final _launcherActivityPattern = RegExp(
+    r'<activity\b([^>]*)>(.*?)</activity>',
+    dotAll: true,
+  );
+  static final _activityNamePattern = RegExp(r'android:name\s*=\s*"([^"]+)"');
+
+  /// The activity carrying MAIN/LAUNCHER, fully qualified.
+  ///
+  /// Read from the manifest rather than assumed to be `.MainActivity`: it is
+  /// what Flutter's template writes, but an app that renamed it would get
+  /// shortcuts that fail when tapped, which is a much worse way to find out.
+  String? _launcherActivity(String manifestText, {required String root}) {
+    for (final m in _launcherActivityPattern.allMatches(manifestText)) {
+      final body = m.group(2)!;
+      if (!body.contains('android.intent.category.LAUNCHER')) continue;
+      final name = _activityNamePattern.firstMatch(m.group(1)!)?.group(1);
+      if (name == null) continue;
+      if (!name.startsWith('.')) return name;
+      final namespace = _namespace(root) ?? _applicationId(root);
+      return namespace == null ? null : '$namespace$name';
+    }
+    return null;
+  }
+
+  bool _declaresShortcutsMetaData(String manifestText) =>
+      manifestText.contains('android.app.shortcuts');
+
+  /// Reads `namespace = "..."` from the app's Gradle file.
+  ///
+  /// The manifest's `android:name=".MainActivity"` is relative to this, which
+  /// since AGP 8 lives in Gradle rather than in the manifest's `package`
+  /// attribute — and it is not always the same as the applicationId.
+  String? _namespace(String root) {
+    for (final name in ['build.gradle.kts', 'build.gradle']) {
+      final f = File(p.join(root, 'android', 'app', name));
+      if (!f.existsSync()) continue;
+      final m = RegExp(
+        r'''namespace\s*=?\s*["']([\w.]+)["']''',
+      ).firstMatch(f.readAsStringSync());
+      if (m != null) return m.group(1);
+    }
+    return null;
   }
 
   /// Writes the Kotlin next to the app's own sources.

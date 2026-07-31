@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  shortcutShortLabel and shortcutLongLabel must be string resources — a literal
+  is rejected — so an emitter has to produce this file alongside shortcuts.xml.
+  Half the reason the probe exists is to confirm that before designing around it.
+-->
+<resources>
+  <string name="probe_add_short">Add task</string>
+  <string name="probe_add_long">Add a task to the inbox</string>
+  <string name="probe_due_short">Due today</string>
+  <string name="probe_due_long">Tasks due today</string>
+</resources>

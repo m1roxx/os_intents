@@ -63,6 +63,7 @@ class SpecParser {
 
     final spotlight = annotation.read('showsInSpotlight');
     final snippet = annotation.read('showsSnippet');
+    final androidShortcut = annotation.read('androidShortcut');
 
     _intents.add(
       IntentSpec(
@@ -75,6 +76,8 @@ class SpecParser {
         systemImageName: _stringOrNull(annotation, 'systemImageName'),
         showsInSpotlight: spotlight.isNull ? true : spotlight.boolValue,
         showsSnippet: snippet.isNull ? false : snippet.boolValue,
+        androidShortcut: androidShortcut.isNull ? true : androidShortcut.boolValue,
+        androidCapability: _stringOrNull(annotation, 'androidCapability'),
         params: _params(element, id),
       ),
     );
@@ -125,6 +128,10 @@ class SpecParser {
           isRequired: p.isRequiredNamed,
           description: _stringOrNull(reader, 'description'),
           requestValueDialog: _stringOrNull(reader, 'requestValueDialog'),
+          androidCapabilityParameter: _stringOrNull(
+            reader,
+            'androidCapabilityParameter',
+          ),
         ),
       );
     }

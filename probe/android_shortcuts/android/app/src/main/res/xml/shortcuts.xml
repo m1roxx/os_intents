@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Probe: what does Android actually accept in shortcuts.xml, and what does it
+  build out of it?
+
+  Hand-written, not generated. The point is to find out what an emitter is
+  allowed to write before writing one — the documentation says the <intent>
+  element "must provide a value for android:action" and lists nothing else, so
+  whether a data URI or an <extra> survives is unanswered by the docs.
+
+  Every shape here is one that a generated shortcuts.xml would want to use.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- 1. Can the intent id ride in a data URI, and in an extra? -->
+  <shortcut
+      android:shortcutId="addTask"
+      android:enabled="true"
+      android:shortcutShortLabel="@string/probe_add_short"
+      android:shortcutLongLabel="@string/probe_add_long">
+    <intent
+        android:action="dev.osintents.action.RUN"
+        android:targetPackage="dev.osintents.shortcuts_probe"
+        android:targetClass="dev.osintents.shortcuts_probe.MainActivity"
+        android:data="osintents://intent/addTask">
+      <extra
+          android:name="osIntentsId"
+          android:value="addTask" />
+    </intent>
+    <capability-binding android:key="actions.intent.CREATE_TASK" />
+  </shortcut>
+
+  <!-- 2. The fallback if neither survives: a distinct action per intent. -->
+  <shortcut
+      android:shortcutId="dueToday"
+      android:enabled="true"
+      android:shortcutShortLabel="@string/probe_due_short"
+      android:shortcutLongLabel="@string/probe_due_long">
+    <intent
+        android:action="dev.osintents.action.RUN.dueToday"
+        android:targetPackage="dev.osintents.shortcuts_probe"
+        android:targetClass="dev.osintents.shortcuts_probe.MainActivity" />
+  </shortcut>
+
+  <!-- 3. Does a capability with a BII parameter build on stock Flutter
+       settings — no compileSdk 37, no AGP 9.1.1, none of the AppFunctions
+       version chain? -->
+  <capability android:name="actions.intent.CREATE_TASK">
+    <intent
+        android:action="dev.osintents.action.RUN"
+        android:targetPackage="dev.osintents.shortcuts_probe"
+        android:targetClass="dev.osintents.shortcuts_probe.MainActivity">
+      <parameter
+          android:name="task.name"
+          android:key="title" />
+    </intent>
+  </capability>
+
+</shortcuts>

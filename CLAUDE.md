@@ -71,6 +71,7 @@ Three stages, and the split is forced rather than chosen:
 annotations → build_runner → lib/*.os_intents.g.dart   registry + background entrypoint
                            → lib/*.os_intents.json     manifest
             → os_intents sync            → ios/Runner/OsIntents/*.swift
+                                         → android/…/res/xml + res/values  (app shortcuts)
             → os_intents sync --android  → android/app/src/main/kotlin/<applicationId>/*.kt
             → os_intents install         → project.pbxproj  (once per project)
 ```
@@ -96,8 +97,17 @@ Runner target or another `AppShortcutsProvider` won. The reader lives in
 bundle captured from a real build — the format is Apple's and undocumented, so
 it prints what it does not recognise rather than guessing.
 
-Android generation is **off by default** (`--android` opts in): it forces
-`compileSdk 37`, AGP 9.1.1 and Gradle 9.3.1 on the consuming app.
+Android has two layers, and only the second is gated. **App shortcuts and
+Assistant capabilities** are emitted by plain `sync`: they cost nothing, work on
+the Android versions people run, and need one `<meta-data>` line in the manifest.
+**AppFunctions** stays behind `--android` because it forces `compileSdk 37`, AGP
+9.1.1 and Gradle 9.3.1 on the consuming app.
+
+The two are not interchangeable. A `shortcuts.xml` `<intent>` starts an Activity,
+so the shortcuts layer **always opens the app** — `Execution.background` is not
+headless there. Headless is what AppFunctions, and its version chain, buy.
+An intent with a *required* parameter gets no launcher shortcut at all: a tap
+carries no values, so it would appear and then fail on use.
 
 ## Architecture
 

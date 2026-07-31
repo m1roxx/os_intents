@@ -1,8 +1,7 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="appfunctions_probe"
-        android:name=".ProbeApplication"
+        android:label="shortcuts_probe"
+        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -25,30 +24,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- The whole manifest change the app-shortcuts layer asks for. No
-                 intent-filter for the shortcut's action: a shortcut names its
-                 target component, so filter matching never runs. -->
+            <!-- Deliberately no <intent-filter> for the shortcut's action: a
+                 shortcut names its target component explicitly, and the probe
+                 exists partly to confirm that one meta-data line is the whole
+                 manifest change a user has to make. -->
             <meta-data
                 android:name="android.app.shortcuts"
-                android:resource="@xml/os_intents_shortcuts" />
+                android:resource="@xml/shortcuts" />
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <service
-            android:name=".OsIntentsAppFunctionService"
-            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
-            android:exported="true"
-            tools:targetApi="36">
-            <property
-                android:name="android.app.appfunctions.v2"
-                android:value="os_intents_app_functions.xml" />
-            <intent-filter>
-                <action android:name="android.app.appfunctions.AppFunctionService" />
-            </intent-filter>
-        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

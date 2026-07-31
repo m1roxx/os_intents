@@ -1,12 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:os_intents_platform_interface/os_intents_platform_interface.dart';
 
-/// Android implementation, talking to the generated `@AppFunction` methods
-/// through `OsIntentsBridge`.
+/// Android implementation, serving both invocation paths.
 ///
-/// Only the background channel exists. An `AppFunctionService` runs with no
-/// Activity, so there is never a foreground engine to prefer — unlike iOS,
-/// where an intent may arrive while the app is on screen.
+/// An app shortcut or an Assistant capability starts the launcher Activity, and
+/// the plugin routes it to the UI isolate. A generated `@AppFunction` has no
+/// Activity at all and goes through `OsIntentsBridge` into a headless engine.
+/// The same channel and the same protocol carry both — they differ only in
+/// which engine is on the other end.
 class OsIntentsAndroid extends OsIntentsPlatform {
   static const MethodChannel _channel = MethodChannel('dev.osintents/background');
 
@@ -67,11 +68,11 @@ class OsIntentsAndroid extends OsIntentsPlatform {
 
   @override
   Future<void> ready({bool background = false}) async {
-    // Only the headless engine has a bridge listening on this channel. Calling
-    // it from the UI isolate would raise MissingPluginException, and there is
-    // nothing to announce anyway: Android has no foreground invocation path,
-    // because an AppFunctionService never has an Activity.
-    if (!background) return;
+    // Announced from both isolates now. The headless engine has always needed
+    // it; the UI isolate needs it since the app-shortcuts layer arrived, which
+    // gave Android a foreground invocation path it did not have — a shortcut
+    // tap can be a cold start, and the plugin holds the invocation until this
+    // says there is something to hand it to.
     await _channel.invokeMethod<void>('ready');
   }
 

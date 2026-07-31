@@ -56,6 +56,7 @@ class ParamSpec {
     this.entityTypeName,
     this.description,
     this.requestValueDialog,
+    this.androidCapabilityParameter,
   });
 
   final String name;
@@ -69,6 +70,9 @@ class ParamSpec {
   final String? description;
   final String? requestValueDialog;
 
+  /// Android: the built-in intent parameter that fills this, e.g. `task.name`.
+  final String? androidCapabilityParameter;
+
   /// Swift type used in the generated `@Parameter` declaration.
   String get swiftType =>
       type == ParamType.entity ? '${entityTypeName}Entity' : type.swift;
@@ -81,6 +85,8 @@ class ParamSpec {
     'isRequired': isRequired,
     if (description != null) 'description': description,
     if (requestValueDialog != null) 'requestValueDialog': requestValueDialog,
+    if (androidCapabilityParameter != null)
+      'androidCapabilityParameter': androidCapabilityParameter,
   };
 
   static ParamSpec fromJson(Map<String, Object?> j) => ParamSpec(
@@ -91,6 +97,7 @@ class ParamSpec {
     isRequired: j['isRequired']! as bool,
     description: j['description'] as String?,
     requestValueDialog: j['requestValueDialog'] as String?,
+    androidCapabilityParameter: j['androidCapabilityParameter'] as String?,
   );
 }
 
@@ -105,6 +112,8 @@ class IntentSpec {
     this.systemImageName,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.androidShortcut = true,
+    this.androidCapability,
     this.params = const [],
   });
 
@@ -117,7 +126,39 @@ class IntentSpec {
   final String? systemImageName;
   final bool showsInSpotlight;
   final bool showsSnippet;
+
+  /// Android: offer this as a launcher shortcut.
+  final bool androidShortcut;
+
+  /// Android: the built-in intent this fulfils, e.g. `actions.intent.CREATE_TASK`.
+  final String? androidCapability;
+
   final List<ParamSpec> params;
+
+  /// Whether a launcher shortcut for this would actually work.
+  ///
+  /// A tap from the launcher carries no values — there is nowhere in
+  /// `shortcuts.xml` to put one and nobody to ask. So an intent with a required
+  /// parameter cannot be offered there: the shortcut would appear, and fail the
+  /// moment it was used. A capability is different, because Assistant fills the
+  /// built-in intent's parameters before it launches anything.
+  bool get canBeLauncherShortcut =>
+      androidShortcut && params.every((p) => !p.isRequired);
+
+  /// Whether anything is emitted for this intent into `shortcuts.xml`.
+  bool get hasAndroidShortcut =>
+      canBeLauncherShortcut || androidCapability != null;
+
+  /// Required parameters that keep this out of the launcher, for reporting.
+  List<String> get androidShortcutBlockers => androidShortcut
+      ? [for (final p in params) if (p.isRequired) p.name]
+      : const [];
+
+  /// Resource name for this intent's label strings.
+  ///
+  /// `shortcutShortLabel` will not take a literal, so every shortcut drags a
+  /// `values` entry along with it and the two files have to agree on the name.
+  String get androidLabelResource => 'os_intents_${id}_label';
 
   /// Whether this intent can end up needing the headless Dart engine.
   ///
@@ -171,6 +212,8 @@ class IntentSpec {
     if (systemImageName != null) 'systemImageName': systemImageName,
     'showsInSpotlight': showsInSpotlight,
     'showsSnippet': showsSnippet,
+    'androidShortcut': androidShortcut,
+    if (androidCapability != null) 'androidCapability': androidCapability,
     'params': [for (final p in params) p.toJson()],
   };
 
@@ -184,6 +227,8 @@ class IntentSpec {
     systemImageName: j['systemImageName'] as String?,
     showsInSpotlight: j['showsInSpotlight'] as bool? ?? true,
     showsSnippet: j['showsSnippet'] as bool? ?? false,
+    androidShortcut: j['androidShortcut'] as bool? ?? true,
+    androidCapability: j['androidCapability'] as String?,
     params: [
       for (final p in (j['params'] as List? ?? const []))
         ParamSpec.fromJson((p as Map).cast<String, Object?>()),
