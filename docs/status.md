@@ -270,7 +270,8 @@ Ordered by how much it blocks a first release.
 **~~How should Android AppFunctions be gated?~~** Decided: opt-in, behind
 `os_intents sync --android`, so the version chain is never imposed on anyone who
 did not ask. The other half of that recommendation — an app-shortcuts layer as
-the default for everyone else — is not built.
+the default for everyone else — is built too, and item 6 covers what it does and
+does not do.
 
 **Is `install`'s pbxproj editing acceptable, or should the provider file be a
 documented manual step?** Still a judgement call, but a smaller one than it was.
@@ -281,10 +282,17 @@ for anyone who wants it. What is still unproven is Xcode's own reaction over
 time: a project it reformats after a version bump has only been reasoned about,
 not observed.
 
-**What is the package actually called?** `os_intents` looked free on pub.dev but
-was never confirmed against `pub.dev/packages/os_intents` directly. Worth
-settling before any of it is published, since the name is baked into the
-generated Swift, the channel names and the CLI.
+**~~What is the package actually called?~~** Checked 2026-07-31:
+`pub.dev/packages/os_intents` returns 404 and the search API does not list it, so
+the name is free. Nothing to change — it is already baked into the generated
+Swift, the channel names and the CLI.
+
+The same search turned up prior art nobody had looked for: `flutter_app_intents`,
+`app_intents`, `app_intents_annotations`, `flutter_assistant_intents`,
+`sirikit_media_intents` and `intelligence` all occupy some part of this space.
+None of them has been read. Worth an hour before the README makes claims about
+being the first or the only one — and worth knowing whether one of them already
+solved something here the hard way.
 
 ---
 
