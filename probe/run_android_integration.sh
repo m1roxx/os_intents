@@ -12,8 +12,25 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/probe/android_appfunctions"
-FLUTTER="${FLUTTER_BIN:-/Users/dev/fvm/versions/3.44.8/bin/flutter}"
-DART="${DART_BIN:-/Users/dev/fvm/versions/3.44.8/bin/dart}"
+
+# Flutter is pinned per-repo in .fvmrc, so the SDK fvm linked into .fvm/ is the
+# one every other step here used. Fall back to PATH for a machine without fvm,
+# and let FLUTTER_BIN/DART_BIN override either.
+sdk() {
+  local tool="$1" env_override="$2"
+  if [ -n "$env_override" ]; then printf '%s' "$env_override"; return; fi
+  if [ -x "$ROOT/.fvm/flutter_sdk/bin/$tool" ]; then
+    printf '%s' "$ROOT/.fvm/flutter_sdk/bin/$tool"
+  else
+    command -v "$tool" || true
+  fi
+}
+FLUTTER="$(sdk flutter "${FLUTTER_BIN:-}")"
+DART="$(sdk dart "${DART_BIN:-}")"
+if [ ! -x "$FLUTTER" ] || [ ! -x "$DART" ]; then
+  printf 'No Flutter SDK. Run `fvm install` in the repo root, or set FLUTTER_BIN and DART_BIN.\n' >&2
+  exit 1
+fi
 ADB="${ADB_BIN:-$HOME/Library/Android/sdk/platform-tools/adb}"
 APP_ID="dev.osintents.appfunctions_probe"
 RESULTS="$ROOT/probe/android-results"
@@ -79,7 +96,7 @@ fi
 # Started with the Intent an app shortcut builds, rather than a plain launch.
 # Same reason: there is no launcher to tap the shortcut in, so the harness
 # reproduces the Intent the system was measured to build from the generated
-# shortcuts.xml (probe/android_shortcuts) and checks it reaches the handler.
+# shortcuts.xml and checks it reaches the handler.
 if ! "$ADB" shell am start -n "$APP_ID/.MainActivity" \
       -a dev.osintents.action.RUN -d "osintents://intent/$EXPECT_SHORTCUT" \
       > "$RESULTS/launch.log" 2>&1; then

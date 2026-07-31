@@ -1,6 +1,0 @@
-## root.ssu.yaml: present
-### utterance "Run pod probe": absent
-### utterance "Run runner probe": PRESENT
-## autoShortcutProviderMangledName / autoShortcuts:
-    6Runner14ProbeShortcutsV
-    autoShortcuts: [{"actionIdentifier": "ProbeRunnerIntent", "availabilityAnnotations": {"LNPlatformNameIOS": {"introducedVersion": "16.0"}, "LNPlatformNameWildcard": {"introducedVersion": "*"}}, "phraseTemplates": [{"alternatives": [], "key": "Run runner probe in ${applicationName}"}], "shortTitle": {"alternatives":

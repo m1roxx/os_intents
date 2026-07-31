@@ -12,8 +12,25 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/packages/os_intents/example"
-FLUTTER="${FLUTTER_BIN:-/Users/dev/fvm/versions/3.44.8/bin/flutter}"
-DART="${DART_BIN:-/Users/dev/fvm/versions/3.44.8/bin/dart}"
+
+# Flutter is pinned per-repo in .fvmrc, so the SDK fvm linked into .fvm/ is the
+# one every other step here used. Fall back to PATH for a machine without fvm,
+# and let FLUTTER_BIN/DART_BIN override either.
+sdk() {
+  local tool="$1" env_override="$2"
+  if [ -n "$env_override" ]; then printf '%s' "$env_override"; return; fi
+  if [ -x "$ROOT/.fvm/flutter_sdk/bin/$tool" ]; then
+    printf '%s' "$ROOT/.fvm/flutter_sdk/bin/$tool"
+  else
+    command -v "$tool" || true
+  fi
+}
+FLUTTER="$(sdk flutter "${FLUTTER_BIN:-}")"
+DART="$(sdk dart "${DART_BIN:-}")"
+if [ ! -x "$FLUTTER" ] || [ ! -x "$DART" ]; then
+  printf 'No Flutter SDK. Run `fvm install` in the repo root, or set FLUTTER_BIN and DART_BIN.\n' >&2
+  exit 1
+fi
 BUNDLE_ID="dev.osintents.osIntentsExample"
 RESULTS="$ROOT/probe/integration-results"
 

@@ -7,17 +7,27 @@
 build/
 pubspec.lock
 *.iml
+# Generated, and it records this machine's SDK path.
+**/.flutter-plugins-dependencies
+**/.flutter-plugins
 
 # iOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Flutter/ephemeral/
+# `**/` matters: a pattern with an inner slash anchors to this file's directory,
+# so the un-prefixed form missed every nested project and let the probe's
+# generated xcconfig — absolute paths and all — into the repository.
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/ephemeral/
 **/xcuserdata/
 
+# What `os_intents install` leaves behind. A copy of the project as it was, so
+# it carries whatever the original did — a signing team among it.
+*.os_intents.bak
+
 # probe artifacts
-probe/**/probe-results/
+probe/**/probe-results*/
 probe/**/probe-console.log
 probe/**/*.probe-backup
 
@@ -31,3 +41,19 @@ probe/**/integration-results/
 probe/integration-results/
 probe/**/android-results/
 probe/android-results/
+
+# Working notes, deliberately not published. The public half is docs/verified.md.
+CLAUDE.md
+docs/status.md
+
+# The GIF is committed; the frames it was assembled from are not — 857 KB of
+# input to a one-off script. tool/make_demo_gif.py says where they came from.
+docs/media/*.png
+
+# Answered its question (see docs/android.md); kept locally, out of the repo.
+probe/android_shortcuts/
+
+# Development log for a publish_to:none workspace root. pub.dev shows the
+# per-package CHANGELOGs; this one had no reader. Leading slash on purpose —
+# without it this would silently ignore all six package CHANGELOGs too.
+/CHANGELOG.md

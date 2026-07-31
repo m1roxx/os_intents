@@ -19,7 +19,22 @@
 set -uo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FLUTTER="${FLUTTER_BIN:-/Users/dev/fvm/versions/3.44.8/bin/flutter}"
+ROOT="$(cd "$APP_DIR/../.." && pwd)"
+
+# Flutter is pinned per-repo in .fvmrc; prefer the SDK fvm linked into .fvm/,
+# fall back to PATH, and let FLUTTER_BIN override either.
+FLUTTER="${FLUTTER_BIN:-}"
+if [ -z "$FLUTTER" ]; then
+  if [ -x "$ROOT/.fvm/flutter_sdk/bin/flutter" ]; then
+    FLUTTER="$ROOT/.fvm/flutter_sdk/bin/flutter"
+  else
+    FLUTTER="$(command -v flutter || true)"
+  fi
+fi
+if [ ! -x "$FLUTTER" ]; then
+  printf 'No Flutter SDK. Run `fvm install` in the repo root, or set FLUTTER_BIN.\n' >&2
+  exit 1
+fi
 XCCONFIG="$APP_DIR/ios/Flutter/Debug.xcconfig"
 XCCONFIG_BACKUP="$APP_DIR/ios/Flutter/Debug.xcconfig.probe1b-backup"
 APP_BUNDLE="$APP_DIR/build/ios/iphonesimulator/Runner.app"
