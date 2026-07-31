@@ -148,13 +148,17 @@ have been.
 
 Interactive snippets, and `AssistantIntent` schemas (iOS 18+).
 
-Entities and snippet cards are iOS only. On Android an entity parameter does
-cross — as its identifier, same wire format as iOS, resolved by your handler —
-but there is no counterpart to `@EntityQuery`, where the OS calls back to turn
-a spoken name into an entity. Android inverts that: entities are published to
-a system index rather than pulled from a running app. Snippet cards have no
-Android counterpart at all; an assistant renders its own presentation from
-what the function returns.
+Entities and snippet cards are iOS only, and for entities that is not a gap
+waiting to be filled. An entity parameter does cross to Android — as its
+identifier, same wire format as iOS, resolved by your handler — but there is no
+counterpart to `@EntityQuery`, and not because nobody wrote one:
+`androidx.appfunctions` 1.0.0-alpha10 has no entity concept at all. Its
+AppSearch index holds the app's *functions*, not its data, and the only way to
+narrow a parameter is a fixed set fixed at compile time. Measured by reading
+the library, and written up in [android.md](android.md).
+
+Snippet cards have no Android counterpart either; an assistant renders its own
+presentation from what the function returns.
 
 ## Health
 
