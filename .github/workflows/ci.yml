@@ -58,10 +58,14 @@ jobs:
           cache: true
       - run: flutter pub get
 
-      # Two different kinds of drift, and only the second has a command of its
-      # own. build_runner's output is committed, so regenerating it must be a
-      # no-op; `sync --check` then proves the Swift, Kotlin and XML in the
-      # example's native projects still match that output.
+      # Three kinds of drift, and they fail separately. build_runner's output is
+      # committed, so regenerating it must be a no-op; `sync --check` proves the
+      # Swift, Kotlin and XML in the example's native projects still match that
+      # output; `install --check` proves the native projects actually reference
+      # what is there. The third is not hypothetical: it was added after
+      # OsIntentsEnums.swift turned out to have been generated into the example
+      # and never registered, so it compiled into nothing while every other
+      # step reported success.
       - name: build_runner is a no-op
         working-directory: packages/os_intents/example
         run: |
@@ -71,6 +75,10 @@ jobs:
       - name: native sources match the manifest
         working-directory: packages/os_intents/example
         run: dart run os_intents_cli:os_intents sync --check
+
+      - name: the native projects reference them
+        working-directory: packages/os_intents/example
+        run: dart run os_intents_cli:os_intents install --check
 
   swift:
     name: emitted Swift type-checks
@@ -93,3 +101,11 @@ jobs:
       - name: swiftc -typecheck the emitter's output
         working-directory: packages/os_intents_gen
         run: dart test test/swift_compiles_test.dart
+
+      # The example was never built by CI, and that is how generated Swift
+      # naming a type called "nullEnum" — and generated Dart calling .values on
+      # null — reached a commit. Everything upstream of a compiler can be green
+      # while the app it produces does not build.
+      - name: the example app builds
+        working-directory: packages/os_intents/example
+        run: flutter build ios --simulator --debug
