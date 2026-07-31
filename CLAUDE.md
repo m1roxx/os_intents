@@ -29,6 +29,7 @@ Per package, from the package directory — `flutter test` for Flutter packages,
 ```bash
 cd packages/os_intents      && fvm flutter test
 cd packages/os_intents_gen  && fvm dart test
+cd packages/os_intents_cli  && fvm dart test
 cd packages/os_intents_gen  && fvm dart test test/emit_kotlin_test.dart -n "foreground intents are left out"
 ```
 
@@ -78,7 +79,16 @@ fvm dart run build_runner build --delete-conflicting-outputs
 fvm dart run os_intents_cli:os_intents sync
 fvm dart run os_intents_cli:os_intents install     # first time only
 fvm dart run os_intents_cli:os_intents sync --check  # CI drift guard
+fvm dart run os_intents_cli:os_intents doctor        # what the OS will actually see
 ```
+
+`doctor` reads `Metadata.appintents/extract.actionsdata` out of a *built*
+bundle, so it answers the one question no other step can: the generated Swift
+can be written, compiled and still invisible, because the folder is not in the
+Runner target or another `AppShortcutsProvider` won. The reader lives in
+`os_intents_cli/lib/src/actions_data.dart`, is pure, and is tested against a
+bundle captured from a real build — the format is Apple's and undocumented, so
+it prints what it does not recognise rather than guessing.
 
 Android generation is **off by default** (`--android` opts in): it forces
 `compileSdk 37`, AGP 9.1.1 and Gradle 9.3.1 on the consuming app.

@@ -4,6 +4,8 @@ import 'package:args/command_runner.dart';
 import 'package:os_intents_gen/os_intents_gen.dart';
 import 'package:path/path.dart' as p;
 
+import 'manifests.dart';
+
 /// Reads the manifests build_runner produced and writes Swift into the app.
 ///
 /// `build_runner` cannot write outside the paths it derives from its inputs, so
@@ -49,21 +51,17 @@ class SyncCommand extends Command<int> {
     final root = p.absolute(argResults!.option('project')!);
     final checkOnly = argResults!.flag('check');
 
-    final libDir = Directory(p.join(root, 'lib'));
-    if (!libDir.existsSync()) {
+    if (!Directory(p.join(root, 'lib')).existsSync()) {
       stderr.writeln('No lib/ directory under $root — is this a Flutter project?');
       return 66;
     }
 
-    final manifests = <Manifest>[];
-    for (final f in libDir.listSync(recursive: true).whereType<File>()) {
-      if (!f.path.endsWith('.os_intents.json')) continue;
-      try {
-        manifests.add(Manifest.decode(f.readAsStringSync()));
-      } on FormatException catch (e) {
-        stderr.writeln('${p.relative(f.path, from: root)}: $e');
-        return 65;
-      }
+    final List<Manifest> manifests;
+    try {
+      manifests = readManifests(root);
+    } on ManifestReadException catch (e) {
+      stderr.writeln('${p.relative(e.path, from: root)}: ${e.message}');
+      return 65;
     }
 
     if (manifests.isEmpty) {
