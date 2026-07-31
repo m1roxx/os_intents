@@ -2,7 +2,11 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
-    - "**/*.g.dart"
+    # Deliberately *not* "**/*.g.dart". Excluding it hid a generator bug that
+    # emitted the literal word `null` as a type name into committed Dart — the
+    # example stopped building for iOS and analyze stayed green. The emitter
+    # writes `// ignore_for_file: type=lint` into every file it produces, so
+    # what analysis sees here is errors only, which is exactly the point.
     - "probe/**/build/**"
   language:
     strict-casts: true

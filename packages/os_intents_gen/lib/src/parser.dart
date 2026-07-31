@@ -143,17 +143,18 @@ class SpecParser {
         );
       }
       final reader = ConstantReader(ann);
-      final (type, entityTypeName) = _paramType(
-        p.type,
-        p.displayName,
-        intentId,
-      );
+      final (type, refTypeName) = _paramType(p.type, p.displayName, intentId);
       specs.add(
         ParamSpec(
           name: p.displayName,
           title: reader.read('title').stringValue,
           type: type,
-          entityTypeName: entityTypeName,
+          // The two names go in different slots, and putting an enum's into
+          // entityTypeName was not a cosmetic mistake: swiftType, the Kotlin
+          // value constraint and the Dart decode all read enumTypeName, so all
+          // three emitted the word `null` into real source files.
+          entityTypeName: type == ParamType.entity ? refTypeName : null,
+          enumTypeName: type == ParamType.enum_ ? refTypeName : null,
           isRequired: p.isRequiredNamed,
           description: _stringOrNull(reader, 'description'),
           requestValueDialog: _stringOrNull(reader, 'requestValueDialog'),

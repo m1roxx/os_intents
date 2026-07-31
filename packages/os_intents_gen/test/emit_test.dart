@@ -4,8 +4,13 @@ import 'package:test/test.dart';
 Manifest manifest({
   List<IntentSpec> intents = const [],
   List<EntitySpec> entities = const [],
-}) =>
-    Manifest(source: 'lib/intents.dart', intents: intents, entities: entities);
+  List<EnumSpec> enums = const [],
+}) => Manifest(
+  source: 'lib/intents.dart',
+  intents: intents,
+  entities: entities,
+  enums: enums,
+);
 
 IntentSpec intent({
   String id = 'addTask',
@@ -33,12 +38,14 @@ ParamSpec param(
   ParamType type = ParamType.string,
   bool required = true,
   String? entityTypeName,
+  String? enumTypeName,
 }) => ParamSpec(
   name: name,
   title: name,
   type: type,
   isRequired: required,
   entityTypeName: entityTypeName,
+  enumTypeName: enumTypeName,
 );
 
 void main() {
@@ -70,6 +77,40 @@ void main() {
       );
       expect(out, contains("note: args['note'] as String?"));
       expect(out, isNot(contains('_require')));
+    });
+
+    test('an enum is decoded through its own Dart class', () {
+      // Not through the @AppEnum typeName: the two are the same in every
+      // example here and need not be, and Swift is the side that wants the
+      // annotation's name. Naming the wrong one emits Dart for a type that
+      // does not exist.
+      final out = emitDartRegistry(
+        manifest(
+          enums: [
+            EnumSpec(
+              typeName: 'Urgency',
+              dartClassName: 'TaskPriority',
+              values: [EnumValueSpec(name: 'normal', title: 'Normal')],
+            ),
+          ],
+          intents: [
+            intent(
+              params: [
+                param(
+                  'urgency',
+                  type: ParamType.enum_,
+                  required: false,
+                  enumTypeName: 'Urgency',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      expect(out, contains('TaskPriority.values.byName('));
+      expect(out, isNot(contains('Urgency.values')));
+      // The shape of the bug this test exists for.
+      expect(out, isNot(contains('null.values')));
     });
 
     test('dates are decoded from epoch millis as UTC', () {

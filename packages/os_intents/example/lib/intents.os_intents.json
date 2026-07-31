@@ -42,7 +42,7 @@
           "name": "priority",
           "title": "Priority",
           "type": "enum_",
-          "entityTypeName": "Priority",
+          "enumTypeName": "Priority",
           "isRequired": false
         }
       ]

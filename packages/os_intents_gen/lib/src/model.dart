@@ -89,6 +89,33 @@ class ParamSpec {
     _ => type.swift,
   };
 
+  /// That the type name is in the slot every emitter reads it from.
+  ///
+  /// Not a theoretical check. The parser once returned an enum's name in
+  /// [entityTypeName], so [enumTypeName] stayed null and `swiftType`, the
+  /// Kotlin value constraint and the Dart decode each interpolated the word
+  /// "null" into a real source file. Nothing failed: the Swift named a type
+  /// that did not exist, the Dart called `.values` on `null`, and both were
+  /// found by building the example rather than by any test.
+  List<String> validate(String intentId) => switch (type) {
+    ParamType.entity when entityTypeName == null => [
+      _wrongSlot(intentId, 'an entity', 'entityTypeName'),
+    ],
+    ParamType.enum_ when enumTypeName == null => [
+      _wrongSlot(intentId, 'an enum', 'enumTypeName'),
+    ],
+    ParamType.entity || ParamType.enum_ => const [],
+    _ when entityTypeName != null || enumTypeName != null => [
+      'Parameter "$name" of intent "$intentId" is a ${type.name} but carries a '
+          'type name, which nothing downstream will read.',
+    ],
+    _ => const [],
+  };
+
+  String _wrongSlot(String intentId, String kind, String field) =>
+      'Parameter "$name" of intent "$intentId" is $kind but has no $field. '
+      'The generated code would name a type called "null".';
+
   Map<String, Object?> toJson() => {
     'name': name,
     'title': title,
@@ -222,6 +249,9 @@ class IntentSpec {
         'intent is answered by generated native code with no Dart running, so '
         'it cannot receive arguments.',
       );
+    }
+    for (final p in params) {
+      problems.addAll(p.validate(id));
     }
     return problems;
   }

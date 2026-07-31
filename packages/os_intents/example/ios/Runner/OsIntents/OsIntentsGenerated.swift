@@ -20,7 +20,7 @@ struct AddTaskOsIntent: AppIntent {
   @Parameter(title: "Project")
   var project: ProjectEntity?
   @Parameter(title: "Priority")
-  var priority: nullEnum?
+  var priority: PriorityEnum?
 
   static var parameterSummary: some ParameterSummary {
     Summary("Add task \(\.$title)") {

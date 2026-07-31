@@ -21,6 +21,7 @@ String emitDartRegistry(Manifest manifest) {
   final queryable = manifest.entities.where((e) => e.hasQuery).toList();
 
   final entitiesByType = {for (final e in manifest.entities) e.typeName: e};
+  final enumsByType = {for (final e in manifest.enums) e.typeName: e};
 
   b.writeln('/// Every intent declared in this library, keyed by its id.');
   b.writeln('///');
@@ -40,7 +41,9 @@ String emitDartRegistry(Manifest manifest) {
     } else {
       b.writeln('    invoke: $arrow ${intent.functionName}(');
       for (final p in intent.params) {
-        b.writeln('      ${p.name}: ${_decode(p, entitiesByType)},');
+        b.writeln(
+          '      ${p.name}: ${_decode(p, entitiesByType, enumsByType)},',
+        );
       }
       b.writeln('    ),');
     }
@@ -80,7 +83,11 @@ String emitDartRegistry(Manifest manifest) {
 
 /// Reads one argument out of the wire map, converting where the channel cannot
 /// carry the Dart type directly.
-String _decode(ParamSpec p, Map<String, EntitySpec> entities) {
+String _decode(
+  ParamSpec p,
+  Map<String, EntitySpec> entities,
+  Map<String, EnumSpec> enums,
+) {
   final raw = "args['${p.name}']";
 
   if (p.type == ParamType.entity) {
@@ -107,9 +114,14 @@ String _decode(ParamSpec p, Map<String, EntitySpec> entities) {
     // An enum crosses as its constant's own name, so the decode is a lookup by
     // name. `byName` throws on an unknown one, which is the right shape: a
     // value the system invented is a bug, not a null.
+    //
+    // Through the enum's *Dart* class name, not the @AppEnum typeName: the two
+    // are the same in every example here and need not be, and getting it wrong
+    // emits Dart naming a type that does not exist.
     ParamType.enum_ =>
       '$raw == null ? null : '
-          '${p.enumTypeName}.values.byName($raw! as String)',
+          '${enums[p.enumTypeName]?.dartClassName ?? p.enumTypeName}'
+          '.values.byName($raw! as String)',
   };
 
   return p.isRequired ? "_require($expr, '${p.name}')" : expr;

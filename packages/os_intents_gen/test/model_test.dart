@@ -20,9 +20,87 @@ ParamSpec param(
   String name, {
   ParamType type = ParamType.string,
   bool required = true,
-}) => ParamSpec(name: name, title: name, type: type, isRequired: required);
+  String? entityTypeName,
+  String? enumTypeName,
+}) => ParamSpec(
+  name: name,
+  title: name,
+  type: type,
+  isRequired: required,
+  entityTypeName: entityTypeName,
+  enumTypeName: enumTypeName,
+);
 
 void main() {
+  // A referenced type's name has two slots and every emitter reads one of them.
+  // The parser once filled the wrong one, so `swiftType`, the Kotlin value
+  // constraint and the Dart decode each interpolated the word "null" into a
+  // real source file — and nothing failed, because generated code was excluded
+  // from analysis and the example was never built in CI. This turns the same
+  // mistake into a build error naming the parameter.
+  group('a type name in the wrong slot', () {
+    List<String> problemsFor(ParamSpec p) => spec(params: [p]).validate();
+
+    test('an enum parameter with no enumTypeName is refused', () {
+      final problems = problemsFor(
+        param('priority', type: ParamType.enum_, entityTypeName: 'Priority'),
+      );
+      expect(problems, hasLength(1));
+      expect(
+        problems.single,
+        allOf(
+          contains('priority'),
+          contains('enumTypeName'),
+          contains('"null"'),
+        ),
+      );
+    });
+
+    test('an entity parameter with no entityTypeName is refused', () {
+      final problems = problemsFor(
+        param('project', type: ParamType.entity, enumTypeName: 'Project'),
+      );
+      expect(problems, hasLength(1));
+      expect(problems.single, contains('entityTypeName'));
+    });
+
+    test('a primitive carrying a type name is refused', () {
+      // Nothing downstream reads it, so it is always a mistake somewhere
+      // upstream rather than a harmless extra.
+      expect(
+        problemsFor(param('title', entityTypeName: 'Project')),
+        hasLength(1),
+      );
+    });
+
+    test('the right slots pass', () {
+      expect(
+        problemsFor(
+          param('priority', type: ParamType.enum_, enumTypeName: 'Priority'),
+        ),
+        isEmpty,
+      );
+      expect(
+        problemsFor(
+          param('project', type: ParamType.entity, entityTypeName: 'Project'),
+        ),
+        isEmpty,
+      );
+      expect(problemsFor(param('title')), isEmpty);
+    });
+
+    test('and the Swift type is then a real one', () {
+      expect(
+        param(
+          'priority',
+          type: ParamType.enum_,
+          enumTypeName: 'Priority',
+        ).swiftType,
+        'PriorityEnum',
+      );
+    });
+  });
+
   group('intent validation', () {
     test('accepts a phrase naming the app', () {
       expect(spec(phrases: [r'Add a task to $app']).validate(), isEmpty);
