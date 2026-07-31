@@ -153,4 +153,13 @@ if [ "$(uname)" = "Darwin" ] && [ "${SKIP_IOS:-}" != "1" ]; then
 fi
 
 printf '\nOK — a blank flutter create reaches a built app in one command.\n'
-printf 'Project left at %s\n' "$WORK"
+
+# A run costs about 2 GB once both platforms have built, and the point of the
+# project is the verdict, not the artefacts. Kept on failure, where the tree is
+# the only way to see what went wrong; KEEP=1 keeps it anyway.
+if [ "${KEEP:-}" = "1" ]; then
+  printf 'Project left at %s\n' "$WORK"
+else
+  rm -rf "$WORK"
+  printf 'Throwaway project removed. KEEP=1 to keep it.\n'
+fi
