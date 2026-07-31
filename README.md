@@ -84,6 +84,9 @@ recurring reasons:
 | Runs without launching the app | no | yes, where the OS allows it |
 | Xcode target set up for you | no | `dart run os_intents:install` |
 
+Where the project stands, what is missing, and the decisions still open:
+**[docs/status.md](docs/status.md)**.
+
 ## Layout
 
 ```

@@ -1,0 +1,212 @@
+# Status and plan
+
+The document to read when picking this up after a gap. Last updated 2026-07-31,
+at commit `715b301`.
+
+`README.md` is the pitch; this is the honest inventory.
+
+---
+
+## 1. Where the project stands
+
+**Pre-alpha, iOS only, nothing published.** The iOS pipeline works end to end
+and is verified on a device. Android has been probed for feasibility but not
+implemented.
+
+### Verified on a simulator
+
+Not "compiles" — actually ran, on an iPhone 17 simulator, via
+[`probe/run_integration.sh`](../probe/run_integration.sh):
+
+| Check | What it proves |
+|---|---|
+| `headless_isolate` | A handler ran with no UI, and in a *different* isolate — the UI-side counter stayed at 0 |
+| `static_round_trip` | `publishStatic` and the native read side agree |
+| `entity_queries` | `@EntityQuery` answers, and the wire keys match what the generated Swift reads |
+| `snippet_round_trip` | A card survives the store, spec and spoken text both |
+
+Independently, iOS itself indexed the generated intents: the Shortcuts daemon
+logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
+`LNEntityMetadata` and `LNQueryMetadata` for the example's bundle.
+
+### Verified by building, not by running
+
+- The generated Swift compiles into an app and reaches
+  `Metadata.appintents/extract.actionsdata` with entities, queries and phrases
+  intact.
+- Android AppFunctions compiles inside a Flutter module and produces complete
+  metadata in the APK.
+
+### Not verified at all
+
+- **Invocation by Siri.** Everything short of the OS actually calling
+  `perform()` is covered; getting a simulator to speak a phrase is not something
+  this setup can arrange.
+- **A real background launch.** `Execution.background` is proven by forcing the
+  headless path while the app is open. iOS launching the app cold *from* an
+  intent has never been observed here.
+- **Anything on an Android device.** No AVD is configured; the Android work is
+  build-and-inspect only.
+
+### Health
+
+57 tests (6 in `os_intents`, 51 in `os_intents_gen`), `flutter analyze` clean
+across the workspace, example app builds for iOS, probe app builds for Android.
+
+---
+
+## 2. How it actually ended up
+
+Three deviations from the original design, each forced by something measured.
+They are the parts most likely to be misremembered later.
+
+### Generated Swift goes to the app target, not the plugin
+
+The Risk #1 probe proved intents *are* discoverable from a plugin module — but
+that turned out not to be usable. A published package lives in `~/.pub-cache`,
+shared between projects and wiped by `pub cache repair`, so per-project
+generated sources could never live there; and `build_runner` derives output
+paths from input paths, so it cannot write into `ios/` at all. Risk #1b then
+forced one file into the app target regardless.
+
+What Risk #1 still bought: the runtime bridge ships inside the plugin instead of
+being copied into every app, and an app that wants no spoken phrases could skip
+the Xcode step entirely.
+
+Full reasoning and measurements: [risk1.md](risk1.md).
+
+### The build splits in two
+
+`build_runner` stops at `lib/*.os_intents.json`; `os_intents_cli sync` carries
+the manifest the rest of the way into `ios/Runner/OsIntents/`. Not a design
+preference — it is the only way to reach `ios/`.
+
+```
+annotations → build_runner → *.g.dart  (registry, background entrypoint)
+                           → *.json    (manifest)
+            → os_intents sync          → ios/Runner/OsIntents/*.swift
+            → os_intents install       → project.pbxproj  (once)
+```
+
+### `Execution.background` needs a second engine
+
+Since the scene-based lifecycle, the `FlutterViewController` — and the engine
+with it — is created when a scene attaches. A background launch attaches none,
+so the app would come up with no isolate, no channel, and nothing to invoke.
+`OsIntentsBackgroundEngine` therefore owns an engine of its own, started on
+demand and torn down after 20 s idle.
+
+The router prefers the UI isolate whenever the app is already running, so a
+handler sees the state the user is looking at rather than an empty second world.
+
+---
+
+## 3. Layout
+
+```
+packages/
+  os_intents                    annotations, IntentResult, registry, IntentHarness
+  os_intents_platform_interface the contract platform implementations fulfil
+  os_intents_ios                bridge, headless engine, snippet view (Swift)
+  os_intents_gen                build_runner builder → Dart + manifest + Swift
+  os_intents_cli                sync / install / doctor
+  os_intents/example            worked example; also the self-check host
+probe/
+  risk1_metadata                where may generated Swift live? (answered)
+  android_appfunctions          does AppFunctions work in a Flutter module? (answered)
+  fixtures                      probe-only sources, copied in per run so they
+                                never ship inside the published plugin
+  run_integration.sh            device self-check
+docs/
+  risk1.md                      Risk #1 and #1b, design and verdicts
+  android.md                    Android feasibility, cost, emitter constraints
+  status.md                     this file
+```
+
+Pub workspace; one `flutter pub get` at the root. Flutter pinned per-repo to
+3.44.8 via `.fvmrc`, so none of this can disturb the other projects on the
+machine.
+
+---
+
+## 4. What is missing
+
+Ordered by how much it blocks a first release.
+
+### Blocking 0.1
+
+1. **`os_intents doctor` is a stub.** It reports whether metadata exists, and
+   nothing else. It should read `extract.actionsdata` and say which intents,
+   entities and phrases the OS will actually see, and name the selected
+   `autoShortcutProviderMangledName` — nothing else in the toolchain tells a
+   user their phrases went nowhere.
+2. **`install` is regex surgery on `project.pbxproj`.** It works and is
+   idempotent, but it is pinned to Flutter's template object ids. A project
+   generated by an older or newer Flutter, or edited in Xcode, may not match. It
+   needs either a real pbxproj parser or a loud, specific failure.
+3. **No test for the generated Swift itself.** The emitters are covered by
+   string assertions; whether the output compiles is only ever discovered by
+   building the example. A fixture that compiles generated Swift in CI would
+   close that.
+4. **README needs the GIF.** The whole pitch is "Siri runs your action without
+   opening the app" and there is no picture of it.
+
+### Blocking Android
+
+5. **Kotlin emitter.** Deliberately not started: its shape depends on the
+   two-layer decision below, and the constraints are already written down in
+   [android.md](android.md).
+6. **Background `FlutterEngine` inside an `AppFunctionService`** — the Android
+   counterpart of the headless work already proven on iOS. Needs an emulator.
+
+### Later
+
+7. Interactive snippets, `AssistantIntent` schemas (iOS 18+), confirmation flows
+   (`IntentResult.needsConfirmation` is modelled but nothing consumes it),
+   `IntentResult.value` chaining in Shortcuts.
+
+---
+
+## 5. Decisions waiting on a human
+
+**How should Android AppFunctions be gated?** Shipping it by default forces
+every consuming app onto AGP 9.1.1, Gradle 9.3.1 and `compileSdk 37`, to reach
+a feature that runs on Android 16+ and that Gemini does not invoke yet (private
+EAP). The recommendation in [android.md](android.md) is two layers — app
+shortcuts by default, AppFunctions opt-in — but that doubles the Android surface
+and is a real cost.
+
+**Is `install`'s pbxproj editing acceptable, or should the provider file be a
+documented manual step?** One file, added once. Automatic is nicer; manual never
+breaks on an Xcode version bump.
+
+**What is the package actually called?** `os_intents` looked free on pub.dev but
+was never confirmed against `pub.dev/packages/os_intents` directly. Worth
+settling before any of it is published, since the name is baked into the
+generated Swift, the channel names and the CLI.
+
+---
+
+## 6. Traps worth remembering
+
+Things that cost real time here, and would cost it again.
+
+- **`command | tail` returns `tail`'s exit code.** Two builds were read as
+  successful when they had failed. Use `set -o pipefail`, or check the real
+  status.
+- **`log show --start` reads local time.** A UTC stamp widens the window by the
+  offset and sweeps in the previous run's output — which briefly made the
+  harness report a check twice.
+- **`UserDefaults` refuses `NSNull`** and the `[AnyHashable: Any]` that nested
+  method-channel maps decode to. Publishing a result with one unset field took
+  the whole app down until payloads were made property-list-safe.
+- **`AppIntentsPackage` is iOS 17+**, while `AppIntent` itself is iOS 16+.
+  Building the bridge on it would silently cost every iOS 16 user the feature.
+- **A provider declared in a plugin is dropped in silence.** No error, no
+  warning, `root.ssu.yaml` simply never appears. This is why `sync` refuses to
+  write one when the app already has its own.
+- **Taps injected into the simulator do not reach Flutter's gesture layer** on
+  this machine. Every device check therefore runs from `main()` behind a
+  `--dart-define` rather than through the UI.
+- **Android 17 has minor API levels.** `compileSdk = 37` alone does not resolve;
+  the platform is `android-37.1` and needs `compileSdkMinor`.
