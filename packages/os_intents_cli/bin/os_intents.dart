@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:os_intents_cli/src/build.dart';
 import 'package:os_intents_cli/src/doctor.dart';
 import 'package:os_intents_cli/src/install.dart';
 import 'package:os_intents_cli/src/sync.dart';
@@ -11,6 +12,7 @@ Future<void> main(List<String> args) async {
           'os_intents',
           'Carries generated intents into the native project, and checks they arrived.',
         )
+        ..addCommand(BuildCommand())
         ..addCommand(SyncCommand())
         ..addCommand(InstallCommand())
         ..addCommand(DoctorCommand());

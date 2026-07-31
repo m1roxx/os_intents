@@ -203,4 +203,53 @@ void main() {
       );
     });
   });
+
+  // What `install --check` reports on. The case it exists for is real and has
+  // happened here: a new emitter output — OsIntentsEnums.swift — was generated
+  // for months and never registered, so it compiled into nothing while every
+  // other step in the toolchain reported success.
+  group('what is not compiled yet', () {
+    List<String> notCompiled(String text, {List<String> files = _files}) =>
+        InstallCommand.notCompiled(text, files: files);
+
+    test('is everything, in a project nobody has installed into', () {
+      expect(notCompiled(_pristine), _files);
+    });
+
+    test('is nothing, once install has run', () {
+      expect(notCompiled(installInto(_pristine)), isEmpty);
+    });
+
+    test('is the one file a later sync added', () {
+      // Install what existed at the time, then ask about a file that did not.
+      final earlier = installInto(
+        _pristine,
+        files: _files.where((f) => f != 'OsIntentsEntities.swift').toList(),
+      );
+      expect(notCompiled(earlier), ['OsIntentsEntities.swift']);
+    });
+
+    test('is a file referenced but left out of the Sources phase', () {
+      final installed = installInto(_pristine);
+      final project = Pbxproj.parse(installed);
+      final phase = project.sourcesPhaseOf(
+        project.nativeTargetNamed('Runner')!,
+      )!;
+      final ref = project.fileRefIn(
+        project.childGroupNamed(
+          project.childGroupNamed(project.mainGroupId!, 'Runner')!,
+          'OsIntents',
+        )!,
+        'OsIntentsGenerated.swift',
+      )!;
+      final broken = installed.replaceFirst(
+        RegExp(
+          '\\s*${project.buildFileFor(phase, ref)!} '
+          '/\\* OsIntentsGenerated.swift in Sources \\*/,',
+        ),
+        '',
+      );
+      expect(notCompiled(broken), ['OsIntentsGenerated.swift']);
+    });
+  });
 }

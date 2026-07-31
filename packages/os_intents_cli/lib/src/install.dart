@@ -5,21 +5,28 @@ import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import 'android_manifest.dart';
 import 'pbxproj.dart';
 import 'sync.dart';
 
-/// Adds the generated sources to the Runner target.
+/// Makes the generated files reachable by the native builds.
 ///
-/// Xcode 16 introduced synchronized folder groups, which would make this a
-/// one-liner, but they need `objectVersion = 77` and Flutter still templates
-/// projects at 54. Bumping that silently is not worth the risk, so the files
-/// are registered explicitly.
+/// Two one-time edits, one per platform, and they are the same kind of thing:
+/// `sync` writes files the toolchain will happily ignore until the native
+/// project is told they exist. On iOS that is the Runner target; on Android it
+/// is the one `<meta-data>` element pointing the launcher activity at the
+/// generated shortcuts.
 ///
-/// Every anchor is an object id looked up in the parsed project — the ids in
-/// Flutter's template are not a contract, and an anchor that silently fails to
-/// match produces an app that builds cleanly with no intents in it. The edited
-/// text is parsed again and checked before anything is written, so the failure
-/// mode is a message rather than a quiet no-op.
+/// Both are decided against a parsed project, applied as text so the diff stays
+/// small, and parsed again before anything is written — because in both cases a
+/// missed insertion produces a build that succeeds with no intents in it, which
+/// looks exactly like success until someone tries to run one.
+///
+/// On iOS every anchor is an object id looked up in the parsed project: the ids
+/// in Flutter's template are not a contract. Xcode 16 introduced synchronized
+/// folder groups, which would make that half a one-liner, but they need
+/// `objectVersion = 77` and Flutter still templates projects at 54. Bumping
+/// that silently is not worth the risk, so the files are registered explicitly.
 class InstallCommand extends Command<int> {
   InstallCommand() {
     argParser
@@ -33,6 +40,27 @@ class InstallCommand extends Command<int> {
         'target',
         help: 'Xcode target to compile the generated Swift into.',
         defaultsTo: 'Runner',
+      )
+      ..addFlag(
+        'xcode',
+        defaultsTo: true,
+        help: 'Register ios/Runner/OsIntents with the Xcode target.',
+      )
+      ..addFlag(
+        'manifest',
+        defaultsTo: true,
+        help:
+            'Point the launcher activity at the generated shortcuts XML. That '
+            'is the app-shortcuts layer, which is not gated — nothing to do '
+            'with `sync --android`.',
+      )
+      ..addFlag(
+        'check',
+        negatable: false,
+        help:
+            'Report what is not registered yet; write nothing. Exits non-zero '
+            'when something is missing — the companion to `sync --check`, and '
+            'the half that catches a file generated but never compiled.',
       );
   }
 
@@ -41,7 +69,7 @@ class InstallCommand extends Command<int> {
 
   @override
   final String description =
-      'Register the generated Swift with the Runner target in Xcode.';
+      'Tell the native projects about the files sync generated.';
 
   /// Directory name the generated sources live in, under the app group.
   static final String groupName = p.basename(SyncCommand.outputDir);
@@ -49,13 +77,122 @@ class InstallCommand extends Command<int> {
   @override
   Future<int> run() async {
     final root = p.absolute(argResults!.option('project')!);
-    final targetName = argResults!.option('target')!;
-    final pbxPath = p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj');
-    final pbx = File(pbxPath);
-    if (!pbx.existsSync()) {
-      stderr.writeln('No Xcode project at ${p.relative(pbxPath, from: root)}.');
+    final checkOnly = argResults!.flag('check');
+    var attempted = 0;
+    var worst = 0;
+
+    // Each half is skipped when its platform is simply absent, so an iOS-only
+    // app never has to know the Android half exists, and the other way round.
+    if (argResults!.flag('xcode') && xcodeProject(root).existsSync()) {
+      attempted++;
+      final rc = _installXcode(
+        root,
+        argResults!.option('target')!,
+        checkOnly: checkOnly,
+      );
+      // Writing stops at the first failure; checking does not, because a CI
+      // report that hides the second platform behind the first is one round
+      // trip per problem.
+      if (rc != 0 && !checkOnly) return rc;
+      if (rc != 0) worst = rc;
+    }
+    if (argResults!.flag('manifest') && androidManifest(root).existsSync()) {
+      attempted++;
+      final rc = _installManifest(root, checkOnly: checkOnly);
+      if (rc != 0 && !checkOnly) return rc;
+      if (rc != 0) worst = rc;
+    }
+
+    if (attempted == 0) {
+      stderr.writeln(
+        'Nothing to install under $root — it has neither ios/Runner.xcodeproj '
+        'nor\nandroid/app/src/main/AndroidManifest.xml. Pass -C if the project '
+        'is elsewhere.',
+      );
       return 66;
     }
+    if (worst != 0) {
+      stderr.writeln('\nRun `dart run os_intents_cli:os_intents install`.');
+    }
+    return worst;
+  }
+
+  static File xcodeProject(String root) =>
+      File(p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'));
+
+  static File androidManifest(String root) => File(
+    p.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+  );
+
+  /// Adds the generated shortcuts to the launcher activity.
+  ///
+  /// The Android counterpart of the Xcode half, and the smaller one: a single
+  /// element, whose absence is the difference between a generated
+  /// `shortcuts.xml` and shortcuts a user can actually see.
+  int _installManifest(String root, {required bool checkOnly}) {
+    // Refusing to write the meta-data before the resource exists is not
+    // tidiness: aapt fails the build outright on a resource that is not there,
+    // which is a much worse first experience than a note saying to run sync.
+    final resource = File(
+      p.join(root, 'android/app/src/main/res/xml/$shortcutsResource.xml'),
+    );
+    if (!resource.existsSync()) {
+      stdout.writeln(
+        'os_intents: no ${p.relative(resource.path, from: root)} yet, so '
+        'AndroidManifest.xml is\nleft alone. Run `os_intents sync` first.',
+      );
+      return 0;
+    }
+
+    final manifest = androidManifest(root);
+    final original = manifest.readAsStringSync();
+    final String edited;
+    try {
+      edited = installShortcutsMetaData(original);
+    } on AndroidManifestException catch (e) {
+      stderr.writeln(
+        'os_intents cannot edit ${p.relative(manifest.path, from: root)}:\n\n'
+        '${e.message}\n\n'
+        'Nothing was written. Adding it by hand works just as well — the rest '
+        'of the\ntoolchain does not care how the line got there, and '
+        '`os_intents doctor --device`\nreports what the system accepted either '
+        'way.',
+      );
+      return 1;
+    }
+
+    if (identical(edited, original)) {
+      stdout.writeln(
+        'os_intents: the launcher activity already reads '
+        '@xml/$shortcutsResource.',
+      );
+      return 0;
+    }
+
+    if (checkOnly) {
+      stderr.writeln(
+        '  missing: ${p.relative(manifest.path, from: root)} does not point '
+        'its launcher\n           activity at @xml/$shortcutsResource, so '
+        'Android never reads it.',
+      );
+      return 1;
+    }
+
+    File('${manifest.path}.os_intents.bak').writeAsStringSync(original);
+    manifest.writeAsStringSync(edited);
+
+    stdout
+      ..writeln(
+        'os_intents: the launcher activity now reads '
+        '@xml/$shortcutsResource.',
+      )
+      ..writeln('Backup: ${p.basename(manifest.path)}.os_intents.bak');
+    return 0;
+  }
+
+  int _installXcode(String root, String targetName, {required bool checkOnly}) {
+    final pbx = xcodeProject(root);
+    final pbxPath = pbx.path;
 
     // Whatever sync produced, rather than a hardcoded list — the set grows
     // (OsIntentsBackground.swift arrived with Execution.background) and a list
@@ -98,6 +235,22 @@ class InstallCommand extends Command<int> {
       return 0;
     }
 
+    if (checkOnly) {
+      stderr
+        ..writeln(
+          '  missing: $targetName does not compile these, so they reach the '
+          'build as nothing:',
+        )
+        ..writeAll(
+          notCompiled(
+            original,
+            files: present,
+            targetName: targetName,
+          ).map((f) => '    • $f\n'),
+        );
+      return 1;
+    }
+
     File('$pbxPath.os_intents.bak').writeAsStringSync(original);
     pbx.writeAsStringSync(edited);
 
@@ -107,6 +260,38 @@ class InstallCommand extends Command<int> {
       ..writeln()
       ..writeln('Backup: ${p.basename(pbxPath)}.os_intents.bak');
     return 0;
+  }
+
+  /// Which of [files] the project does not currently compile into [targetName].
+  ///
+  /// Both halves have to hold: a file reference in the group *and* a build file
+  /// in the Sources phase. Half of that is what a project left mid-edit looks
+  /// like, and it builds cleanly while the file reaches the app as nothing.
+  static List<String> notCompiled(
+    String text, {
+    required List<String> files,
+    String targetName = 'Runner',
+  }) {
+    final project = Pbxproj.parse(text);
+    final targetId = project.nativeTargetNamed(targetName);
+    final phaseId = targetId == null ? null : project.sourcesPhaseOf(targetId);
+    final mainGroupId = project.mainGroupId;
+    final appGroupId = mainGroupId == null
+        ? null
+        : project.childGroupNamed(mainGroupId, targetName);
+    final groupId = appGroupId == null
+        ? null
+        : project.childGroupNamed(appGroupId, groupName);
+    if (phaseId == null || groupId == null) return files;
+
+    return [
+      for (final file in files)
+        if (switch (project.fileRefIn(groupId, file)) {
+          null => true,
+          final ref => project.buildFileFor(phaseId, ref) == null,
+        })
+          file,
+    ];
   }
 
   /// Returns the project text with [files] compiled into [targetName].

@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:os_intents_gen/os_intents_gen.dart';
 import 'package:path/path.dart' as p;
 
+import 'android_manifest.dart';
 import 'manifests.dart';
 
 /// Reads the manifests build_runner produced and writes Swift into the app.
@@ -50,7 +51,11 @@ class SyncCommand extends Command<int> {
             'compileSdk 37, AGP 9.1.1 and Gradle 9.3.1, and only runs on '
             'Android 16+. See docs/android.md.',
         negatable: false,
-      );
+      )
+      // Hidden because it exists for one caller: `build` runs install straight
+      // after this, and telling the user to do the thing that is about to
+      // happen anyway reads as a warning rather than as progress.
+      ..addFlag('hints', defaultsTo: true, hide: true);
   }
 
   @override
@@ -164,12 +169,12 @@ class SyncCommand extends Command<int> {
         '${merged.entities.length} entity(ies) → $outputDir',
       );
 
-    if (changed > 0 && !_isInXcodeProject(root)) {
+    if (changed > 0 && argResults!.flag('hints') && !_isInXcodeProject(root)) {
       stdout.writeln(
-        '\nOne-time step left: add $outputDir to the Runner target in Xcode\n'
-        'as a synchronized folder, so files added later are picked up on their '
-        'own.\nWithout it the generated intents compile into nothing and Siri '
-        'never sees them —\n`os_intents doctor` checks for exactly this.',
+        '\nOne-time step left: `os_intents install`, which adds $outputDir to '
+        'the\nRunner target. Without it the generated intents compile into '
+        'nothing and Siri\nnever sees them — `os_intents doctor` checks for '
+        'exactly this.',
       );
     }
     return 0;
@@ -243,16 +248,17 @@ class SyncCommand extends Command<int> {
 
     if (!checkOnly &&
         changed > 0 &&
-        !_declaresShortcutsMetaData(manifestText)) {
+        argResults!.flag('hints') &&
+        !declaresShortcutsMetaData(manifestText)) {
       stdout.writeln(
-        '\nOne line left to add, to the launcher <activity> in '
-        'android/app/src/main/AndroidManifest.xml:\n'
+        '\nOne-time step left: `os_intents install`, which points the launcher '
+        '<activity>\nat the file just written. Without it Android never reads '
+        'it and no shortcut\nappears. By hand it is one element, and that is '
+        'the whole manifest change —\na shortcut names its target component, '
+        'so no intent-filter is needed:\n'
         '  <meta-data\n'
         '      android:name="android.app.shortcuts"\n'
-        '      android:resource="@xml/os_intents_shortcuts" />\n'
-        'Without it Android never reads the file and no shortcut appears. '
-        'That is the\nwhole manifest change — a shortcut names its target '
-        'component, so no intent-filter\nis needed.',
+        '      android:resource="@xml/os_intents_shortcuts" />',
       );
     }
     return 0;
@@ -281,9 +287,6 @@ class SyncCommand extends Command<int> {
     }
     return null;
   }
-
-  bool _declaresShortcutsMetaData(String manifestText) =>
-      manifestText.contains('android.app.shortcuts');
 
   /// Reads `namespace = "..."` from the app's Gradle file.
   ///
