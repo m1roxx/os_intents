@@ -229,8 +229,16 @@ Ordered by how much it blocks a first release.
    used the UI isolate and the headless engine never started. Its rationale —
    that a background launch attaches no scene and therefore no engine — is now
    less established than it was assumed to be, not more.
-5. **README needs the GIF.** The whole pitch is "Siri runs your action without
-   opening the app" and there is no picture of it.
+5. ~~**README needs the GIF.**~~ Done — `docs/media/shortcuts_demo.gif`, three
+   frames captured from the run that settled item 4, assembled by
+   [`tool/make_demo_gif.py`](../tool/make_demo_gif.py). It shows Shortcuts, not
+   Siri, and says so: the voice path is the one thing still unobserved, and a
+   demo that implied otherwise would be the wrong kind of picture.
+
+   Adding it meant correcting the README around it. It still said "iOS only,
+   Android not implemented", and its "why another one" table claimed the
+   neighbours had no headless execution, no Android and no entities — all three
+   false, as reading them showed.
 6. ~~**The plugin is not Swift 6 ready.**~~ Done — and it turned out to be
    hiding three real bugs rather than being cosmetic.
 
