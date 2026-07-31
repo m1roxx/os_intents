@@ -55,7 +55,10 @@ Future<void> _checkStaticRoundTrip() async {
     });
     final read = await OsIntents.debugStaticValue('dueToday');
     if (read != spoken) {
-      _fail(name, 'stored "$spoken", read back ${read == null ? 'nothing' : '"$read"'}');
+      _fail(
+        name,
+        'stored "$spoken", read back ${read == null ? 'nothing' : '"$read"'}',
+      );
       return;
     }
     _pass(name, 'a static intent can answer without starting an isolate');

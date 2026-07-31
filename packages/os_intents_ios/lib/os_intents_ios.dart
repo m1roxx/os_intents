@@ -5,7 +5,9 @@ import 'package:os_intents_platform_interface/os_intents_platform_interface.dart
 /// through `OsIntentsBridge`.
 class OsIntentsIos extends OsIntentsPlatform {
   /// The UI isolate's channel.
-  static const MethodChannel _foreground = MethodChannel('dev.osintents/bridge');
+  static const MethodChannel _foreground = MethodChannel(
+    'dev.osintents/bridge',
+  );
 
   /// The headless engine's channel. Separate because the background engine has
   /// its own binary messenger — a channel made in one isolate cannot be seen
@@ -42,10 +44,7 @@ class OsIntentsIos extends OsIntentsPlatform {
   }
 
   @override
-  void setEntityHandler(
-    EntityQueryHandler handler, {
-    bool background = false,
-  }) {
+  void setEntityHandler(EntityQueryHandler handler, {bool background = false}) {
     if (background) {
       _bgEntities = handler;
     } else {
@@ -60,8 +59,7 @@ class OsIntentsIos extends OsIntentsPlatform {
     if (!_wired.add(background)) return;
 
     _channel(background).setMethodCallHandler((call) async {
-      final args = (call.arguments as Map? ?? const {})
-          .cast<String, Object?>();
+      final args = (call.arguments as Map? ?? const {}).cast<String, Object?>();
 
       if (call.method.startsWith('entities.')) {
         final h = background ? _bgEntities : _fgEntities;

@@ -15,7 +15,8 @@ class SwiftEmitter {
   /// File name → contents.
   Map<String, String> emit() => {
     'OsIntentsGenerated.swift': _intentsFile(),
-    if (manifest.entities.isNotEmpty) 'OsIntentsEntities.swift': _entitiesFile(),
+    if (manifest.entities.isNotEmpty)
+      'OsIntentsEntities.swift': _entitiesFile(),
     'OsIntentsShortcuts.swift': _shortcutsFile(),
     if (_needsBackground) 'OsIntentsBackground.swift': _backgroundFile(),
   };
@@ -109,7 +110,9 @@ class SwiftEmitter {
 
     b.writeln('  func perform() async throws -> $resultType {');
     if (i.execution == ExecutionMode.static_) {
-      b.writeln('    // Execution.static_: answered from stored state, with no');
+      b.writeln(
+        '    // Execution.static_: answered from stored state, with no',
+      );
       b.writeln('    // Dart engine started.');
       b.writeln(
         '    if let stored = OsIntentsBridge.shared.staticResult(for: ${_str(i.id)}) {',
@@ -117,16 +120,22 @@ class SwiftEmitter {
       b.writeln('      let outcome = IntentOutcome(wire: stored)');
       b.writeln('      return ${_dialogReturn(i, 'outcome.spoken ?? ""')}');
       b.writeln('    }');
-      b.writeln('    // Nothing published yet — usually a first run, before the');
-      b.writeln('    // app has had a chance to call publishStatic. Fall back to');
-      b.writeln('    // running the handler rather than answering with silence.');
-      b.writeln('    let outcome = try await OsIntentsBridge.shared.invokeBackground(');
+      b.writeln(
+        '    // Nothing published yet — usually a first run, before the',
+      );
+      b.writeln(
+        '    // app has had a chance to call publishStatic. Fall back to',
+      );
+      b.writeln(
+        '    // running the handler rather than answering with silence.',
+      );
+      b.writeln(
+        '    let outcome = try await OsIntentsBridge.shared.invokeBackground(',
+      );
       b.writeln('      id: ${_str(i.id)},');
       b.writeln('      args: [:]');
       b.writeln('    )');
-      b.writeln(
-        '    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}',
-      );
+      b.writeln('    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}');
     } else {
       // Background intents go through the router, which reuses the UI isolate
       // when the app happens to be running and starts the headless engine only
@@ -146,9 +155,7 @@ class SwiftEmitter {
         b.writeln('      ]');
       }
       b.writeln('    )');
-      b.writeln(
-        '    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}',
-      );
+      b.writeln('    return ${_dialogReturn(i, 'outcome.spoken ?? ""')}');
     }
     b.writeln('  }');
     b.writeln('}');
@@ -173,7 +180,9 @@ class SwiftEmitter {
         ? '"$title"'
         : '"$title \\(\\.\$${required.first.name})"';
 
-    final b = StringBuffer('  static var parameterSummary: some ParameterSummary {\n');
+    final b = StringBuffer(
+      '  static var parameterSummary: some ParameterSummary {\n',
+    );
     if (optional.isEmpty) {
       b.writeln('    Summary($head)');
     } else {
@@ -216,9 +225,10 @@ class SwiftEmitter {
   String _argExpr(ParamSpec p) => switch (p.type) {
     // Epoch milliseconds — MethodChannel has no Date, and ISO strings lose the
     // timezone on the Android side.
-    ParamType.dateTime => p.isRequired
-        ? 'Int(${p.name}.timeIntervalSince1970 * 1000)'
-        : '${p.name}.map { Int(\$0.timeIntervalSince1970 * 1000) }',
+    ParamType.dateTime =>
+      p.isRequired
+          ? 'Int(${p.name}.timeIntervalSince1970 * 1000)'
+          : '${p.name}.map { Int(\$0.timeIntervalSince1970 * 1000) }',
     // Entities travel as their identifier; the app resolves them itself.
     ParamType.entity => p.isRequired ? '${p.name}.id' : '${p.name}?.id',
     _ => p.name,
@@ -266,7 +276,8 @@ class SwiftEmitter {
     );
     b.writeln();
     b.writeln('  var displayRepresentation: DisplayRepresentation {');
-    final titleExpr = 'LocalizedStringResource(stringLiteral: ${title.name} ?? id)';
+    final titleExpr =
+        'LocalizedStringResource(stringLiteral: ${title.name} ?? id)';
     if (subtitle != null) {
       b.writeln('    DisplayRepresentation(');
       b.writeln('      title: $titleExpr,');
@@ -318,7 +329,9 @@ class SwiftEmitter {
     b.writeln('  init(wire: [String: Any]) {');
     b.writeln('    self.id = wire["id"] as? String ?? ""');
     for (final p in e.properties) {
-      b.writeln('    self.${p.name} = wire[${_str(p.name)}] as? ${p.type.swift}');
+      b.writeln(
+        '    self.${p.name} = wire[${_str(p.name)}] as? ${p.type.swift}',
+      );
     }
     b.writeln('  }');
     b.writeln('}');

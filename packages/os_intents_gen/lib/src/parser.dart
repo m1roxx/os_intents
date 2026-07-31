@@ -56,10 +56,7 @@ class SpecParser {
     final phrasesReader = annotation.read('phrases');
     final phrases = phrasesReader.isNull
         ? const <String>[]
-        : [
-            for (final v in phrasesReader.listValue)
-              v.toStringValue() ?? '',
-          ];
+        : [for (final v in phrasesReader.listValue) v.toStringValue() ?? ''];
 
     final spotlight = annotation.read('showsInSpotlight');
     final snippet = annotation.read('showsSnippet');
@@ -76,7 +73,9 @@ class SpecParser {
         systemImageName: _stringOrNull(annotation, 'systemImageName'),
         showsInSpotlight: spotlight.isNull ? true : spotlight.boolValue,
         showsSnippet: snippet.isNull ? false : snippet.boolValue,
-        androidShortcut: androidShortcut.isNull ? true : androidShortcut.boolValue,
+        androidShortcut: androidShortcut.isNull
+            ? true
+            : androidShortcut.boolValue,
         androidCapability: _stringOrNull(annotation, 'androidCapability'),
         params: _params(element, id),
       ),

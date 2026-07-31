@@ -25,9 +25,7 @@ class OsIntentsBuilder implements Builder {
   Future<void> build(BuildStep buildStep) async {
     if (!await buildStep.resolver.isLibrary(buildStep.inputId)) return;
 
-    final library = LibraryReader(
-      await buildStep.inputLibrary,
-    );
+    final library = LibraryReader(await buildStep.inputLibrary);
     final parser = SpecParser(source: buildStep.inputId.toString());
 
     // Entities first: a parameter typed as an entity, and every @EntityQuery,

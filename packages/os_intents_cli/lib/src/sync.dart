@@ -22,13 +22,15 @@ class SyncCommand extends Command<int> {
       )
       ..addFlag(
         'check',
-        help: 'Verify the generated Swift is up to date; write nothing. '
+        help:
+            'Verify the generated Swift is up to date; write nothing. '
             'Exits non-zero on drift — meant for CI.',
         negatable: false,
       )
       ..addFlag(
         'android',
-        help: 'Also generate Android AppFunctions. Off by default: it requires '
+        help:
+            'Also generate Android AppFunctions. Off by default: it requires '
             'compileSdk 37, AGP 9.1.1 and Gradle 9.3.1, and only runs on '
             'Android 16+. See docs/android.md.',
         negatable: false,
@@ -52,7 +54,9 @@ class SyncCommand extends Command<int> {
     final checkOnly = argResults!.flag('check');
 
     if (!Directory(p.join(root, 'lib')).existsSync()) {
-      stderr.writeln('No lib/ directory under $root — is this a Flutter project?');
+      stderr.writeln(
+        'No lib/ directory under $root — is this a Flutter project?',
+      );
       return 66;
     }
 
@@ -221,7 +225,9 @@ class SyncCommand extends Command<int> {
       }
     }
 
-    if (!checkOnly && changed > 0 && !_declaresShortcutsMetaData(manifestText)) {
+    if (!checkOnly &&
+        changed > 0 &&
+        !_declaresShortcutsMetaData(manifestText)) {
       stdout.writeln(
         '\nOne line left to add, to the launcher <activity> in '
         'android/app/src/main/AndroidManifest.xml:\n'
@@ -381,7 +387,9 @@ class SyncCommand extends Command<int> {
   }
 
   bool _isInXcodeProject(String root) {
-    final pbx = File(p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'));
+    final pbx = File(
+      p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'),
+    );
     if (!pbx.existsSync()) return false;
     return pbx.readAsStringSync().contains('OsIntents');
   }

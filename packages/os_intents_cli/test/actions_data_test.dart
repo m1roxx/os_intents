@@ -13,10 +13,11 @@ final _example = AppIntentsMetadata.parse(
 void main() {
   group('reading a real bundle', () {
     test('finds every extracted intent', () {
-      expect(
-        _example.actions.map((a) => a.identifier),
-        ['AddTaskOsIntent', 'CompleteTaskOsIntent', 'DueTodayOsIntent'],
-      );
+      expect(_example.actions.map((a) => a.identifier), [
+        'AddTaskOsIntent',
+        'CompleteTaskOsIntent',
+        'DueTodayOsIntent',
+      ]);
     });
 
     test('reads the authored title and description', () {
@@ -76,7 +77,10 @@ void main() {
 
   group('demangling', () {
     test('splits a length-prefixed nominal name', () {
-      expect(demangleSwiftTypeName('6Runner13ProjectEntityV'), 'Runner.ProjectEntity');
+      expect(
+        demangleSwiftTypeName('6Runner13ProjectEntityV'),
+        'Runner.ProjectEntity',
+      );
     });
 
     test('leaves anything it cannot read alone', () {

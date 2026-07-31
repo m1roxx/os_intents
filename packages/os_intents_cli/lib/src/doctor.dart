@@ -98,7 +98,7 @@ List<Finding> diagnose({
           Finding(
             Severity.error,
             'Intent "${intent.id}" declares parameter "${param.name}", which '
-            'the bundle does not have.',
+                'the bundle does not have.',
             'The generated Swift in the app is older than the manifest. '
                 'Re-run `os_intents sync` and rebuild.',
           ),
@@ -110,8 +110,8 @@ List<Finding> diagnose({
           Finding(
             Severity.warning,
             'Parameter "${param.name}" of "${intent.id}" is '
-            '${param.isRequired ? "required" : "optional"} in Dart but '
-            '${got.isOptional ? "optional" : "required"} in the bundle.',
+                '${param.isRequired ? "required" : "optional"} in Dart but '
+                '${got.isOptional ? "optional" : "required"} in the bundle.',
             'A stale build, most likely. Rebuild and check again.',
           ),
         );
@@ -123,7 +123,7 @@ List<Finding> diagnose({
         Finding(
           Severity.error,
           '"${intent.id}" is Execution.${intent.execution.wire} but the bundle '
-          'says it opens the app.',
+              'says it opens the app.',
           'The point of a background intent is that it answers without a UI. '
               'This is the built app disagreeing with the manifest — rebuild.',
         ),
@@ -165,7 +165,7 @@ List<Finding> diagnose({
         Finding(
           Severity.error,
           'Phrase(s) on "${intent.id}" did not reach the bundle: '
-          '${missing.map((p) => '"$p"').join(', ')}.',
+              '${missing.map((p) => '"$p"').join(', ')}.',
           'Siri will not match them. The built app is probably older than the '
               'generated provider — rebuild and check again.',
         ),
@@ -179,7 +179,7 @@ List<Finding> diagnose({
         Finding(
           Severity.error,
           'Entity "${entity.typeName}" is declared in Dart but is not in the '
-          'bundle.',
+              'bundle.',
           'Any intent taking it as a parameter cannot be resolved.',
         ),
       );
@@ -190,7 +190,7 @@ List<Finding> diagnose({
         Finding(
           Severity.error,
           'Entity "${entity.typeName}" has an @EntityQuery in Dart, but the '
-          'bundle carries no query for it.',
+              'bundle carries no query for it.',
           'The system has no way to turn a spoken or typed name into a '
               '${entity.dartClassName}, so the parameter can never be filled.',
         ),
@@ -205,7 +205,7 @@ List<Finding> diagnose({
       Finding(
         Severity.error,
         'The bundle has no root.ssu.yaml, so no phrase was registered with '
-        'Siri.',
+            'Siri.',
         'The intents still run from Shortcuts and Spotlight; "Hey Siri" will '
             'not reach them. ${_providerHint(shipped)}',
       ),
@@ -220,7 +220,7 @@ List<Finding> diagnose({
       Finding(
         Severity.error,
         'The selected AppShortcutsProvider is '
-        '${demangleSwiftTypeName(provider)}, not $_generatedProviderName.',
+            '${demangleSwiftTypeName(provider)}, not $_generatedProviderName.',
         'iOS selects exactly one provider per app and drops the others without '
             'a word. Move your phrases into @AppIntent annotations, or delete '
             'the other provider.',
@@ -279,13 +279,15 @@ class DoctorCommand extends Command<int> {
       ..addOption(
         'project',
         abbr: 'C',
-        help: 'Flutter project root, used to find the manifests to check '
+        help:
+            'Flutter project root, used to find the manifests to check '
             'against.',
         defaultsTo: '.',
       )
       ..addOption(
         'app',
-        help: 'Path to a built .app bundle. Defaults to the most recent build '
+        help:
+            'Path to a built .app bundle. Defaults to the most recent build '
             'under build/ios.',
       );
   }

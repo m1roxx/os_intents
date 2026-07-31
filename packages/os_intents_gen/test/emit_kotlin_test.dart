@@ -31,8 +31,10 @@ ParamSpec param(
   description: description,
 );
 
-Manifest manifest(List<IntentSpec> intents, {String source = 'my_app|lib/intents.dart'}) =>
-    Manifest(source: source, intents: intents);
+Manifest manifest(
+  List<IntentSpec> intents, {
+  String source = 'my_app|lib/intents.dart',
+}) => Manifest(source: source, intents: intents);
 
 KotlinEmitter emitter(List<IntentSpec> intents) =>
     KotlinEmitter(manifest(intents), packageName: 'com.example.app');
@@ -45,9 +47,7 @@ void main() {
     test('foreground intents are left out', () {
       // An AppFunctionService has no Activity to bring forward, so offering a
       // foreground intent to an agent would produce an action that always fails.
-      final out = emitter([
-        intent(execution: ExecutionMode.foreground),
-      ]).emit();
+      final out = emitter([intent(execution: ExecutionMode.foreground)]).emit();
       expect(out, isEmpty);
     });
 
@@ -81,7 +81,9 @@ void main() {
 
     test('a background intent does not read the store', () {
       expect(
-        serviceFor([intent(id: 'addTask', execution: ExecutionMode.background)]),
+        serviceFor([
+          intent(id: 'addTask', execution: ExecutionMode.background),
+        ]),
         isNot(contains('staticResult(')),
       );
     });
@@ -100,7 +102,10 @@ void main() {
     test('every intent is a method on one service class', () {
       // Unlike iOS, where each intent is its own struct: alpha10 requires
       // @AppFunction to be a member of an @AppFunctionServiceEntryPoint class.
-      final out = serviceFor([intent(id: 'addTask'), intent(id: 'completeTask')]);
+      final out = serviceFor([
+        intent(id: 'addTask'),
+        intent(id: 'completeTask'),
+      ]);
       expect(
         'abstract class BaseOsIntentsAppFunctionService'.allMatches(out).length,
         1,
@@ -113,7 +118,10 @@ void main() {
       final out = serviceFor([intent()]);
       expect(out, contains('@AppFunctionServiceEntryPoint('));
       expect(out, contains('serviceName = "OsIntentsAppFunctionService"'));
-      expect(out, contains('appFunctionXmlFileName = "os_intents_app_functions"'));
+      expect(
+        out,
+        contains('appFunctionXmlFileName = "os_intents_app_functions"'),
+      );
     });
 
     test('the service is gated on API 36', () {
@@ -162,8 +170,13 @@ void main() {
   group('parameters', () {
     test('each intent gets its own serializable params class', () {
       // A function takes a single object, not loose arguments.
-      final out = serviceFor([intent(params: [param('title')])]);
-      expect(out, contains('@AppFunctionSerializable(isDescribedByKDoc = true)'));
+      final out = serviceFor([
+        intent(params: [param('title')]),
+      ]);
+      expect(
+        out,
+        contains('@AppFunctionSerializable(isDescribedByKDoc = true)'),
+      );
       expect(out, contains('data class AddTaskParams('));
       expect(out, contains('val title: String,'));
       expect(out, contains('suspend fun addTask(params: AddTaskParams)'));
@@ -200,7 +213,9 @@ void main() {
     });
 
     test('arguments are forwarded to the bridge by name', () {
-      final out = serviceFor([intent(params: [param('title')])]);
+      final out = serviceFor([
+        intent(params: [param('title')]),
+      ]);
       expect(out, contains('"title" to params.title,'));
       expect(out, contains('id = "addTask",'));
     });
@@ -209,7 +224,10 @@ void main() {
   group('setup file', () {
     test('carries the entrypoint library and the registrant', () {
       final out = emitter([intent()]).emit()['OsIntentsSetup.kt']!;
-      expect(out, contains('entrypointLibraryUri = "package:my_app/intents.dart"'));
+      expect(
+        out,
+        contains('entrypointLibraryUri = "package:my_app/intents.dart"'),
+      );
       expect(out, contains('GeneratedPluginRegistrant.registerWith(engine)'));
     });
 

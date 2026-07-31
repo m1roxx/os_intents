@@ -15,8 +15,11 @@ const _files = [
   'OsIntentsShortcuts.swift',
 ];
 
-String installInto(String text, {List<String> files = _files, String target = 'Runner'}) =>
-    InstallCommand.install(text, files: files, targetName: target);
+String installInto(
+  String text, {
+  List<String> files = _files,
+  String target = 'Runner',
+}) => InstallCommand.install(text, files: files, targetName: target);
 
 /// Everything the generated Swift needs in order to be compiled: a reference in
 /// the OsIntents group, and a build file in the target's own Sources phase.
@@ -69,7 +72,9 @@ void main() {
 
     test('leaves the existing sources compiled', () {
       final project = Pbxproj.parse(installed);
-      final phase = project.sourcesPhaseOf(project.nativeTargetNamed('Runner')!)!;
+      final phase = project.sourcesPhaseOf(
+        project.nativeTargetNamed('Runner')!,
+      )!;
       final compiled = [
         for (final id in project.childIds(phase, 'files'))
           project.object(project.object(id)!['fileRef'] as String)?['path'],
@@ -114,7 +119,9 @@ void main() {
     test('has the missing build phase entry repaired', () {
       final installed = installInto(_pristine);
       final project = Pbxproj.parse(installed);
-      final phase = project.sourcesPhaseOf(project.nativeTargetNamed('Runner')!)!;
+      final phase = project.sourcesPhaseOf(
+        project.nativeTargetNamed('Runner')!,
+      )!;
       final ref = project.fileRefIn(
         project.childGroupNamed(
           project.childGroupNamed(project.mainGroupId!, 'Runner')!,
@@ -143,7 +150,11 @@ void main() {
           isA<PbxprojException>().having(
             (e) => e.message,
             'message',
-            allOf(contains('MyApp'), contains('Runner'), contains('RunnerTests')),
+            allOf(
+              contains('MyApp'),
+              contains('Runner'),
+              contains('RunnerTests'),
+            ),
           ),
         ),
       );
@@ -155,9 +166,9 @@ void main() {
       final conflicting = _pristine.replaceFirst(
         RegExp(r'(/\* Begin PBXFileReference section \*/\n)'),
         '/* Begin PBXFileReference section */\n'
-            '\t\tFFFFFFFFFFFFFFFFFFFFFFFF /* OsIntentsGenerated.swift */ = '
-            '{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; '
-            'path = OsIntentsGenerated.swift; sourceTree = "<group>"; };\n',
+        '\t\tFFFFFFFFFFFFFFFFFFFFFFFF /* OsIntentsGenerated.swift */ = '
+        '{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; '
+        'path = OsIntentsGenerated.swift; sourceTree = "<group>"; };\n',
       );
       expect(
         () => installInto(conflicting),

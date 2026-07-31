@@ -24,7 +24,9 @@ void main() {
     });
 
     test('resolves a target to its own Sources phase', () {
-      final runner = project.sourcesPhaseOf(project.nativeTargetNamed('Runner')!);
+      final runner = project.sourcesPhaseOf(
+        project.nativeTargetNamed('Runner')!,
+      );
       final tests = project.sourcesPhaseOf(
         project.nativeTargetNamed('RunnerTests')!,
       );

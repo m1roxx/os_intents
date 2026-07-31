@@ -4,7 +4,8 @@ import 'package:test/test.dart';
 Manifest manifest({
   List<IntentSpec> intents = const [],
   List<EntitySpec> entities = const [],
-}) => Manifest(source: 'lib/intents.dart', intents: intents, entities: entities);
+}) =>
+    Manifest(source: 'lib/intents.dart', intents: intents, entities: entities);
 
 IntentSpec intent({
   String id = 'addTask',
@@ -46,14 +47,22 @@ void main() {
 
     test('required parameters go through the null check', () {
       final out = emitDartRegistry(
-        manifest(intents: [intent(params: [param('title')])]),
+        manifest(
+          intents: [
+            intent(params: [param('title')]),
+          ],
+        ),
       );
       expect(out, contains("_require(args['title'] as String?, 'title')"));
     });
 
     test('optional parameters are passed straight through', () {
       final out = emitDartRegistry(
-        manifest(intents: [intent(params: [param('note', required: false)])]),
+        manifest(
+          intents: [
+            intent(params: [param('note', required: false)]),
+          ],
+        ),
       );
       expect(out, contains("note: args['note'] as String?"));
       expect(out, isNot(contains('_require')));
@@ -65,7 +74,9 @@ void main() {
       final out = emitDartRegistry(
         manifest(
           intents: [
-            intent(params: [param('due', type: ParamType.dateTime, required: false)]),
+            intent(
+              params: [param('due', type: ParamType.dateTime, required: false)],
+            ),
           ],
         ),
       );
@@ -74,9 +85,15 @@ void main() {
     });
 
     test('the _require helper is only emitted when something needs it', () {
-      final withRequired = manifest(intents: [intent(params: [param('a')])]);
+      final withRequired = manifest(
+        intents: [
+          intent(params: [param('a')]),
+        ],
+      );
       final without = manifest(
-        intents: [intent(params: [param('a', required: false)])],
+        intents: [
+          intent(params: [param('a', required: false)]),
+        ],
       );
       expect(emitDartHelpers(withRequired), contains('T _require<T>'));
       expect(emitDartHelpers(without), isEmpty);
@@ -116,22 +133,23 @@ void main() {
       expect(out, isNot(contains('shared.invoke(')));
     });
 
-    test('a static intent falls back to the handler when nothing is stored', () {
-      // Answering with silence before the app has ever published would look
-      // like a broken action to the user.
-      final out = intentsFor(
-        manifest(intents: [intent(execution: ExecutionMode.static_)]),
-      );
-      expect(out, contains('invokeBackground('));
-    });
+    test(
+      'a static intent falls back to the handler when nothing is stored',
+      () {
+        // Answering with silence before the app has ever published would look
+        // like a broken action to the user.
+        final out = intentsFor(
+          manifest(intents: [intent(execution: ExecutionMode.static_)]),
+        );
+        expect(out, contains('invokeBackground('));
+      },
+    );
 
     test('required and optional parameters differ by Swift optionality', () {
       final out = intentsFor(
         manifest(
           intents: [
-            intent(
-              params: [param('title'), param('note', required: false)],
-            ),
+            intent(params: [param('title'), param('note', required: false)]),
           ],
         ),
       );
@@ -142,7 +160,9 @@ void main() {
     test('dates are converted to epoch millis on the way out', () {
       final out = intentsFor(
         manifest(
-          intents: [intent(params: [param('due', type: ParamType.dateTime)])],
+          intents: [
+            intent(params: [param('due', type: ParamType.dateTime)]),
+          ],
         ),
       );
       expect(out, contains('Int(due.timeIntervalSince1970 * 1000)'));
@@ -154,7 +174,11 @@ void main() {
           intents: [
             intent(
               params: [
-                param('project', type: ParamType.entity, entityTypeName: 'Project'),
+                param(
+                  'project',
+                  type: ParamType.entity,
+                  entityTypeName: 'Project',
+                ),
               ],
             ),
           ],
@@ -171,7 +195,11 @@ void main() {
 
     test(r'$app expands to the applicationName placeholder Apple requires', () {
       final out = shortcutsFor(
-        manifest(intents: [intent(phrases: [r'Add a task to $app'])]),
+        manifest(
+          intents: [
+            intent(phrases: [r'Add a task to $app']),
+          ],
+        ),
       );
       expect(out, contains(r'"Add a task to \(.applicationName)"'));
     });
@@ -186,7 +214,11 @@ void main() {
 
     test('falls back to a default glyph', () {
       final out = shortcutsFor(
-        manifest(intents: [intent(phrases: [r'Do it in $app'])]),
+        manifest(
+          intents: [
+            intent(phrases: [r'Do it in $app']),
+          ],
+        ),
       );
       expect(out, contains('systemImageName: "app.badge"'));
     });
@@ -210,7 +242,11 @@ void main() {
         dartClassName: 'ProjectEntity',
         idProperty: 'id',
         properties: [
-          EntityPropertySpec(name: 'name', type: ParamType.string, isTitle: true),
+          EntityPropertySpec(
+            name: 'name',
+            type: ParamType.string,
+            isTitle: true,
+          ),
         ],
       );
       final without = SwiftEmitter(
@@ -276,12 +312,18 @@ void main() {
     test('the binding becomes async, because resolving is a call', () {
       final out = emitDartRegistry(withEntityParam());
       expect(out, contains('invoke: (args) async => addTask('));
-      expect(out, contains("project: await _resolveProject(args['project'] as String?)"));
+      expect(
+        out,
+        contains("project: await _resolveProject(args['project'] as String?)"),
+      );
     });
 
     test('a resolver helper is emitted using the user\'s own EntityQuery', () {
       final out = emitDartHelpers(withEntityParam());
-      expect(out, contains('Future<ProjectEntity?> _resolveProject(String? id)'));
+      expect(
+        out,
+        contains('Future<ProjectEntity?> _resolveProject(String? id)'),
+      );
       expect(out, contains('await ProjectResolver().byIds([id])'));
     });
 
@@ -319,12 +361,8 @@ void main() {
   });
 
   group('background execution', () {
-
     test('an entrypoint is emitted only when something runs headless', () {
-      expect(
-        emitBackgroundEntrypoint(manifest(intents: [intent()])),
-        isEmpty,
-      );
+      expect(emitBackgroundEntrypoint(manifest(intents: [intent()])), isEmpty);
       final out = emitBackgroundEntrypoint(
         manifest(intents: [intent(execution: ExecutionMode.background)]),
       );
@@ -345,7 +383,10 @@ void main() {
       // merge() throws individual sources away; losing this would leave the
       // engine looking in main.dart, where the entrypoint is not.
       final merged = Manifest.merge([
-        Manifest(source: 'my_app|lib/other.dart', intents: [intent(id: 'x')]),
+        Manifest(
+          source: 'my_app|lib/other.dart',
+          intents: [intent(id: 'x')],
+        ),
         Manifest(
           source: 'my_app|lib/intents.dart',
           intents: [intent(id: 'y', execution: ExecutionMode.background)],
@@ -514,7 +555,10 @@ void main() {
       // compile.
       final with_ = intentsFor(manifest(intents: [snippetIntent()]));
       expect(with_, contains('& ShowsSnippetView'));
-      expect(with_, contains('view: OsIntentsSnippetView(wire: outcome.snippet)'));
+      expect(
+        with_,
+        contains('view: OsIntentsSnippetView(wire: outcome.snippet)'),
+      );
 
       final without = intentsFor(manifest(intents: [intent()]));
       expect(without, isNot(contains('ShowsSnippetView')));
@@ -550,7 +594,10 @@ void main() {
       );
       expect(m.hasBackgroundIntents, isTrue);
       expect(SwiftEmitter(m).emit(), contains('OsIntentsBackground.swift'));
-      expect(emitBackgroundEntrypoint(m), contains("@pragma('vm:entry-point')"));
+      expect(
+        emitBackgroundEntrypoint(m),
+        contains("@pragma('vm:entry-point')"),
+      );
     });
   });
 }

@@ -9,7 +9,9 @@ import 'package:os_intents_platform_interface/os_intents_platform_interface.dart
 /// The same channel and the same protocol carry both — they differ only in
 /// which engine is on the other end.
 class OsIntentsAndroid extends OsIntentsPlatform {
-  static const MethodChannel _channel = MethodChannel('dev.osintents/background');
+  static const MethodChannel _channel = MethodChannel(
+    'dev.osintents/background',
+  );
 
   /// Development hooks, served by the plugin on whichever engine it attached
   /// to — normally the UI one.
@@ -34,10 +36,7 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   }
 
   @override
-  void setEntityHandler(
-    EntityQueryHandler handler, {
-    bool background = false,
-  }) {
+  void setEntityHandler(EntityQueryHandler handler, {bool background = false}) {
     _entities = handler;
     _wire();
   }

@@ -176,7 +176,9 @@ class OsIntents {
     } catch (e, st) {
       // Returning empty beats throwing: the user sees "no matches" instead of
       // Shortcuts reporting that the app failed.
-      debugPrint('os_intents: entity query "$method" on "$type" threw: $e\n$st');
+      debugPrint(
+        'os_intents: entity query "$method" on "$type" threw: $e\n$st',
+      );
       return const [];
     }
   }

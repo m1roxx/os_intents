@@ -42,45 +42,41 @@ const _target = 'arm64-apple-ios16.0-simulator';
 void main() {
   final env = _Toolchain.locate();
 
-  group(
-    'the emitted Swift',
-    () {
-      late Directory work;
-      late String moduleDir;
+  group('the emitted Swift', () {
+    late Directory work;
+    late String moduleDir;
 
-      setUpAll(() {
-        work = Directory.systemTemp.createTempSync('os_intents_swift');
-        moduleDir = env.buildPluginModule(work);
+    setUpAll(() {
+      work = Directory.systemTemp.createTempSync('os_intents_swift');
+      moduleDir = env.buildPluginModule(work);
+    });
+
+    tearDownAll(() => work.deleteSync(recursive: true));
+
+    void expectsCompiles(String name, Manifest manifest) {
+      test(name, () {
+        final result = env.typecheck(
+          SwiftEmitter(manifest).emit(),
+          into: Directory(p.join(work.path, name.replaceAll(' ', '_')))
+            ..createSync(recursive: true),
+          moduleDir: moduleDir,
+        );
+        expect(result, isEmpty, reason: 'swiftc reported:\n$result');
       });
+    }
 
-      tearDownAll(() => work.deleteSync(recursive: true));
+    expectsCompiles('every parameter type, entity and execution mode', _full);
+    expectsCompiles('strings that have to survive escaping', _awkward);
+    expectsCompiles('one intent and nothing else', _minimal);
 
-      void expectsCompiles(String name, Manifest manifest) {
-        test(name, () {
-          final result = env.typecheck(
-            SwiftEmitter(manifest).emit(),
-            into: Directory(p.join(work.path, name.replaceAll(' ', '_')))
-              ..createSync(recursive: true),
-            moduleDir: moduleDir,
-          );
-          expect(result, isEmpty, reason: 'swiftc reported:\n$result');
-        });
-      }
-
-      expectsCompiles('every parameter type, entity and execution mode', _full);
-      expectsCompiles('strings that have to survive escaping', _awkward);
-      expectsCompiles('one intent and nothing else', _minimal);
-
-      // Not the emitter's output, but the module it is generated to call, and
-      // the only thing standing between it and a Swift 6 build is this check:
-      // the language mode turns the concurrency warnings it was cleaned of back
-      // into errors, one file at a time, as soon as anyone stops looking.
-      test('the plugin it calls compiles under the Swift 6 language mode', () {
-        expect(env.typecheckPlugin(swiftVersion: '6'), isEmpty);
-      });
-    },
-    skip: env.skipReason,
-  );
+    // Not the emitter's output, but the module it is generated to call, and
+    // the only thing standing between it and a Swift 6 build is this check:
+    // the language mode turns the concurrency warnings it was cleaned of back
+    // into errors, one file at a time, as soon as anyone stops looking.
+    test('the plugin it calls compiles under the Swift 6 language mode', () {
+      expect(env.typecheckPlugin(swiftVersion: '6'), isEmpty);
+    });
+  }, skip: env.skipReason);
 }
 
 /// Exercises every branch the emitter has: all three execution modes, every
@@ -104,10 +100,30 @@ final _full = Manifest(
           isRequired: true,
           requestValueDialog: 'What should it be called?',
         ),
-        ParamSpec(name: 'count', title: 'Count', type: ParamType.int_, isRequired: false),
-        ParamSpec(name: 'weight', title: 'Weight', type: ParamType.double_, isRequired: false),
-        ParamSpec(name: 'urgent', title: 'Urgent', type: ParamType.bool_, isRequired: false),
-        ParamSpec(name: 'due', title: 'Due', type: ParamType.dateTime, isRequired: false),
+        ParamSpec(
+          name: 'count',
+          title: 'Count',
+          type: ParamType.int_,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'weight',
+          title: 'Weight',
+          type: ParamType.double_,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'urgent',
+          title: 'Urgent',
+          type: ParamType.bool_,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'due',
+          title: 'Due',
+          type: ParamType.dateTime,
+          isRequired: false,
+        ),
         ParamSpec(
           name: 'project',
           title: 'Project',
@@ -142,7 +158,11 @@ final _full = Manifest(
       queryClassName: 'ProjectQuery',
       properties: [
         EntityPropertySpec(name: 'name', type: ParamType.string, isTitle: true),
-        EntityPropertySpec(name: 'detail', type: ParamType.string, isSubtitle: true),
+        EntityPropertySpec(
+          name: 'detail',
+          type: ParamType.string,
+          isSubtitle: true,
+        ),
       ],
     ),
   ],
@@ -216,7 +236,11 @@ class _Toolchain {
       return _Toolchain.unavailable('swiftc needs macOS');
     }
 
-    final sdk = Process.runSync('xcrun', ['--sdk', 'iphonesimulator', '--show-sdk-path']);
+    final sdk = Process.runSync('xcrun', [
+      '--sdk',
+      'iphonesimulator',
+      '--show-sdk-path',
+    ]);
     if (sdk.exitCode != 0) {
       return _Toolchain.unavailable('no iphonesimulator SDK — install Xcode');
     }
@@ -246,24 +270,34 @@ class _Toolchain {
     return _Toolchain(
       sdkPath: (sdk.stdout as String).trim(),
       frameworkDir: p.join(engine, 'ios-arm64_x86_64-simulator'),
-      pluginSources: plugin
-          .listSync()
-          .whereType<File>()
-          .map((f) => f.path)
-          .where((f) => f.endsWith('.swift'))
-          .toList()
-        ..sort(),
+      pluginSources:
+          plugin
+              .listSync()
+              .whereType<File>()
+              .map((f) => f.path)
+              .where((f) => f.endsWith('.swift'))
+              .toList()
+            ..sort(),
     );
   }
 
   /// Tests run from their package directory, and this one reaches across the
   /// workspace on purpose: the emitter's output is only meaningful against the
   /// plugin it is generated to call.
-  static String _repoRoot() => p.normalize(p.join(Directory.current.path, '..', '..'));
+  static String _repoRoot() =>
+      p.normalize(p.join(Directory.current.path, '..', '..'));
 
   static String? _engineDir() {
-    for (var dir = p.dirname(Platform.resolvedExecutable); ; ) {
-      final candidate = p.join(dir, 'bin', 'cache', 'artifacts', 'engine', 'ios', 'Flutter.xcframework');
+    for (var dir = p.dirname(Platform.resolvedExecutable); ;) {
+      final candidate = p.join(
+        dir,
+        'bin',
+        'cache',
+        'artifacts',
+        'engine',
+        'ios',
+        'Flutter.xcframework',
+      );
       if (Directory(candidate).existsSync()) return candidate;
       final parent = p.dirname(dir);
       if (parent == dir) return null;
@@ -273,14 +307,23 @@ class _Toolchain {
 
   /// Compiles the plugin once, into a module the emitted code can import.
   String buildPluginModule(Directory work) {
-    final out = Directory(p.join(work.path, 'module'))..createSync(recursive: true);
+    final out = Directory(p.join(work.path, 'module'))
+      ..createSync(recursive: true);
     final result = Process.runSync('xcrun', [
-      '--sdk', 'iphonesimulator', 'swiftc', '-emit-module',
-      '-module-name', 'os_intents_ios',
-      '-target', _target,
-      '-sdk', sdkPath,
-      '-F', frameworkDir,
-      '-emit-module-path', p.join(out.path, 'os_intents_ios.swiftmodule'),
+      '--sdk',
+      'iphonesimulator',
+      'swiftc',
+      '-emit-module',
+      '-module-name',
+      'os_intents_ios',
+      '-target',
+      _target,
+      '-sdk',
+      sdkPath,
+      '-F',
+      frameworkDir,
+      '-emit-module-path',
+      p.join(out.path, 'os_intents_ios.swiftmodule'),
       ...pluginSources,
     ]);
     if (result.exitCode != 0) {
@@ -292,12 +335,19 @@ class _Toolchain {
   /// Type-checks the plugin's own sources, returning swiftc's complaints.
   String typecheckPlugin({String? swiftVersion}) => _diagnostics(
     Process.runSync('xcrun', [
-      '--sdk', 'iphonesimulator', 'swiftc', '-typecheck',
-      '-module-name', 'os_intents_ios',
+      '--sdk',
+      'iphonesimulator',
+      'swiftc',
+      '-typecheck',
+      '-module-name',
+      'os_intents_ios',
       if (swiftVersion != null) ...['-swift-version', swiftVersion],
-      '-target', _target,
-      '-sdk', sdkPath,
-      '-F', frameworkDir,
+      '-target',
+      _target,
+      '-sdk',
+      sdkPath,
+      '-F',
+      frameworkDir,
       ...pluginSources,
     ]),
     strip: p.dirname(pluginSources.first),
@@ -312,17 +362,25 @@ class _Toolchain {
     final paths = <String>[p.join(into.path, '_AppProvided.swift')];
     File(paths.first).writeAsStringSync(_appProvided);
     for (final entry in files.entries) {
-      final f = File(p.join(into.path, entry.key))..writeAsStringSync(entry.value);
+      final f = File(p.join(into.path, entry.key))
+        ..writeAsStringSync(entry.value);
       paths.add(f.path);
     }
 
     return _diagnostics(
       Process.runSync('xcrun', [
-        '--sdk', 'iphonesimulator', 'swiftc', '-typecheck',
-        '-target', _target,
-        '-sdk', sdkPath,
-        '-F', frameworkDir,
-        '-I', moduleDir,
+        '--sdk',
+        'iphonesimulator',
+        'swiftc',
+        '-typecheck',
+        '-target',
+        _target,
+        '-sdk',
+        sdkPath,
+        '-F',
+        frameworkDir,
+        '-I',
+        moduleDir,
         ...paths,
       ]),
       strip: into.path,

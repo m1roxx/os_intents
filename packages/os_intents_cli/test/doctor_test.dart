@@ -33,8 +33,12 @@ IntentSpec intent({
   showsInSpotlight: showsInSpotlight,
 );
 
-ParamSpec param(String name, {bool required = true}) =>
-    ParamSpec(name: name, title: name, type: ParamType.string, isRequired: required);
+ParamSpec param(String name, {bool required = true}) => ParamSpec(
+  name: name,
+  title: name,
+  type: ParamType.string,
+  isRequired: required,
+);
 
 EntitySpec entity({String typeName = 'Project', bool hasQuery = true}) =>
     EntitySpec(
@@ -76,7 +80,9 @@ AppIntentsMetadata shipped({
       for (final e in shortcuts.entries)
         {
           'actionIdentifier': e.key,
-          'phraseTemplates': [for (final p in e.value) {'key': p}],
+          'phraseTemplates': [
+            for (final p in e.value) {'key': p},
+          ],
         },
     ],
     'autoShortcutProviderMangledName': ?provider,
@@ -110,13 +116,10 @@ Map<String, Object?> shippedParam(String name, {bool optional = false}) => {
 List<Finding> errorsIn(List<Finding> findings) =>
     findings.where((f) => f.severity == Severity.error).toList();
 
-Matcher saysAll(List<String> fragments) => predicate<List<Finding>>(
-  (findings) {
-    final text = findings.map((f) => '${f.summary} ${f.detail ?? ''}').join('\n');
-    return fragments.every(text.contains);
-  },
-  'mentions ${fragments.join(", ")}',
-);
+Matcher saysAll(List<String> fragments) => predicate<List<Finding>>((findings) {
+  final text = findings.map((f) => '${f.summary} ${f.detail ?? ''}').join('\n');
+  return fragments.every(text.contains);
+}, 'mentions ${fragments.join(", ")}');
 
 void main() {
   group('when everything arrived', () {
@@ -124,10 +127,7 @@ void main() {
       final findings = diagnose(
         declared: declared(
           intents: [
-            intent(
-              phrases: [r'Add a task to $app'],
-              params: [param('title')],
-            ),
+            intent(phrases: [r'Add a task to $app'], params: [param('title')]),
           ],
           entities: [entity()],
         ),
@@ -159,11 +159,12 @@ void main() {
 
     test('phrases with no provider selected point at the Xcode step', () {
       final findings = diagnose(
-        declared: declared(intents: [intent(phrases: [r'Add a task to $app'])]),
-        shipped: shipped(
-          actions: [action('AddTaskOsIntent')],
-          provider: null,
+        declared: declared(
+          intents: [
+            intent(phrases: [r'Add a task to $app']),
+          ],
         ),
+        shipped: shipped(actions: [action('AddTaskOsIntent')], provider: null),
         hasSpokenPhraseFile: false,
       );
       expect(
@@ -176,7 +177,11 @@ void main() {
   group('a rival AppShortcutsProvider', () {
     test('is named, because iOS drops the loser in silence', () {
       final findings = diagnose(
-        declared: declared(intents: [intent(phrases: [r'Add a task to $app'])]),
+        declared: declared(
+          intents: [
+            intent(phrases: [r'Add a task to $app']),
+          ],
+        ),
         shipped: shipped(
           actions: [action('AddTaskOsIntent')],
           provider: '6Runner11MyShortcutsV',
@@ -203,7 +208,11 @@ void main() {
   group('phrases', () {
     test(r'$app is compared against what the extractor writes', () {
       final findings = diagnose(
-        declared: declared(intents: [intent(phrases: [r'New $app task'])]),
+        declared: declared(
+          intents: [
+            intent(phrases: [r'New $app task']),
+          ],
+        ),
         shipped: shipped(
           actions: [action('AddTaskOsIntent')],
           shortcuts: {
@@ -215,47 +224,53 @@ void main() {
       expect(findings, isEmpty);
     });
 
-    test('one phrase reaching the bundle and another not is still an error', () {
-      final findings = diagnose(
-        declared: declared(
-          intents: [
-            intent(phrases: [r'Add a task to $app', r'New $app task']),
-          ],
-        ),
-        shipped: shipped(
-          actions: [action('AddTaskOsIntent')],
-          shortcuts: {
-            'AddTaskOsIntent': [r'Add a task to ${applicationName}'],
-          },
-        ),
-        hasSpokenPhraseFile: true,
-      );
-      expect(errorsIn(findings), hasLength(1));
-      expect(findings, saysAll([r'New $app task']));
-    });
+    test(
+      'one phrase reaching the bundle and another not is still an error',
+      () {
+        final findings = diagnose(
+          declared: declared(
+            intents: [
+              intent(phrases: [r'Add a task to $app', r'New $app task']),
+            ],
+          ),
+          shipped: shipped(
+            actions: [action('AddTaskOsIntent')],
+            shortcuts: {
+              'AddTaskOsIntent': [r'Add a task to ${applicationName}'],
+            },
+          ),
+          hasSpokenPhraseFile: true,
+        );
+        expect(errorsIn(findings), hasLength(1));
+        expect(findings, saysAll([r'New $app task']));
+      },
+    );
 
-    test('no root.ssu.yaml means Siri got nothing, and it is reported once', () {
-      final findings = diagnose(
-        declared: declared(
-          intents: [
-            intent(id: 'addTask', phrases: [r'Add a task to $app']),
-            intent(id: 'dueToday', phrases: [r'What is due in $app']),
-          ],
-        ),
-        shipped: shipped(
-          actions: [action('AddTaskOsIntent'), action('DueTodayOsIntent')],
-          shortcuts: {
-            'AddTaskOsIntent': [r'Add a task to ${applicationName}'],
-            'DueTodayOsIntent': [r'What is due in ${applicationName}'],
-          },
-        ),
-        hasSpokenPhraseFile: false,
-      );
-      expect(
-        findings.where((f) => f.summary.contains('root.ssu.yaml')),
-        hasLength(1),
-      );
-    });
+    test(
+      'no root.ssu.yaml means Siri got nothing, and it is reported once',
+      () {
+        final findings = diagnose(
+          declared: declared(
+            intents: [
+              intent(id: 'addTask', phrases: [r'Add a task to $app']),
+              intent(id: 'dueToday', phrases: [r'What is due in $app']),
+            ],
+          ),
+          shipped: shipped(
+            actions: [action('AddTaskOsIntent'), action('DueTodayOsIntent')],
+            shortcuts: {
+              'AddTaskOsIntent': [r'Add a task to ${applicationName}'],
+              'DueTodayOsIntent': [r'What is due in ${applicationName}'],
+            },
+          ),
+          hasSpokenPhraseFile: false,
+        );
+        expect(
+          findings.where((f) => f.summary.contains('root.ssu.yaml')),
+          hasLength(1),
+        );
+      },
+    );
 
     test('an app without phrases does not need root.ssu.yaml', () {
       final findings = diagnose(
@@ -296,9 +311,7 @@ void main() {
         declared: declared(
           intents: [intent(execution: ExecutionMode.background)],
         ),
-        shipped: shipped(
-          actions: [action('AddTaskOsIntent', opensApp: true)],
-        ),
+        shipped: shipped(actions: [action('AddTaskOsIntent', opensApp: true)]),
         hasSpokenPhraseFile: false,
       );
       expect(errorsIn(findings), hasLength(1));
@@ -307,7 +320,11 @@ void main() {
 
     test('a parameter missing from the bundle is an error', () {
       final findings = diagnose(
-        declared: declared(intents: [intent(params: [param('title')])]),
+        declared: declared(
+          intents: [
+            intent(params: [param('title')]),
+          ],
+        ),
         shipped: shipped(actions: [action('AddTaskOsIntent')]),
         hasSpokenPhraseFile: false,
       );

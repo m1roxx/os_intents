@@ -29,8 +29,12 @@ class ProbeApp extends StatelessWidget {
                 'Build this app, then inspect Runner.app/Metadata.appintents.',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text('Variant C — ProbeRunnerIntent, declared in the Runner target.'),
-              Text('Variant A/B — ProbePodIntent, declared in the plugin module.'),
+              Text(
+                'Variant C — ProbeRunnerIntent, declared in the Runner target.',
+              ),
+              Text(
+                'Variant A/B — ProbePodIntent, declared in the plugin module.',
+              ),
               Text('Run ../run_probe.sh for the verdict.'),
             ],
           ),

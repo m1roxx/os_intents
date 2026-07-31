@@ -151,7 +151,10 @@ class IntentSpec {
 
   /// Required parameters that keep this out of the launcher, for reporting.
   List<String> get androidShortcutBlockers => androidShortcut
-      ? [for (final p in params) if (p.isRequired) p.name]
+      ? [
+          for (final p in params)
+            if (p.isRequired) p.name,
+        ]
       : const [];
 
   /// Resource name for this intent's label strings.
@@ -363,8 +366,7 @@ class Manifest {
   /// `FlutterEngine.run(withEntrypoint:libraryURI:)` needs this: the entrypoint
   /// is not in `main.dart`, and without the URI the engine looks only there and
   /// fails to start with nothing but a `false`.
-  String? get entrypointLibraryUri =>
-      hasBackgroundIntents ? libraryUri : null;
+  String? get entrypointLibraryUri => hasBackgroundIntents ? libraryUri : null;
 
   List<String> validate() => [
     for (final i in intents) ...i.validate(),

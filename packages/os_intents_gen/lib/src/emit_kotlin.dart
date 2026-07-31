@@ -86,7 +86,9 @@ class KotlinEmitter {
       ..writeln('    serviceName = "$serviceName",')
       ..writeln('    appFunctionXmlFileName = "$xmlFileName",')
       ..writeln(')')
-      ..writeln('abstract class BaseOsIntentsAppFunctionService : AppFunctionService() {')
+      ..writeln(
+        'abstract class BaseOsIntentsAppFunctionService : AppFunctionService() {',
+      )
       ..writeln();
 
     for (final intent in exposed) {
@@ -196,9 +198,15 @@ class KotlinEmitter {
       ..writeln('/**')
       ..writeln(' * Call once from `Application.onCreate`.')
       ..writeln(' *')
-      ..writeln(' * Unlike iOS, where the plugin finds its setup class through the')
-      ..writeln(' * ObjC runtime, an AppFunctionService can start with no Activity and')
-      ..writeln(' * no plugin registration having happened, so there is nothing to hook.')
+      ..writeln(
+        ' * Unlike iOS, where the plugin finds its setup class through the',
+      )
+      ..writeln(
+        ' * ObjC runtime, an AppFunctionService can start with no Activity and',
+      )
+      ..writeln(
+        ' * no plugin registration having happened, so there is nothing to hook.',
+      )
       ..writeln(' */')
       ..writeln('object OsIntentsSetup {')
       ..writeln('    fun configure() {');
@@ -207,7 +215,9 @@ class KotlinEmitter {
       b.writeln('        OsIntentsBridge.entrypointLibraryUri = "$uri"');
     }
     b
-      ..writeln('        OsIntentsBridge.pluginRegistrantCallback = { engine ->')
+      ..writeln(
+        '        OsIntentsBridge.pluginRegistrantCallback = { engine ->',
+      )
       ..writeln('            GeneratedPluginRegistrant.registerWith(engine)')
       ..writeln('        }')
       ..writeln('    }')

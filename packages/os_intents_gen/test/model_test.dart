@@ -20,12 +20,7 @@ ParamSpec param(
   String name, {
   ParamType type = ParamType.string,
   bool required = true,
-}) => ParamSpec(
-  name: name,
-  title: name,
-  type: type,
-  isRequired: required,
-);
+}) => ParamSpec(name: name, title: name, type: type, isRequired: required);
 
 void main() {
   group('intent validation', () {
@@ -86,7 +81,10 @@ void main() {
           spec(
             phrases: [r'Add a task to $app'],
             execution: ExecutionMode.background,
-            params: [param('title'), param('due', type: ParamType.dateTime)],
+            params: [
+              param('title'),
+              param('due', type: ParamType.dateTime),
+            ],
           ),
         ],
         entities: [
@@ -95,7 +93,11 @@ void main() {
             dartClassName: 'ProjectEntity',
             idProperty: 'id',
             properties: [
-              EntityPropertySpec(name: 'name', type: ParamType.string, isTitle: true),
+              EntityPropertySpec(
+                name: 'name',
+                type: ParamType.string,
+                isTitle: true,
+              ),
             ],
           ),
         ],

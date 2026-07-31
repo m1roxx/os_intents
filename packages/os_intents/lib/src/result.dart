@@ -43,8 +43,11 @@ final class DialogResult extends IntentResult {
   final String spoken;
   final String? displayed;
   @override
-  Map<String, Object?> toWire() =>
-      {'kind': 'dialog', 'spoken': spoken, 'displayed': displayed};
+  Map<String, Object?> toWire() => {
+    'kind': 'dialog',
+    'spoken': spoken,
+    'displayed': displayed,
+  };
 }
 
 final class ValueResult extends IntentResult {
@@ -59,8 +62,11 @@ final class SnippetResult extends IntentResult {
   final SnippetSpec spec;
   final String? spoken;
   @override
-  Map<String, Object?> toWire() =>
-      {'kind': 'snippet', 'spoken': spoken, 'spec': spec.toWire()};
+  Map<String, Object?> toWire() => {
+    'kind': 'snippet',
+    'spoken': spoken,
+    'spec': spec.toWire(),
+  };
 }
 
 final class ConfirmationResult extends IntentResult {

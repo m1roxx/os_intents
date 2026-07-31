@@ -68,10 +68,7 @@ void main() {
 
     test('snippet flattens rows', () {
       const r = IntentResult.snippet(
-        SnippetSpec(
-          title: 'Due today',
-          rows: [SnippetRow('Open', '3')],
-        ),
+        SnippetSpec(title: 'Due today', rows: [SnippetRow('Open', '3')]),
       );
       final wire = r.toWire();
       expect(wire['kind'], 'snippet');

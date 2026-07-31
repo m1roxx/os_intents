@@ -87,7 +87,8 @@ String _decode(ParamSpec p, Map<String, EntitySpec> entities) {
     // The OS resolved the entity to an identifier; turn it back into the
     // object the handler declared, using the user's own EntityQuery.
     final entity = entities[p.entityTypeName];
-    final expr = '_resolve${entity?.typeName ?? p.entityTypeName}'
+    final expr =
+        '_resolve${entity?.typeName ?? p.entityTypeName}'
         '($raw as String?)';
     return p.isRequired ? "_require(await $expr, '${p.name}')" : 'await $expr';
   }

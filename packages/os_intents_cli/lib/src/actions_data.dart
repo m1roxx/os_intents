@@ -155,7 +155,9 @@ class AppIntentsMetadata {
     try {
       decoded = jsonDecode(source);
     } on FormatException catch (e) {
-      throw FormatException('extract.actionsdata is not valid JSON: ${e.message}');
+      throw FormatException(
+        'extract.actionsdata is not valid JSON: ${e.message}',
+      );
     }
     if (decoded is! Map<String, Object?>) {
       throw const FormatException(
@@ -219,7 +221,10 @@ class AppIntentsMetadata {
         _ => null,
       },
       generator: switch (generator['name']) {
-        final String n => [n, generator['version']].whereType<String>().join(' '),
+        final String n => [
+          n,
+          generator['version'],
+        ].whereType<String>().join(' '),
         _ => null,
       },
       formatVersion: decoded['version'] as int?,
@@ -248,7 +253,9 @@ class AppIntentsMetadata {
     return ActionInfo(
       identifier: raw['identifier'] as String? ?? key,
       title: _localized(raw['title']),
-      description: _localized(_object(raw['descriptionMetadata'])['descriptionText']),
+      description: _localized(
+        _object(raw['descriptionMetadata'])['descriptionText'],
+      ),
       opensApp: raw['openAppWhenRun'] as bool? ?? false,
       isDiscoverable:
           visibility['isDiscoverable'] as bool? ??
@@ -293,7 +300,8 @@ class AppIntentsMetadata {
 
   static Map<String, Map<String, Object?>> _objectMap(Object? raw) => {
     for (final e in _object(raw).entries)
-      if (e.value is Map<String, Object?>) e.key: e.value! as Map<String, Object?>,
+      if (e.value is Map<String, Object?>)
+        e.key: e.value! as Map<String, Object?>,
   };
 
   static List<Map<String, Object?>> _objectList(Object? raw) => [
@@ -313,7 +321,8 @@ String demangleSwiftTypeName(String mangled) {
   var i = 0;
   while (i < mangled.length) {
     var digits = 0;
-    while (i + digits < mangled.length && _isDigit(mangled.codeUnitAt(i + digits))) {
+    while (i + digits < mangled.length &&
+        _isDigit(mangled.codeUnitAt(i + digits))) {
       digits++;
     }
     if (digits == 0) break;

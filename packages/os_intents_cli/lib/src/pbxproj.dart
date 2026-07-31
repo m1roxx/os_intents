@@ -108,8 +108,9 @@ class Pbxproj {
   /// Those add a directory wholesale, so a project using one for the app's
   /// sources already compiles whatever `sync` writes — and adding explicit file
   /// references on top would build the same file twice.
-  bool get usesSynchronizedFolders =>
-      objects.keys.any((id) => isaOf(id)?.startsWith('PBXFileSystemSynchronized') ?? false);
+  bool get usesSynchronizedFolders => objects.keys.any(
+    (id) => isaOf(id)?.startsWith('PBXFileSystemSynchronized') ?? false,
+  );
 
   /// The `PBXBuildFile` in [phaseId] that compiles [fileRefId], if any.
   String? buildFileFor(String phaseId, String fileRefId) {
@@ -146,7 +147,9 @@ class _Parser {
   }
 
   Object? _value() {
-    if (i >= src.length) throw PbxprojException('Unexpected end of project.pbxproj.');
+    if (i >= src.length) {
+      throw PbxprojException('Unexpected end of project.pbxproj.');
+    }
     return switch (src[i]) {
       '{' => _dict(),
       '(' => _array(),
@@ -159,7 +162,9 @@ class _Parser {
     final out = <String, Object?>{};
     while (true) {
       _skip();
-      if (i >= src.length) throw PbxprojException('Unterminated { in project.pbxproj.');
+      if (i >= src.length) {
+        throw PbxprojException('Unterminated { in project.pbxproj.');
+      }
       if (src[i] == '}') {
         i++;
         return out;
@@ -179,7 +184,9 @@ class _Parser {
     final out = <Object?>[];
     while (true) {
       _skip();
-      if (i >= src.length) throw PbxprojException('Unterminated ( in project.pbxproj.');
+      if (i >= src.length) {
+        throw PbxprojException('Unterminated ( in project.pbxproj.');
+      }
       if (src[i] == ')') {
         i++;
         return out;
@@ -236,7 +243,9 @@ class _Parser {
     final c = src[at];
     if (c.trim().isEmpty) return true;
     if ('{}()=;,"'.contains(c)) return true;
-    if (c == '/' && at + 1 < src.length && (src[at + 1] == '*' || src[at + 1] == '/')) {
+    if (c == '/' &&
+        at + 1 < src.length &&
+        (src[at + 1] == '*' || src[at + 1] == '/')) {
       return true;
     }
     return false;
@@ -261,7 +270,9 @@ class _Parser {
       }
       if (c == '/' && i + 1 < src.length && src[i + 1] == '*') {
         final end = src.indexOf('*/', i + 2);
-        if (end < 0) throw PbxprojException('Unterminated comment in project.pbxproj.');
+        if (end < 0) {
+          throw PbxprojException('Unterminated comment in project.pbxproj.');
+        }
         i = end + 2;
         continue;
       }

@@ -20,7 +20,10 @@ class IntentHarness {
   /// the shortcuts your users already built.
   List<String> get registeredIds => _registry.bindings.keys.toList()..sort();
 
-  Future<IntentResult> invoke(String id, [Map<String, Object?> args = const {}]) {
+  Future<IntentResult> invoke(
+    String id, [
+    Map<String, Object?> args = const {},
+  ]) {
     final binding = _registry[id];
     if (binding == null) {
       throw ArgumentError.value(

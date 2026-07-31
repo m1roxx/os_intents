@@ -149,7 +149,8 @@ class InstallCommand extends Command<int> {
     // that holds it, so attaching to a name-only group would make Xcode look
     // for the sources in ios/ and fail with "Build input file cannot be found".
     final appGroupId = project.childGroupNamed(mainGroupId, targetName);
-    if (appGroupId == null || project.object(appGroupId)?['path'] != targetName) {
+    if (appGroupId == null ||
+        project.object(appGroupId)?['path'] != targetName) {
       if (project.usesSynchronizedFolders) {
         throw PbxprojException(
           'This project uses Xcode 16 synchronized folder groups '
@@ -174,7 +175,9 @@ class InstallCommand extends Command<int> {
         : project.childIds(existingGroup, 'children').toSet();
     for (final id in project.idsWithIsa('PBXFileReference')) {
       final path = project.object(id)?['path'];
-      if (path is! String || !files.contains(path) || alreadyOurs.contains(id)) {
+      if (path is! String ||
+          !files.contains(path) ||
+          alreadyOurs.contains(id)) {
         continue;
       }
       throw PbxprojException(
@@ -217,7 +220,10 @@ class InstallCommand extends Command<int> {
 
     final targetId = project.nativeTargetNamed(targetName)!;
     final phaseId = project.sourcesPhaseOf(targetId)!;
-    final appGroupId = project.childGroupNamed(project.mainGroupId!, targetName)!;
+    final appGroupId = project.childGroupNamed(
+      project.mainGroupId!,
+      targetName,
+    )!;
     final groupId = project.childGroupNamed(appGroupId, groupName);
     if (groupId == null) {
       throw PbxprojException(
@@ -378,7 +384,9 @@ class _Plan {
   /// of the surrounding text, which is the whole reason this rewrite exists.
   static String _intoList(String text, String id, String key, String entries) {
     final (start, end) = _objectRange(text, id);
-    final list = RegExp('\\b$key\\s*=\\s*\\(').firstMatch(text.substring(start, end));
+    final list = RegExp(
+      '\\b$key\\s*=\\s*\\(',
+    ).firstMatch(text.substring(start, end));
     if (list == null) {
       throw PbxprojException(
         'Object $id has no "$key" list to add to, which is not a shape this '
@@ -392,7 +400,10 @@ class _Plan {
   /// Offsets of the body of the object [id], found by matching braces so a
   /// nested dictionary cannot end the search early.
   static (int, int) _objectRange(String text, String id) {
-    final decl = RegExp('^\\s*$id\\b[^\\n]*?=\\s*\\{', multiLine: true).firstMatch(text);
+    final decl = RegExp(
+      '^\\s*$id\\b[^\\n]*?=\\s*\\{',
+      multiLine: true,
+    ).firstMatch(text);
     if (decl == null) {
       throw PbxprojException(
         'Object $id is in the project but its definition could not be located '

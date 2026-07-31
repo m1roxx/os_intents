@@ -34,10 +34,7 @@ Future<IntentResult> addTask({
 /// Titles created in whichever isolate is running.
 final List<String> createdTitles = [];
 
-@AppIntent(
-  title: 'Tasks due today',
-  execution: Execution.static_,
-)
+@AppIntent(title: 'Tasks due today', execution: Execution.static_)
 Future<IntentResult> dueToday() async =>
     const IntentResult.dialog('Nothing due today');
 
