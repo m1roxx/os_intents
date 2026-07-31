@@ -118,15 +118,19 @@ Three shapes, and the generated code acts on all three:
 | `IntentResult.done()` | succeeded, nothing to say |
 | `IntentResult.dialog(spoken)` | succeeded, and Siri speaks it |
 | `IntentResult.snippet(spec)` | succeeded, with a card — needs `showsSnippet: true` |
+| `IntentResult.value(x)` | succeeded, handing a value to the next Shortcut step — needs `returns:` |
 
-Three more were modelled in Dart before anything was wired to them, and are
+`returns:` carries the type because Swift fixes `perform()`'s return type at
+compile time and `value(Object)` is untyped in Dart: `ReturnsValue<T>` has to
+be known when the code is generated, not when the handler runs. `String`,
+`int`, `double`, `bool` and `DateTime`; anything else is refused by the
+generator rather than compiled into Swift that will not build. iOS only — on
+Android an AppFunction answers with a fixed reply object.
+
+Two more were modelled in Dart before anything was wired to them, and are
 **not** in this release. The generated `perform()` did not branch on the result
 kind, so each was encoded, sent across the wire, and dropped:
 
-- **`IntentResult.value`** — a value that feeds the next step of a Shortcut.
-  Needs a typed return: Swift fixes `perform()`'s return type at compile time,
-  while `value(Object)` is untyped in Dart, so the annotation has to carry the
-  type before this can work at all.
 - **`IntentResult.needsConfirmation`** — the modelling was wrong, not just the
   wiring. The handler has already run and already had its effect by the time it
   returns anything, so "ask the user first" cannot be expressed as a return
@@ -134,7 +138,7 @@ kind, so each was encoded, sent across the wire, and dropped:
 - **`IntentResult.openApp`** — `openAppWhenRun` is a compile-time constant
   derived from `Execution`, not a decision a handler can make at run time.
 
-They were removed rather than documented as broken: a factory whose name
+These were removed rather than documented as broken: a factory whose name
 promises something the system never does is worse than its absence, and in a
 0.1.0 with no dependents removal costs nothing. Each returns as an addition,
 which is not a breaking change; leaving them in and fixing them later would

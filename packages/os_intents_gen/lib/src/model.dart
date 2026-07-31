@@ -112,6 +112,7 @@ class IntentSpec {
     this.systemImageName,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.returnType,
     this.androidShortcut = true,
     this.androidCapability,
     this.params = const [],
@@ -126,6 +127,12 @@ class IntentSpec {
   final String? systemImageName;
   final bool showsInSpotlight;
   final bool showsSnippet;
+
+  /// What the handler hands back for the next step of a Shortcut, if anything.
+  ///
+  /// Part of `perform()`'s Swift signature, which is why it is declared rather
+  /// than inferred — see [AppIntent.returns].
+  final ParamType? returnType;
 
   /// Android: offer this as a launcher shortcut.
   final bool androidShortcut;
@@ -215,6 +222,7 @@ class IntentSpec {
     if (systemImageName != null) 'systemImageName': systemImageName,
     'showsInSpotlight': showsInSpotlight,
     'showsSnippet': showsSnippet,
+    if (returnType != null) 'returnType': returnType!.name,
     'androidShortcut': androidShortcut,
     if (androidCapability != null) 'androidCapability': androidCapability,
     'params': [for (final p in params) p.toJson()],
@@ -230,6 +238,10 @@ class IntentSpec {
     systemImageName: j['systemImageName'] as String?,
     showsInSpotlight: j['showsInSpotlight'] as bool? ?? true,
     showsSnippet: j['showsSnippet'] as bool? ?? false,
+    returnType: switch (j['returnType']) {
+      final String name => ParamType.values.byName(name),
+      _ => null,
+    },
     androidShortcut: j['androidShortcut'] as bool? ?? true,
     androidCapability: j['androidCapability'] as String?,
     params: [

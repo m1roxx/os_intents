@@ -27,6 +27,15 @@ sealed class IntentResult {
   const factory IntentResult.snippet(SnippetSpec spec, {String? spoken}) =
       SnippetResult;
 
+  /// Succeeded, returning a value the next step of a Shortcut can use.
+  ///
+  /// Needs `returns:` on the intent, for the same reason as a snippet — the
+  /// type is part of `perform()`'s signature, so it has to be known when the
+  /// code is generated. Without it the value is dropped, and the generator
+  /// says so rather than letting it happen quietly.
+  const factory IntentResult.value(Object value, {String? spoken}) =
+      ValueResult;
+
   Map<String, Object?> toWire();
 }
 
@@ -45,6 +54,22 @@ final class DialogResult extends IntentResult {
     'kind': 'dialog',
     'spoken': spoken,
     'displayed': displayed,
+  };
+}
+
+final class ValueResult extends IntentResult {
+  const ValueResult(this.value, {this.spoken});
+  final Object value;
+
+  /// What Siri says while handing the value on. Optional: a Shortcut step that
+  /// feeds another step usually has nothing worth saying.
+  final String? spoken;
+
+  @override
+  Map<String, Object?> toWire() => {
+    'kind': 'value',
+    'value': value,
+    'spoken': spoken,
   };
 }
 

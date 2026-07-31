@@ -238,6 +238,57 @@ started with `am start -n <pkg>/.MainActivity`; and `adb logcat -d` returns
 instantly, so a polling loop without a pause finishes long before a second
 engine has started.
 
+## Entities: there is nothing to hook into
+
+iOS has `@EntityQuery` — the OS calls back into a running app to turn "Groceries"
+into an object, for disambiguation and for filling a parameter in the Shortcuts
+editor. The obvious guess is that Android does the same thing through AppSearch,
+inverted: the app publishes entities and the system queries the index.
+
+Measured against the artifacts this project already depends on,
+`androidx.appfunctions` **1.0.0-alpha10**, by unpacking the AAR and the KSP
+compiler and reading the class list — 215 and 190 classes respectively.
+
+**There is no entity concept in the library at all.** Nothing named for
+resolution, candidates, lookup or disambiguation exists in either artifact.
+
+AppSearch *is* in the dependency graph, and it is genuinely used — but for the
+functions, not for the app's data. The generated `$$__AppSearch__*` document
+classes are `AppFunctionMetadataDocument` and its relatives, and
+`AppFunctionInventory` reads:
+
+```
+Map<String, CompileTimeAppFunctionMetadata> getFunctionIdToMetadataMap()
+```
+
+An inventory of what the app can *do*, indexed so the system can find it. Not an
+inventory of what the app *has*.
+
+The nearest thing to constraining a parameter is a fixed set, decided at compile
+time and read from an annotation:
+
+```kotlin
+@AppFunctionStringValueConstraint(enumValues = [...])
+@AppFunctionIntValueConstraint(enumValues = [...])
+@AppFunctionOneOfType(matchOneOf = [...])
+```
+
+Nothing there asks the app anything.
+
+**So the feature cannot be built the way it was imagined.** An app can index its
+own entities into AppSearch — it is a general-purpose index — but nothing
+connects that to filling an AppFunction parameter. An agent would have to search
+AppSearch itself and then pass an identifier, which is exactly what already
+happens today: an entity parameter crosses as its identifier and the Dart
+handler resolves it.
+
+What the probe *did* find worth building is the value constraint. A Dart enum
+parameter maps onto `AppFunctionStringValueConstraint` directly, and onto
+`AppEnum` on the iOS side — one feature, both platforms, and the only kind of
+parameter narrowing Android actually offers.
+
+Re-check when `androidx.appfunctions` moves; alpha10 is where this was true.
+
 ## Still not answered
 
 An agent actually invoking one of these `@AppFunction` methods. Gemini's

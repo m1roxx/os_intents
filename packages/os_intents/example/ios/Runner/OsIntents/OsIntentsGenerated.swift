@@ -42,25 +42,17 @@ struct AddTaskOsIntent: AppIntent {
 
 
 @available(iOS 16.0, *)
-struct DueTodayOsIntent: AppIntent {
-  static let title: LocalizedStringResource = "Tasks due today"
+struct CountOpenTasksOsIntent: AppIntent {
+  static let title: LocalizedStringResource = "Count tasks"
+  static let description = IntentDescription("How many tasks are open")
   static let openAppWhenRun = false
 
-  func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
-    // Execution.static_: answered from stored state, with no
-    // Dart engine started.
-    if let stored = OsIntentsBridge.shared.staticResult(for: "dueToday") {
-      let outcome = IntentOutcome(wire: stored)
-      return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
-    }
-    // Nothing published yet — usually a first run, before the
-    // app has had a chance to call publishStatic. Fall back to
-    // running the handler rather than answering with silence.
+  func perform() async throws -> some IntentResult & ReturnsValue<Int> & ProvidesDialog {
     let outcome = try await OsIntentsBridge.shared.invokeBackground(
-      id: "dueToday",
+      id: "countOpenTasks",
       args: [:]
     )
-    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""), view: OsIntentsSnippetView(wire: outcome.snippet))
+    return .result(value: outcome.intValue ?? 0, dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))
   }
 }
 

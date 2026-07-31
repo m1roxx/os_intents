@@ -51,6 +51,7 @@ class AppIntent {
     this.identifier,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.returns,
     this.androidShortcut = true,
     this.androidCapability,
   });
@@ -85,6 +86,35 @@ class AppIntent {
   /// With this false, an `IntentResult.snippet` still speaks its `spoken` text
   /// — the card is simply not shown.
   final bool showsSnippet;
+
+  /// The type this action hands back, so a Shortcut can use it as input to its
+  /// next step.
+  ///
+  /// ```dart
+  /// @AppIntent(title: 'Count tasks', returns: int)
+  /// Future<IntentResult> countTasks() async =>
+  ///     IntentResult.value(await TaskRepo.instance.count());
+  /// ```
+  ///
+  /// Declared rather than inferred, because there is nothing to infer it from:
+  /// every handler returns `Future<IntentResult>`, and what is inside is not in
+  /// the signature. Swift needs it at compile time — `perform()`'s return type
+  /// carries `ReturnsValue<T>` — so it has to be known when the code is
+  /// generated, not when the handler runs.
+  ///
+  /// `String`, `int`, `double`, `bool` and `DateTime`. Anything else is
+  /// rejected by the generator rather than compiled into Swift that will not
+  /// build.
+  ///
+  /// Without this, an [IntentResult.value] has nowhere to go: the intent still
+  /// runs and still speaks its dialog, but the value is dropped. Nothing can
+  /// warn about that — what a handler returns is decided when it runs, and
+  /// this is decided when the code is generated.
+  ///
+  /// iOS only so far. On Android an AppFunction answers with a fixed reply
+  /// object, so a declared return type changes nothing there; the handler's
+  /// spoken text still arrives.
+  final Type? returns;
 
   /// Android: offer this action as a launcher shortcut.
   ///

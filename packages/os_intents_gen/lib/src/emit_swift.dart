@@ -77,9 +77,15 @@ class SwiftEmitter {
     final b = StringBuffer();
     // Swift fixes this at compile time, so an intent that only sometimes
     // returns a card still has to declare that it might.
-    final resultType = i.showsSnippet
-        ? 'some IntentResult & ProvidesDialog & ShowsSnippetView'
-        : 'some IntentResult & ProvidesDialog';
+    // Every conformance here has to match what `_dialogReturn` passes: the
+    // return type and the `.result(…)` call are one decision made twice, and
+    // Swift only complains at the second half.
+    final resultType = [
+      'some IntentResult',
+      if (i.returnType case final r?) 'ReturnsValue<${r.swift}>',
+      'ProvidesDialog',
+      if (i.showsSnippet) 'ShowsSnippetView',
+    ].join(' & ');
 
     b.writeln('@available(iOS 16.0, *)');
     b.writeln('struct ${i.swiftTypeName}: AppIntent {');
@@ -202,11 +208,30 @@ class SwiftEmitter {
   /// because the presence of `ShowsSnippetView` in the return type and the
   /// presence of `view:` here have to agree.
   String _dialogReturn(IntentSpec i, String spoken, {String? snippet}) {
-    final dialog = 'IntentDialog(stringLiteral: $spoken)';
-    if (!i.showsSnippet) return '.result(dialog: $dialog)';
-    final source = snippet ?? 'outcome.snippet';
-    return '.result(dialog: $dialog, view: OsIntentsSnippetView(wire: $source))';
+    final args = <String>[
+      if (i.returnType case final r?) 'value: ${_valueExpr(r)}',
+      'dialog: IntentDialog(stringLiteral: $spoken)',
+      if (i.showsSnippet)
+        'view: OsIntentsSnippetView(wire: ${snippet ?? 'outcome.snippet'})',
+    ];
+    return '.result(${args.join(', ')})';
   }
+
+  /// Pulls the returned value out of the outcome at the declared type.
+  ///
+  /// A handler that declared `returns:` and then answered with something else
+  /// — a plain dialog, say — leaves nothing to hand on, and `perform()` still
+  /// has to produce a value of that type. The fallback is the type's empty
+  /// value rather than a crash: the action did run, and taking down the
+  /// Shortcut over a missing return would be the wrong trade.
+  static String _valueExpr(ParamType t) => switch (t) {
+    ParamType.string => 'outcome.stringValue ?? ""',
+    ParamType.int_ => 'outcome.intValue ?? 0',
+    ParamType.double_ => 'outcome.doubleValue ?? 0',
+    ParamType.bool_ => 'outcome.boolValue ?? false',
+    ParamType.dateTime => 'outcome.dateValue ?? Date(timeIntervalSince1970: 0)',
+    ParamType.entity => throw StateError('entity returns are not supported'),
+  };
 
   String _parameter(ParamSpec p) {
     final args = <String>['title: ${_str(p.title)}'];

@@ -147,6 +147,47 @@ final _full = Manifest(
       title: 'Open inbox',
       execution: ExecutionMode.foreground,
     ),
+    // One per returnable type: `ReturnsValue<T>` puts T in `perform()`'s
+    // signature, so a coercion that does not match is a compile error here
+    // rather than a Shortcut that hands on the wrong thing.
+    IntentSpec(
+      id: 'countTasks',
+      functionName: 'countTasks',
+      title: 'Count tasks',
+      execution: ExecutionMode.background,
+      returnType: ParamType.int_,
+    ),
+    IntentSpec(
+      id: 'nextTitle',
+      functionName: 'nextTitle',
+      title: 'Next task title',
+      execution: ExecutionMode.static_,
+      returnType: ParamType.string,
+    ),
+    IntentSpec(
+      id: 'averageLoad',
+      functionName: 'averageLoad',
+      title: 'Average load',
+      execution: ExecutionMode.background,
+      returnType: ParamType.double_,
+    ),
+    IntentSpec(
+      id: 'isBusy',
+      functionName: 'isBusy',
+      title: 'Is busy',
+      execution: ExecutionMode.background,
+      returnType: ParamType.bool_,
+    ),
+    // Returning a value *and* showing a card: both conformances land in the
+    // same return type, and the `.result(…)` call has to carry both arguments.
+    IntentSpec(
+      id: 'nextDue',
+      functionName: 'nextDue',
+      title: 'Next due date',
+      execution: ExecutionMode.background,
+      returnType: ParamType.dateTime,
+      showsSnippet: true,
+    ),
   ],
   entities: [
     EntitySpec(

@@ -16,10 +16,30 @@ public struct IntentOutcome {
   /// Wire form of a `SnippetSpec`, when the handler returned one.
   public let snippet: [String: Any]?
 
+  /// What `IntentResult.value` carried, still in wire form.
+  ///
+  /// Read through the typed accessors rather than directly: the method channel
+  /// decodes numbers as `NSNumber`, so `as? Int` on a value Dart sent as a
+  /// double succeeds and silently truncates.
+  public let value: Any?
+
   public init(wire: [String: Any]) {
     kind = wire["kind"] as? String ?? "done"
     spoken = wire["spoken"] as? String ?? wire["displayed"] as? String
     snippet = wire["spec"] as? [String: Any]
+    value = wire["value"]
+  }
+
+  public var stringValue: String? { value as? String }
+  public var boolValue: Bool? { (value as? NSNumber)?.boolValue }
+  public var intValue: Int? { (value as? NSNumber)?.intValue }
+  public var doubleValue: Double? { (value as? NSNumber)?.doubleValue }
+
+  /// `DateTime` crosses as epoch milliseconds, UTC — the same shape a
+  /// parameter takes in the other direction.
+  public var dateValue: Date? {
+    guard let ms = (value as? NSNumber)?.doubleValue else { return nil }
+    return Date(timeIntervalSince1970: ms / 1000)
   }
 }
 

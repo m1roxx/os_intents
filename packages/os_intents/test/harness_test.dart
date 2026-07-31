@@ -68,6 +68,21 @@ void main() {
       });
     });
 
+    test('value carries what the generated Swift reads back', () {
+      // The Swift side pulls `value` out of this map and coerces it to the
+      // type the annotation declared. Rename the key here and nothing fails
+      // until a Shortcut hands the next step an empty string.
+      expect(const IntentResult.value(3).toWire(), {
+        'kind': 'value',
+        'value': 3,
+        'spoken': null,
+      });
+      expect(
+        const IntentResult.value('done', spoken: 'All set').toWire()['spoken'],
+        'All set',
+      );
+    });
+
     test('snippet flattens rows', () {
       const r = IntentResult.snippet(
         SnippetSpec(title: 'Due today', rows: [SnippetRow('Open', '3')]),

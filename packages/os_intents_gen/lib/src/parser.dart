@@ -61,6 +61,7 @@ class SpecParser {
     final spotlight = annotation.read('showsInSpotlight');
     final snippet = annotation.read('showsSnippet');
     final androidShortcut = annotation.read('androidShortcut');
+    final returnType = _returnType(annotation, id);
 
     _intents.add(
       IntentSpec(
@@ -73,6 +74,7 @@ class SpecParser {
         systemImageName: _stringOrNull(annotation, 'systemImageName'),
         showsInSpotlight: spotlight.isNull ? true : spotlight.boolValue,
         showsSnippet: snippet.isNull ? false : snippet.boolValue,
+        returnType: returnType,
         androidShortcut: androidShortcut.isNull
             ? true
             : androidShortcut.boolValue,
@@ -80,6 +82,29 @@ class SpecParser {
         params: _params(element, id),
       ),
     );
+  }
+
+  /// Reads `returns:`, which is a `Type` literal rather than an enum.
+  ///
+  /// Written as `returns: String` so it reads like ordinary Dart, which means
+  /// anything at all can be written there — and App Intents can express only a
+  /// handful of types. Refusing here beats emitting Swift that will not build,
+  /// and the message can name what is allowed.
+  ParamType? _returnType(ConstantReader annotation, String id) {
+    final reader = annotation.read('returns');
+    if (reader.isNull) return null;
+
+    final name = reader.typeValue.getDisplayString();
+    final type = ParamType.fromDart(name);
+    if (type == null) {
+      throw ParseFailure(
+        'Intent "$id" declares `returns: $name`, which cannot cross to the '
+        'system. A returned value becomes the input of the next Shortcut step, '
+        'and only String, int, double, bool and DateTime can be handed over '
+        'that way.',
+      );
+    }
+    return type;
   }
 
   void _requireFutureOfIntentResult(TopLevelFunctionElement fn, String id) {

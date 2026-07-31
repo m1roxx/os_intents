@@ -19,9 +19,9 @@ final IntentRegistry $osIntentsRegistry = IntentRegistry({
       project: await _resolveProject(args['project'] as String?),
     ),
   ),
-  'dueToday': IntentBinding(
-    id: 'dueToday',
-    invoke: (args) => dueToday(),
+  'countOpenTasks': IntentBinding(
+    id: 'countOpenTasks',
+    invoke: (args) => countOpenTasks(),
   ),
   'completeTask': IntentBinding(
     id: 'completeTask',

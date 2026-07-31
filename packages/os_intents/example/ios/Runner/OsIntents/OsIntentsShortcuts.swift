@@ -17,13 +17,5 @@ struct OsIntentsShortcuts: AppShortcutsProvider {
       shortTitle: "Add task",
       systemImageName: "plus.circle"
     )
-    AppShortcut(
-      intent: DueTodayOsIntent(),
-      phrases: [
-        "What's due today in \(.applicationName)",
-      ],
-      shortTitle: "Tasks due today",
-      systemImageName: "calendar"
-    )
   }
 }

@@ -14,6 +14,8 @@ IntentSpec intent({
   ExecutionMode execution = ExecutionMode.foreground,
   List<ParamSpec> params = const [],
   String? systemImageName,
+  ParamType? returnType,
+  bool showsSnippet = false,
 }) => IntentSpec(
   id: id,
   functionName: id,
@@ -22,6 +24,8 @@ IntentSpec intent({
   phrases: phrases,
   params: params,
   systemImageName: systemImageName,
+  returnType: returnType,
+  showsSnippet: showsSnippet,
 );
 
 ParamSpec param(
@@ -598,6 +602,77 @@ void main() {
         emitBackgroundEntrypoint(m),
         contains("@pragma('vm:entry-point')"),
       );
+    });
+  });
+
+  group('returned values', () {
+    String swiftFor(ParamType? returnType, {bool snippet = false}) =>
+        SwiftEmitter(
+          manifest(
+            intents: [
+              intent(
+                execution: ExecutionMode.background,
+                returnType: returnType,
+                showsSnippet: snippet,
+              ),
+            ],
+          ),
+        ).emit()['OsIntentsGenerated.swift']!;
+
+    test('no returns: means no ReturnsValue in the signature', () {
+      final swift = swiftFor(null);
+      expect(swift, isNot(contains('ReturnsValue')));
+      expect(swift, isNot(contains('value:')));
+    });
+
+    test('a declared type reaches both the signature and the call', () {
+      // These are one decision written twice, and Swift only complains about
+      // the second half — so they are asserted together.
+      final swift = swiftFor(ParamType.int_);
+      expect(swift, contains('some IntentResult & ReturnsValue<Int>'));
+      expect(swift, contains('.result(value: outcome.intValue ?? 0'));
+    });
+
+    test('each type coerces through its own accessor', () {
+      expect(swiftFor(ParamType.string), contains('outcome.stringValue ?? ""'));
+      expect(swiftFor(ParamType.double_), contains('outcome.doubleValue ?? 0'));
+      expect(swiftFor(ParamType.bool_), contains('outcome.boolValue ?? false'));
+      expect(
+        swiftFor(ParamType.dateTime),
+        contains('outcome.dateValue ?? Date(timeIntervalSince1970: 0)'),
+      );
+    });
+
+    test('a value and a card can be returned together', () {
+      final swift = swiftFor(ParamType.string, snippet: true);
+      expect(
+        swift,
+        contains(
+          'some IntentResult & ReturnsValue<String> & ProvidesDialog '
+          '& ShowsSnippetView',
+        ),
+      );
+      expect(swift, contains('value: outcome.stringValue ?? ""'));
+      expect(swift, contains('view: OsIntentsSnippetView'));
+    });
+
+    test('a declared return type survives the manifest round trip', () {
+      // It did not, at first: the field was on IntentSpec but not in toJson,
+      // so build_runner wrote a manifest without it and the CLI generated
+      // Swift with no ReturnsValue. Nothing failed — the value was simply
+      // dropped, which is the failure mode this whole feature exists to end.
+      final original = manifest(
+        intents: [intent(returnType: ParamType.dateTime)],
+      );
+      final round = Manifest.decode(original.encode());
+      expect(round.intents.single.returnType, ParamType.dateTime);
+    });
+
+    test('the Swift reads the key Dart writes', () {
+      // Only half the agreement can be checked here: os_intents is a Flutter
+      // package and these tests are plain Dart. That the encoder writes
+      // `value` is asserted in os_intents' harness_test, under flutter_test.
+      expect(swiftFor(ParamType.int_), contains('outcome.intValue'));
     });
   });
 }

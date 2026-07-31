@@ -29,24 +29,20 @@ Future<IntentResult> addTask({
   return IntentResult.dialog('Added "${task.title}"');
 }
 
-/// Read-only, so no engine has to start at all.
+/// Hands a number back, so a Shortcut can feed it into its next step.
+///
+/// `returns:` is what puts `ReturnsValue<Int>` in the generated `perform()`.
+/// Without it the action would still run and still speak, but the number would
+/// have nowhere to go.
 @AppIntent(
-  title: 'Tasks due today',
-  phrases: [r"What's due today in $app"],
-  systemImageName: 'calendar',
-  execution: Execution.static_,
-  showsSnippet: true,
+  title: 'Count tasks',
+  description: 'How many tasks are open',
+  execution: Execution.background,
+  returns: int,
 )
-Future<IntentResult> dueToday() async {
-  final tasks = await TaskRepo.instance.dueToday();
-  return IntentResult.snippet(
-    SnippetSpec(
-      title: 'Due today',
-      subtitle: '${tasks.length} task(s)',
-      rows: [for (final t in tasks.take(3)) SnippetRow(t.title, t.projectName)],
-      imageSystemName: 'calendar',
-    ),
-  );
+Future<IntentResult> countOpenTasks() async {
+  final open = TaskRepo.instance.all.length;
+  return IntentResult.value(open, spoken: '$open open');
 }
 
 /// No phrases: reachable from the Shortcuts app and Spotlight, but never by
