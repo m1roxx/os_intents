@@ -1,4 +1,6 @@
-import Flutter
+// See the note in OsIntentsBridge.swift: Flutter is Objective-C and carries no
+// Sendability annotations, so every type it vends reads as non-Sendable.
+@preconcurrency import Flutter
 import Foundation
 
 /// Runs Dart handlers with no UI.
@@ -22,12 +24,17 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
   /// from `AppDelegate`. Without it the background isolate comes up with no
   /// plugins — the handler runs, but anything touching shared preferences,
   /// sqlite or the network through a plugin fails.
-  public static var pluginRegistrantCallback: ((FlutterPluginRegistry) -> Void)?
+  /// `nonisolated(unsafe)` here and below: generated code in the app target
+  /// writes these once, from the plugin registrar during launch, long before
+  /// any intent can run. Isolating them to an actor would force the generated
+  /// setup to be async for no gain, and the compiler cannot see the ordering on
+  /// its own.
+  public nonisolated(unsafe) static var pluginRegistrantCallback: ((FlutterPluginRegistry) -> Void)?
 
   /// Dart entrypoint to run. Generated code overrides both of these to match
   /// the library the annotations were found in.
-  public static var entrypointName = "osIntentsBackgroundEntrypoint"
-  public static var entrypointLibraryURI: String?
+  public nonisolated(unsafe) static var entrypointName = "osIntentsBackgroundEntrypoint"
+  public nonisolated(unsafe) static var entrypointLibraryURI: String?
 
   /// How long the engine lingers after the last invocation.
   ///
@@ -42,10 +49,15 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
   /// Ceiling on bringing the isolate up and hearing back from Dart.
   public var startTimeout: TimeInterval = 10
 
+  /// Scoped locking throughout: `lock()`/`unlock()` are unavailable from async
+  /// contexts, and most of these critical sections sit inside one.
   private let lock = NSLock()
   private var engine: FlutterEngine?
   private var channel: FlutterMethodChannel?
-  private var readyContinuations: [CheckedContinuation<Void, Error>] = []
+
+  /// Keyed so a start that times out can take its own waiter out without
+  /// disturbing another invocation waiting on the same engine.
+  private var readyContinuations: [UUID: CheckedContinuation<Void, Error>] = [:]
   private var isStarting = false
   private var inFlight = 0
   private var idleTimer: DispatchWorkItem?
@@ -60,43 +72,38 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
   public func invoke(id: String, args: [String: Any?]) async throws -> IntentOutcome {
     let channel = try await start()
 
-    lock.lock()
-    inFlight += 1
-    idleTimer?.cancel()
-    idleTimer = nil
-    lock.unlock()
+    lock.withLock {
+      inFlight += 1
+      idleTimer?.cancel()
+      idleTimer = nil
+    }
 
     defer { finishedOne() }
 
     let payload: [String: Any] = ["id": id, "args": args.compactMapValues { $0 }]
 
-    let wire: [String: Any] = try await withThrowingTaskGroup(of: [String: Any].self) { group in
-      group.addTask {
-        try await withCheckedThrowingContinuation { cont in
-          DispatchQueue.main.async {
-            channel.invokeMethod("invoke", arguments: payload) { response in
-              if let error = response as? FlutterError {
-                cont.resume(throwing: OsIntentsError.handlerFailed(
-                  error.message ?? error.code
-                ))
-              } else if let map = response as? [String: Any] {
-                cont.resume(returning: map)
-              } else {
-                cont.resume(returning: ["kind": "done"])
-              }
-            }
+    let wire: [String: Any] = try await withCheckedThrowingContinuation { cont in
+      let once = OneShotContinuation(cont)
+
+      let deadline = Task { [invokeTimeout] in
+        try await Task.sleep(nanoseconds: UInt64(invokeTimeout * 1_000_000_000))
+        once.resume(throwing: OsIntentsError.timedOut)
+      }
+
+      DispatchQueue.main.async {
+        channel.invokeMethod("invoke", arguments: payload) { response in
+          deadline.cancel()
+          if let error = response as? FlutterError {
+            once.resume(throwing: OsIntentsError.handlerFailed(
+              error.message ?? error.code
+            ))
+          } else if let map = response as? [String: Any] {
+            once.resume(returning: map)
+          } else {
+            once.resume(returning: ["kind": "done"])
           }
         }
       }
-      group.addTask { [invokeTimeout] in
-        try await Task.sleep(nanoseconds: UInt64(invokeTimeout * 1_000_000_000))
-        throw OsIntentsError.timedOut
-      }
-      guard let first = try await group.next() else {
-        throw OsIntentsError.engineUnavailable
-      }
-      group.cancelAll()
-      return first
     }
 
     if wire["kind"] as? String == "error" {
@@ -109,15 +116,13 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
 
   /// Brings the engine up if needed and resolves once Dart has registered.
   private func start() async throws -> FlutterMethodChannel {
-    lock.lock()
-    if isReady, let channel {
-      lock.unlock()
-      return channel
-    }
-    let alreadyStarting = isStarting
-    isStarting = true
-    lock.unlock()
+    let live = lock.withLock { isReady ? channel : nil }
+    if let live { return live }
 
+    let alreadyStarting = lock.withLock { () -> Bool in
+      defer { isStarting = true }
+      return isStarting
+    }
     if !alreadyStarting {
       try startEngine()
     }
@@ -126,38 +131,39 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
     // spawned. If the entrypoint is missing, Dart never calls back and this
     // would wait forever — which is exactly how it failed the first time it
     // was tried on a device.
-    try await withThrowingTaskGroup(of: Void.self) { group in
-      group.addTask { [self] in
-        try await withCheckedThrowingContinuation {
-          (cont: CheckedContinuation<Void, Error>) in
-          lock.lock()
-          if isReady {
-            lock.unlock()
-            cont.resume()
-          } else {
-            readyContinuations.append(cont)
-            lock.unlock()
-          }
-        }
-      }
-      group.addTask { [startTimeout] in
-        try await Task.sleep(nanoseconds: UInt64(startTimeout * 1_000_000_000))
-        throw OsIntentsError.handlerFailed(
+    //
+    // The bound is a race between this continuation and a deadline, both of
+    // which claim the waiter out of the table under the lock so exactly one
+    // wins. Not a task group: that awaits its children on the way out, and a
+    // checked continuation ignores cancellation, so the timeout would have hung
+    // rather than reported.
+    let id = UUID()
+    let deadline = Task { [self, startTimeout] in
+      try await Task.sleep(nanoseconds: UInt64(startTimeout * 1_000_000_000))
+      lock.withLock { readyContinuations.removeValue(forKey: id) }?
+        .resume(throwing: OsIntentsError.handlerFailed(
           "The background Dart isolate did not report ready within "
             + "\(Int(startTimeout))s. The usual cause is that the entrypoint "
             + "\"\(Self.entrypointName)\" was not found in "
             + "\(Self.entrypointLibraryURI ?? "the main library")"
             + " — re-run build_runner, then os_intents sync."
-        )
+        ))
+    }
+    defer { deadline.cancel() }
+
+    try await withCheckedThrowingContinuation {
+      (cont: CheckedContinuation<Void, Error>) in
+      let ready = lock.withLock { () -> Bool in
+        if isReady { return true }
+        readyContinuations[id] = cont
+        return false
       }
-      try await group.next()
-      group.cancelAll()
+      if ready { cont.resume() }
     }
 
-    lock.lock()
-    let channel = self.channel
-    lock.unlock()
-    guard let channel else { throw OsIntentsError.engineUnavailable }
+    guard let channel = lock.withLock({ self.channel }) else {
+      throw OsIntentsError.engineUnavailable
+    }
     return channel
   }
 
@@ -208,59 +214,58 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
         }
       }
 
-      lock.lock()
-      self.engine = engine
-      self.channel = channel
-      lock.unlock()
+      lock.withLock {
+        self.engine = engine
+        self.channel = channel
+      }
     }
   }
 
   private func markReady() {
-    lock.lock()
-    isReady = true
-    isStarting = false
-    let waiters = readyContinuations
-    readyContinuations.removeAll()
-    lock.unlock()
+    let waiters = lock.withLock { () -> [CheckedContinuation<Void, Error>] in
+      isReady = true
+      isStarting = false
+      defer { readyContinuations.removeAll() }
+      return Array(readyContinuations.values)
+    }
     waiters.forEach { $0.resume() }
   }
 
   private func failStart(_ error: Error) {
-    lock.lock()
-    isStarting = false
-    let waiters = readyContinuations
-    readyContinuations.removeAll()
-    lock.unlock()
+    let waiters = lock.withLock { () -> [CheckedContinuation<Void, Error>] in
+      isStarting = false
+      defer { readyContinuations.removeAll() }
+      return Array(readyContinuations.values)
+    }
     waiters.forEach { $0.resume(throwing: error) }
   }
 
   private func finishedOne() {
-    lock.lock()
-    inFlight -= 1
-    let idle = inFlight <= 0
-    lock.unlock()
+    let idle = lock.withLock { () -> Bool in
+      inFlight -= 1
+      return inFlight <= 0
+    }
     guard idle else { return }
 
     let work = DispatchWorkItem { [weak self] in self?.shutdown() }
-    lock.lock()
-    idleTimer?.cancel()
-    idleTimer = work
-    lock.unlock()
+    lock.withLock {
+      idleTimer?.cancel()
+      idleTimer = work
+    }
     DispatchQueue.main.asyncAfter(deadline: .now() + idleTimeout, execute: work)
   }
 
   private func shutdown() {
-    lock.lock()
-    guard inFlight <= 0 else {
-      lock.unlock()
-      return
+    let engine = lock.withLock { () -> FlutterEngine? in
+      guard inFlight <= 0 else { return nil }
+      defer {
+        self.engine = nil
+        self.channel = nil
+        isReady = false
+        isStarting = false
+      }
+      return self.engine
     }
-    let engine = self.engine
-    self.engine = nil
-    self.channel = nil
-    isReady = false
-    isStarting = false
-    lock.unlock()
 
     engine?.destroyContext()
   }

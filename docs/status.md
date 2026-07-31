@@ -1,8 +1,8 @@
 # Status and plan
 
 The document to read when picking this up after a gap. Last updated 2026-07-31,
-after closing the first three items in §4 — doctor, install, and a compile test
-for the generated Swift.
+after closing the first three items in §4 plus the Swift 6 work — doctor,
+install, a compile test for the generated Swift, and a concurrency rewrite.
 
 `README.md` is the pitch; this is the honest inventory.
 
@@ -60,7 +60,7 @@ logged `Indexed: 3, Errored: 0` and loaded `LNActionMetadata`,
 
 ### Health
 
-131 tests (6 in `os_intents`, 72 in `os_intents_gen`, 53 in `os_intents_cli`),
+132 tests (6 in `os_intents`, 73 in `os_intents_gen`, 53 in `os_intents_cli`),
 `flutter analyze` clean across the workspace, example app builds for iOS, probe
 app builds for Android.
 
@@ -189,14 +189,37 @@ Ordered by how much it blocks a first release.
    nested in a `View` inherits its main-actor isolation.
 4. **README needs the GIF.** The whole pitch is "Siri runs your action without
    opening the app" and there is no picture of it.
-5. **The plugin is not Swift 6 ready.** Measured while building the compile
-   test: `OsIntentsBridge` and `OsIntentsBackgroundEngine` take an `NSLock`
-   across `await` points in about a dozen places, which the compiler already
-   warns is an error in the Swift 6 language mode, and both capture
-   `FlutterMethodChannel` in `@Sendable` closures. The generated Swift is clean;
-   this is the runtime bridge, and it wants an actor rather than a lock — a real
-   change to code that already works, so it is written down rather than done in
-   passing.
+5. ~~**The plugin is not Swift 6 ready.**~~ Done — and it turned out to be
+   hiding three real bugs rather than being cosmetic.
+
+   The 21 warnings are gone: scoped `withLock` in place of `lock()`/`unlock()`
+   (which is what "unavailable from asynchronous contexts" is asking for),
+   `@preconcurrency import Flutter` for a framework that predates Sendable, and
+   `nonisolated(unsafe)` on the five statics that are written once during launch.
+   The plugin now compiles clean under **both** Swift 5 and the full Swift 6
+   language mode — checked by a test, so it stays that way.
+
+   An actor was the obvious answer and the wrong one: `FlutterMethodChannel` has
+   to be used on the main thread, which is what the lock was really enforcing.
+
+   The three bugs, all the same shape — a timeout racing a callback inside a
+   task group:
+   - `waitUntilReady` ran its deadline in a `Task` nobody awaited, so
+     `readyTimeout` did nothing at all and a Dart side that never reported ready
+     hung the intent until iOS killed it.
+   - `start()` and `invoke()` did race their timeouts properly, but a task group
+     awaits its children on the way out and a checked continuation ignores
+     cancellation — so on timeout the loser stayed suspended and hung the very
+     path meant to report it.
+
+   All three now race through `OneShotContinuation`, where each side claims the
+   continuation under a lock and exactly one wins.
+
+   Compiling proves nothing about a rewrite of the runtime's concurrency, so
+   `probe/run_integration.sh` was re-run on the simulator: `headless_isolate`,
+   `static_round_trip`, `entity_queries` and `snippet_round_trip` all still
+   pass. The timeout paths themselves remain unverified on a device — provoking
+   one means a Dart side that never answers, which nothing here can arrange.
 
 ### Blocking Android
 

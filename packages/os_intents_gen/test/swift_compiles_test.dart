@@ -70,6 +70,14 @@ void main() {
       expectsCompiles('every parameter type, entity and execution mode', _full);
       expectsCompiles('strings that have to survive escaping', _awkward);
       expectsCompiles('one intent and nothing else', _minimal);
+
+      // Not the emitter's output, but the module it is generated to call, and
+      // the only thing standing between it and a Swift 6 build is this check:
+      // the language mode turns the concurrency warnings it was cleaned of back
+      // into errors, one file at a time, as soon as anyone stops looking.
+      test('the plugin it calls compiles under the Swift 6 language mode', () {
+        expect(env.typecheckPlugin(swiftVersion: '6'), isEmpty);
+      });
     },
     skip: env.skipReason,
   );
@@ -281,6 +289,20 @@ class _Toolchain {
     return out.path;
   }
 
+  /// Type-checks the plugin's own sources, returning swiftc's complaints.
+  String typecheckPlugin({String? swiftVersion}) => _diagnostics(
+    Process.runSync('xcrun', [
+      '--sdk', 'iphonesimulator', 'swiftc', '-typecheck',
+      '-module-name', 'os_intents_ios',
+      if (swiftVersion != null) ...['-swift-version', swiftVersion],
+      '-target', _target,
+      '-sdk', sdkPath,
+      '-F', frameworkDir,
+      ...pluginSources,
+    ]),
+    strip: p.dirname(pluginSources.first),
+  );
+
   /// Type-checks [files], returning swiftc's complaints — empty when clean.
   String typecheck(
     Map<String, String> files, {
@@ -294,21 +316,25 @@ class _Toolchain {
       paths.add(f.path);
     }
 
-    final result = Process.runSync('xcrun', [
-      '--sdk', 'iphonesimulator', 'swiftc', '-typecheck',
-      '-target', _target,
-      '-sdk', sdkPath,
-      '-F', frameworkDir,
-      '-I', moduleDir,
-      ...paths,
-    ]);
-
-    // swiftc echoes the offending source under each diagnostic; the first line
-    // of each is the one worth reading in a test failure.
-    return const LineSplitter()
-        .convert('${result.stdout}${result.stderr}')
-        .where((l) => l.contains(': error:') || l.contains(': warning:'))
-        .map((l) => l.replaceFirst(into.path, ''))
-        .join('\n');
+    return _diagnostics(
+      Process.runSync('xcrun', [
+        '--sdk', 'iphonesimulator', 'swiftc', '-typecheck',
+        '-target', _target,
+        '-sdk', sdkPath,
+        '-F', frameworkDir,
+        '-I', moduleDir,
+        ...paths,
+      ]),
+      strip: into.path,
+    );
   }
+
+  /// swiftc echoes the offending source under each diagnostic; the first line
+  /// of each is the one worth reading in a test failure.
+  static String _diagnostics(ProcessResult result, {required String strip}) =>
+      const LineSplitter()
+          .convert('${result.stdout}${result.stderr}')
+          .where((l) => l.contains(': error:') || l.contains(': warning:'))
+          .map((l) => l.replaceFirst(strip, ''))
+          .join('\n');
 }

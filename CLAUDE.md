@@ -157,6 +157,12 @@ loose parameters. Do not try to make the two emitters symmetrical.
   the whole app down until payloads were made property-list-safe.
 - `AppIntentsPackage` is iOS 17+ while `AppIntent` is iOS 16+.
 - A provider declared in a plugin is dropped in silence — no error, no warning.
+- **A task group is the wrong way to bound a callback.** Racing the work against
+  a `Task.sleep` inside `withThrowingTaskGroup` reads correctly and hangs: the
+  group awaits its children on the way out, and a `CheckedContinuation` does not
+  answer cancellation, so on timeout the loser stays suspended forever — in the
+  path that exists to report the timeout. Three of these shipped here. Use
+  `OneShotContinuation`, where each side claims the continuation under a lock.
 - `project.pbxproj` object ids are not a contract. `install` looks the target,
   its Sources phase and the app group up in the parsed project
   (`os_intents_cli/lib/src/pbxproj.dart`) and re-parses its own output before

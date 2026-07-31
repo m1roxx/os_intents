@@ -1,4 +1,8 @@
-import Flutter
+// Flutter is an Objective-C framework: none of its types carry Sendability
+// annotations, so every one of them reads as non-Sendable to Swift concurrency.
+// @preconcurrency says "this module predates the checking" rather than silencing
+// anything of ours — os_intents' own types are checked normally.
+@preconcurrency import Flutter
 import Foundation
 
 /// What a Dart handler answered with.
@@ -15,6 +19,35 @@ public struct IntentOutcome {
     spoken = wire["spoken"] as? String ?? wire["displayed"] as? String
     value = wire["value"]
     snippet = wire["spec"] as? [String: Any]
+  }
+}
+
+/// A continuation several racers may try to resume, of which exactly one wins.
+///
+/// Every timeout here guards something that answers by callback — a Flutter
+/// method-channel reply, or Dart reporting its handlers registered — and a
+/// checked continuation must be resumed exactly once, never twice. The obvious
+/// shape, a task group racing the work against a sleep, is the wrong one: a
+/// group awaits its children on the way out and a checked continuation ignores
+/// cancellation, so the loser stays suspended and hangs the very path that was
+/// supposed to report the timeout.
+final class OneShotContinuation<T>: @unchecked Sendable {
+  private let lock = NSLock()
+  private var continuation: CheckedContinuation<T, Error>?
+
+  init(_ continuation: CheckedContinuation<T, Error>) {
+    self.continuation = continuation
+  }
+
+  func resume(returning value: T) { take()?.resume(returning: value) }
+
+  func resume(throwing error: Error) { take()?.resume(throwing: error) }
+
+  private func take() -> CheckedContinuation<T, Error>? {
+    lock.withLock {
+      defer { continuation = nil }
+      return continuation
+    }
   }
 }
 
@@ -43,10 +76,16 @@ public enum OsIntentsError: Error, LocalizedError {
 public final class OsIntentsBridge: @unchecked Sendable {
   public static let shared = OsIntentsBridge()
 
+  /// Scoped locking throughout: `lock()`/`unlock()` are unavailable from async
+  /// contexts — holding a lock across a suspension is the hazard they guard
+  /// against — and every one of these critical sections sits inside one.
   private let lock = NSLock()
   private var channel: FlutterMethodChannel?
   private var isReady = false
-  private var readyWaiters: [CheckedContinuation<Void, Never>] = []
+  /// Keyed so a waiter that times out can be taken out on its own, without
+  /// releasing anybody else's wait. The value each one is resumed with is
+  /// "did this time out".
+  private var readyWaiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
 
   /// How long to wait for Dart handlers to register during a cold launch that
   /// was itself triggered by an intent.
@@ -62,22 +101,23 @@ public final class OsIntentsBridge: @unchecked Sendable {
   /// the guard the background engine's channel would replace the UI engine's
   /// here — and every foreground invocation would then be delivered to the
   /// wrong isolate.
-  public static var isRegisteringBackgroundEngine = false
+  ///
+  /// `nonisolated(unsafe)`: set and cleared around one synchronous stretch of
+  /// plugin registration on the platform thread, never read from anywhere else.
+  public nonisolated(unsafe) static var isRegisteringBackgroundEngine = false
 
   func attach(channel: FlutterMethodChannel) {
     if Self.isRegisteringBackgroundEngine { return }
-    lock.lock()
-    self.channel = channel
-    lock.unlock()
+    lock.withLock { self.channel = channel }
   }
 
   func markReady() {
-    lock.lock()
-    isReady = true
-    let waiters = readyWaiters
-    readyWaiters.removeAll()
-    lock.unlock()
-    waiters.forEach { $0.resume() }
+    let waiters = lock.withLock { () -> [CheckedContinuation<Bool, Never>] in
+      isReady = true
+      defer { readyWaiters.removeAll() }
+      return Array(readyWaiters.values)
+    }
+    waiters.forEach { $0.resume(returning: false) }
   }
 
   func publishStatic(_ values: [String: Any]) {
@@ -127,7 +167,10 @@ public final class OsIntentsBridge: @unchecked Sendable {
   /// The first version of this shipped writing to an App Group that was never
   /// provisioned (`UserDefaults(suiteName:)` returned nil, so the write was
   /// dropped) while reading back from `.standard`. The two never met.
-  public static var staticStore: UserDefaults = .standard
+  ///
+  /// `nonisolated(unsafe)` because it is a var only so a test can point it
+  /// somewhere else; in an app it is `.standard` for the process's lifetime.
+  public nonisolated(unsafe) static var staticStore: UserDefaults = .standard
 
   static let staticKey = "os_intents.static"
 
@@ -143,9 +186,7 @@ public final class OsIntentsBridge: @unchecked Sendable {
   public func invokeBackground(
     id: String, args: [String: Any?]
   ) async throws -> IntentOutcome {
-    lock.lock()
-    let uiReady = isReady && channel != nil
-    lock.unlock()
+    let uiReady = lock.withLock { isReady && channel != nil }
 
     if uiReady {
       return try await invoke(id: id, args: args)
@@ -156,11 +197,9 @@ public final class OsIntentsBridge: @unchecked Sendable {
   public func invoke(id: String, args: [String: Any?]) async throws -> IntentOutcome {
     try await waitUntilReady()
 
-    lock.lock()
-    let channel = self.channel
-    lock.unlock()
-
-    guard let channel else { throw OsIntentsError.engineUnavailable }
+    guard let channel = lock.withLock({ self.channel }) else {
+      throw OsIntentsError.engineUnavailable
+    }
 
     let payload: [String: Any] = [
       "id": id,
@@ -229,10 +268,9 @@ public final class OsIntentsBridge: @unchecked Sendable {
   ) async throws -> [[String: Any]] {
     try await waitUntilReady()
 
-    lock.lock()
-    let channel = self.channel
-    lock.unlock()
-    guard let channel else { throw OsIntentsError.engineUnavailable }
+    guard let channel = lock.withLock({ self.channel }) else {
+      throw OsIntentsError.engineUnavailable
+    }
 
     return try await withCheckedThrowingContinuation { cont in
       DispatchQueue.main.async {
@@ -253,32 +291,40 @@ public final class OsIntentsBridge: @unchecked Sendable {
     }
   }
 
+  /// Waits for Dart to report its handlers registered, or gives up.
+  ///
+  /// An intent can launch the app from cold, so this waits rather than failing
+  /// outright — but bounded. It was not: the deadline ran in a `Task` whose
+  /// thrown error nobody awaited, so `readyTimeout` did nothing and a Dart side
+  /// that never reported ready hung the intent until iOS killed it.
   private func waitUntilReady() async throws {
-    lock.lock()
-    if isReady {
-      lock.unlock()
-      return
-    }
-    lock.unlock()
+    if lock.withLock({ isReady }) { return }
 
-    // An intent can launch the app from cold. Buffer rather than drop.
-    let deadline = Task {
+    let id = UUID()
+
+    // One continuation, resumed exactly once by whichever of these two gets
+    // there first — both take the waiter out of the table under the lock, so
+    // the race has a single winner. A task group would have been the obvious
+    // shape and the wrong one: it awaits its children on the way out, and a
+    // checked continuation does not answer cancellation, so the losing side
+    // would hang the very path that is meant to report the timeout.
+    let deadline = Task { [self, readyTimeout] in
       try await Task.sleep(nanoseconds: UInt64(readyTimeout * 1_000_000_000))
-      throw OsIntentsError.timedOut
-    }
-    let waiter = Task { @Sendable in
-      await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-        lock.lock()
-        if isReady {
-          lock.unlock()
-          cont.resume()
-        } else {
-          readyWaiters.append(cont)
-          lock.unlock()
-        }
-      }
+      lock.withLock { readyWaiters.removeValue(forKey: id) }?
+        .resume(returning: true)
     }
     defer { deadline.cancel() }
-    await waiter.value
+
+    let timedOut = await withCheckedContinuation {
+      (cont: CheckedContinuation<Bool, Never>) in
+      let ready = lock.withLock { () -> Bool in
+        if isReady { return true }
+        readyWaiters[id] = cont
+        return false
+      }
+      if ready { cont.resume(returning: false) }
+    }
+
+    if timedOut { throw OsIntentsError.timedOut }
   }
 }

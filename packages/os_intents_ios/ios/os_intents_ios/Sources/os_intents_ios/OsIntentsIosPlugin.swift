@@ -1,4 +1,5 @@
-import Flutter
+// See the note in OsIntentsBridge.swift.
+@preconcurrency import Flutter
 import UIKit
 
 public class OsIntentsIosPlugin: NSObject, FlutterPlugin {
