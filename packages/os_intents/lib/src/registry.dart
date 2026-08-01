@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:os_intents_platform_interface/os_intents_platform_interface.dart';
 
 import 'result.dart';
+import 'wire.dart';
 
 /// A single generated handler binding.
 @immutable

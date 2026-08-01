@@ -1,5 +1,7 @@
 import 'package:meta/meta.dart';
 
+import 'wire.dart';
+
 /// What a handler hands back to the system.
 ///
 /// Every shape here is one the generated native code actually acts on. Three
@@ -166,20 +168,3 @@ class SnippetRow {
   final String label;
   final String value;
 }
-
-/// Puts a value into the form the generated native code decodes.
-///
-/// The method channel carries neither a `DateTime` nor an enum, and both are
-/// what a handler deals in — so converting here keeps the wire format an
-/// implementation detail rather than something a caller has to know. The same
-/// shape a generated `perform()` writes on the way in: epoch milliseconds UTC
-/// for a date, the constant's own name for an enum.
-///
-/// Shared by `OsIntents.donate` and [SnippetAction], which hand values to the
-/// same decoders from opposite ends of the package.
-@internal
-Object? wireValue(Object? value) => switch (value) {
-  final DateTime d => d.toUtc().millisecondsSinceEpoch,
-  final Enum e => e.name,
-  _ => value,
-};
