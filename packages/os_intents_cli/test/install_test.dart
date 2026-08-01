@@ -9,6 +9,7 @@ final _pristine = File(
 ).readAsStringSync();
 
 const _files = [
+  'OsIntentsDonations.swift',
   'OsIntentsBackground.swift',
   'OsIntentsEntities.swift',
   'OsIntentsGenerated.swift',
@@ -86,8 +87,9 @@ void main() {
     test('is a small edit, not a rewritten file', () {
       final before = _pristine.split('\n').length;
       final after = installed.split('\n').length;
-      // Four references, four build files, four group children, one group.
-      expect(after - before, lessThan(25));
+      // A reference, a build file, a group child and a phase entry per file,
+      // plus the seven lines of the group itself.
+      expect(after - before, lessThan(_files.length * 4 + 10));
     });
   });
 
@@ -198,6 +200,88 @@ void main() {
             (e) => e.message,
             'message',
             contains('Could not find a "Runner" group'),
+          ),
+        ),
+      );
+    });
+  });
+
+  // The one thing about this edit that was reasoned about rather than
+  // observed: what happens when something else rewrites the project.
+  //
+  // And it is not hypothetical. CocoaPods rewrites project.pbxproj on every
+  // `pod install`, which is every `flutter build ios`, so the real sequence for
+  // every consumer is: install, then a full re-serialisation by somebody else.
+  // This fixture is the template project with the generated Swift installed,
+  // then saved by CocoaPods' own serialiser — captured from a real round trip.
+  group('after something else rewrites the project', () {
+    final rewritten = File(
+      'test/fixtures/cocoapods_rewritten.pbxproj',
+    ).readAsStringSync();
+
+    test('it is a genuine reformat, not a copy of what install wrote', () {
+      // Otherwise this whole group would be checking nothing. CocoaPods sorts
+      // every section by object id, so our four files end up interleaved with
+      // the template's rather than at the top where they were inserted.
+      expect(rewritten, isNot(installInto(_pristine)));
+      expect(
+        rewritten.split('\n').length,
+        installInto(_pristine).split('\n').length,
+      );
+    });
+
+    test('every generated file is still compiled', () {
+      expect(rewritten, compiledInto('Runner'));
+      expect(InstallCommand.notCompiled(rewritten, files: _files), isEmpty);
+    });
+
+    test('running install again changes nothing', () {
+      // The point of anchoring on ids read from the parsed project rather than
+      // on the shape of the surrounding text: a reordered file is the same
+      // project, and a second insertion would compile everything twice.
+      expect(installInto(rewritten), same(rewritten));
+    });
+
+    test('a project rewritten before install is installed into normally', () {
+      // A clean round trip through the same serialiser is byte-identical to
+      // the template, which is why there is no second fixture for this.
+      expect(installInto(_pristine), compiledInto('Runner'));
+    });
+  });
+
+  group('a project Xcode has modernised', () {
+    // Xcode 16 converts projects to objectVersion 77 with synchronized folder
+    // groups, which add a directory wholesale. Everything `sync` writes is then
+    // already compiled, and adding explicit references on top would build each
+    // file twice — so this refuses, and says why.
+    //
+    // Modelled the way Xcode actually leaves it: the app's PBXGroup is gone,
+    // replaced by a synchronized root group in the same place. A project with
+    // both would not be a shape Xcode produces, and install would never reach
+    // this branch — it would find the ordinary group and edit it.
+    final synchronized = _pristine
+        .replaceFirst('objectVersion = 54;', 'objectVersion = 77;')
+        .replaceAll('97C146F01CF9000F007C117D /* Runner */,', '')
+        .replaceFirst(
+          '/* Begin PBXGroup section */\n',
+          '/* Begin PBXGroup section */\n'
+              '\t\tAAAAAAAAAAAAAAAAAAAAAAAA /* Runner */ = '
+              '{isa = PBXFileSystemSynchronizedRootGroup; path = Runner; '
+              'sourceTree = "<group>"; };\n',
+        );
+
+    test('is detected rather than edited', () {
+      expect(Pbxproj.parse(synchronized).usesSynchronizedFolders, isTrue);
+    });
+
+    test('is refused with the reason and the version', () {
+      expect(
+        () => installInto(synchronized),
+        throwsA(
+          isA<PbxprojException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('synchronized folder groups'), contains('77')),
           ),
         ),
       );

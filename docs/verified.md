@@ -105,6 +105,12 @@ they need neither Xcode nor the Android SDK to run.
   Outside the workspace on purpose: every other check here resolves the six
   packages locally, which is not what a consumer from pub.dev gets, and that
   difference has already hidden a missing dependency once.
+- **`install` survives another tool rewriting the project.** CocoaPods
+  re-serialises `project.pbxproj` on every `pod install`, so every
+  `flutter build ios` reorders the file under us. Round-tripped through
+  CocoaPods' own serialiser: nothing is dropped, and re-running `install`
+  afterwards returns the file unchanged rather than adding a second copy of
+  everything. The rewritten project is a test fixture.
 
 ## Not verified at all
 
