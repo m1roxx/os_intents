@@ -1,6 +1,15 @@
 ## 0.1.0
 
-First released version. Pre-alpha: the pipeline works end to end and is verified
-on a device, but nothing here has carried a real user's app yet. What is proven,
-what only compiles, and what has never been observed is listed in
-[docs/verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md).
+First released version. iOS implementation of
+[os_intents](https://pub.dev/packages/os_intents) — you depend on that package,
+and this one resolves with it.
+
+Carries the runtime the generated Swift calls into: the bridge from an
+`AppIntent` to your Dart handler, a second `FlutterEngine` for invocations that
+arrive with no scene attached, the `UserDefaults`-backed store an
+`Execution.static_` intent answers from, the entity-query channel, the snippet
+card view, and the lookup that lets a donation reach a generated intent the
+plugin cannot import.
+
+Compiles clean under both Swift 5 and the full Swift 6 language mode, which a
+test keeps true. iOS 16+.

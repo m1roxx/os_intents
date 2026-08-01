@@ -1,6 +1,10 @@
 ## 0.1.0
 
-First released version. Pre-alpha: the pipeline works end to end and is verified
-on a device, but nothing here has carried a real user's app yet. What is proven,
-what only compiles, and what has never been observed is listed in
-[docs/verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md).
+First released version. Android implementation of
+[os_intents](https://pub.dev/packages/os_intents) — you depend on that package,
+and this one resolves with it.
+
+Carries the runtime behind both Android layers: the headless `FlutterEngine` a
+generated `@AppFunction` invokes, the routing that turns an app-shortcut launch
+into a handler call on the UI isolate, and the `SharedPreferences` store an
+`Execution.static_` function answers from without starting an isolate.
