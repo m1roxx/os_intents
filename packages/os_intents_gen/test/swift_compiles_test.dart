@@ -92,6 +92,10 @@ final _full = Manifest(
       execution: ExecutionMode.background,
       phrases: [r'Add a task to $app', r'New $app task'],
       systemImageName: 'plus.circle',
+      // Type-checked here rather than only asserted as a string: the call is
+      // version-gated and the iOS 18 overload takes a required dialog, so a
+      // wrong shape is a compile error rather than a wrong prompt.
+      confirmBeforeRunning: r'Add "a task" to the inbox?',
       params: [
         ParamSpec(
           name: 'title',

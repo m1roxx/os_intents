@@ -85,10 +85,16 @@ Future<IntentResult> countOpenTasks() async {
 
 /// No phrases: reachable from the Shortcuts app and Spotlight, but never by
 /// voice. Perfectly normal for actions that are awkward to say out loud.
+///
+/// `confirmBeforeRunning` is the other half: the system asks first, and the
+/// handler below is never called if the user says no. A property of the action,
+/// decided when the code is generated — which is why it could never have been
+/// something the handler returned.
 @AppIntent(
   title: 'Complete task',
   description: 'Marks a task as done',
   execution: Execution.background,
+  confirmBeforeRunning: 'Mark this task as done?',
 )
 Future<IntentResult> completeTask({
   @Param(title: 'Task') required String taskId,

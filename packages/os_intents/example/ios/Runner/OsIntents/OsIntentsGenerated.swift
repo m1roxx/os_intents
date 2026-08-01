@@ -99,6 +99,13 @@ struct CompleteTaskOsIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    if #available(iOS 18.0, *) {
+      try await requestConfirmation(
+        dialog: IntentDialog("Mark this task as done?")
+      )
+    } else {
+      try await requestConfirmation()
+    }
     let outcome = try await OsIntentsBridge.shared.invokeBackground(
       id: "completeTask",
       args: [

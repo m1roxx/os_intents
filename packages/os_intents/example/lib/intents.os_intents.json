@@ -83,6 +83,7 @@
       "execution": "background",
       "showsInSpotlight": true,
       "showsSnippet": false,
+      "confirmBeforeRunning": "Mark this task as done?",
       "androidShortcut": true,
       "params": [
         {

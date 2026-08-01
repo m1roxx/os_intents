@@ -51,6 +51,7 @@ class AppIntent {
     this.identifier,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.confirmBeforeRunning,
     this.returns,
     this.androidShortcut = true,
     this.androidCapability,
@@ -86,6 +87,29 @@ class AppIntent {
   /// With this false, an `IntentResult.snippet` still speaks its `spoken` text
   /// — the card is simply not shown.
   final bool showsSnippet;
+
+  /// Ask the user before running anything, showing this as the prompt.
+  ///
+  /// For the actions where getting it wrong is expensive — sending, paying,
+  /// deleting. The system asks; your handler is not called at all unless the
+  /// user agrees, and a refusal is not an error.
+  ///
+  /// ```dart
+  /// @AppIntent(
+  ///   title: 'Delete all completed',
+  ///   confirmBeforeRunning: 'Delete every completed task?',
+  /// )
+  /// ```
+  ///
+  /// A compile-time property of the action, not something a handler decides.
+  /// That is the whole reason the earlier `IntentResult.needsConfirmation`
+  /// could not work: by the time a handler returns anything it has already
+  /// run, so "ask first" cannot be expressed as a return value.
+  ///
+  /// The prompt itself needs iOS 18. On 16 and 17 the system still asks, in its
+  /// own words — the generated Swift picks the richer call where it exists, so
+  /// the guarantee holds on every version this package supports.
+  final String? confirmBeforeRunning;
 
   /// The type this action hands back, so a Shortcut can use it as input to its
   /// next step.

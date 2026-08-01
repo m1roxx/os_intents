@@ -186,6 +186,24 @@ so on the shortcuts layer `Execution.background` **still opens the app**;
 headless is what AppFunctions and its version chain buy. Details in
 [docs/android.md](https://github.com/m1roxx/os_intents/blob/main/docs/android.md).
 
+## Ask before doing something expensive
+
+```dart
+@AppIntent(
+  title: 'Delete completed',
+  confirmBeforeRunning: 'Delete every completed task?',
+)
+```
+
+The system asks; your handler is not called at all unless the user agrees, and
+a refusal is not an error. A property of the action rather than something a
+handler decides — by the time a handler could return anything it has already
+done the work, which is why this is an annotation and not a result.
+
+The prompt needs iOS 18. On 16 and 17 the system still asks, in its own words:
+the generated Swift picks the richer call where it exists, so the guarantee
+holds on every version this package supports. iOS only.
+
 ## Make the system suggest it
 
 Declaring an intent makes it **available** — a user who goes looking finds it in

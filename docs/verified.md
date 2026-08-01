@@ -159,7 +159,14 @@ kind, so each was encoded, sent across the wire, and dropped:
 - **`IntentResult.needsConfirmation`** — the modelling was wrong, not just the
   wiring. The handler has already run and already had its effect by the time it
   returns anything, so "ask the user first" cannot be expressed as a return
-  value. It needs a two-phase call, which is a design change rather than a fix.
+  value.
+
+  It came back as `@AppIntent(confirmBeforeRunning: 'Delete everything?')`,
+  which is where it belonged: a property of the action, fixed when the code is
+  generated. The generated `perform()` asks before it calls into Dart, so a
+  refusal means the handler never ran. The prompt needs iOS 18; on 16 and 17
+  the system still asks in its own words, and the generated Swift picks the
+  richer call where it exists.
 - **`IntentResult.openApp`** — `openAppWhenRun` is a compile-time constant
   derived from `Execution`, not a decision a handler can make at run time.
 
@@ -198,7 +205,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-234 tests — 7 in `os_intents`, 115 in `os_intents_gen`, 112 in `os_intents_cli` —
+246 tests — 7 in `os_intents`, 121 in `os_intents_gen`, 118 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

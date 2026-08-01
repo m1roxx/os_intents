@@ -225,6 +225,23 @@ class SwiftEmitter {
     }
 
     b.writeln('  func perform() async throws -> $resultType {');
+    if (i.confirmBeforeRunning case final prompt?) {
+      // Before anything else in the body, which is the whole point: a refusal
+      // throws out of perform() and the handler is never called. Expressing
+      // this as a return value could not work — by then the work is done.
+      //
+      // The overload carrying a prompt is iOS 18. On 16 and 17 the system still
+      // asks, in its own words, so the guarantee holds either way and only the
+      // wording is lost.
+      b
+        ..writeln('    if #available(iOS 18.0, *) {')
+        ..writeln('      try await requestConfirmation(')
+        ..writeln('        dialog: IntentDialog(${_str(prompt)})')
+        ..writeln('      )')
+        ..writeln('    } else {')
+        ..writeln('      try await requestConfirmation()')
+        ..writeln('    }');
+    }
     if (i.execution == ExecutionMode.static_) {
       b.writeln(
         '    // Execution.static_: answered from stored state, with no',

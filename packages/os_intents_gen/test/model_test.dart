@@ -7,6 +7,7 @@ IntentSpec spec({
   List<String> phrases = const [],
   ExecutionMode execution = ExecutionMode.foreground,
   List<ParamSpec> params = const [],
+  String? confirmBeforeRunning,
 }) => IntentSpec(
   id: id,
   functionName: id,
@@ -14,6 +15,7 @@ IntentSpec spec({
   execution: execution,
   phrases: phrases,
   params: params,
+  confirmBeforeRunning: confirmBeforeRunning,
 );
 
 ParamSpec param(
@@ -98,6 +100,27 @@ void main() {
         ).swiftType,
         'PriorityEnum',
       );
+    });
+  });
+
+  group('confirmation on a static intent', () {
+    test('is refused, because it costs the only thing that mode buys', () {
+      final problems = spec(
+        execution: ExecutionMode.static_,
+        confirmBeforeRunning: 'Sure?',
+      ).validate();
+      expect(problems, hasLength(1));
+      expect(problems.single, contains('answer instantly'));
+    });
+
+    test('on any other mode is fine', () {
+      for (final mode in [ExecutionMode.foreground, ExecutionMode.background]) {
+        expect(
+          spec(execution: mode, confirmBeforeRunning: 'Sure?').validate(),
+          isEmpty,
+          reason: mode.name,
+        );
+      }
     });
   });
 

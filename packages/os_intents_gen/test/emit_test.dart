@@ -21,6 +21,7 @@ IntentSpec intent({
   String? systemImageName,
   ParamType? returnType,
   bool showsSnippet = false,
+  String? confirmBeforeRunning,
 }) => IntentSpec(
   id: id,
   functionName: id,
@@ -31,6 +32,7 @@ IntentSpec intent({
   systemImageName: systemImageName,
   returnType: returnType,
   showsSnippet: showsSnippet,
+  confirmBeforeRunning: confirmBeforeRunning,
 );
 
 ParamSpec param(
@@ -231,6 +233,58 @@ void main() {
       );
       expect(out, contains('var project: ProjectEntity'));
       expect(out, contains('"project": project.id'));
+    });
+  });
+
+  group('confirmation', () {
+    String intentsFor(Manifest m) =>
+        SwiftEmitter(m).emit()['OsIntentsGenerated.swift']!;
+
+    test('is asked for before anything else in perform()', () {
+      // The ordering is the feature. A refusal throws out of perform(), so the
+      // handler is never called — which is exactly what a return value could
+      // not express, and why IntentResult.needsConfirmation was removed.
+      final out = intentsFor(
+        manifest(
+          intents: [
+            intent(
+              execution: ExecutionMode.background,
+              confirmBeforeRunning: 'Delete every completed task?',
+            ),
+          ],
+        ),
+      );
+      final body = out.substring(out.indexOf('func perform()'));
+      expect(
+        body.indexOf('requestConfirmation'),
+        lessThan(body.indexOf('invokeBackground')),
+      );
+      expect(out, contains('IntentDialog("Delete every completed task?")'));
+    });
+
+    test('falls back to the wordless call below iOS 18', () {
+      // The prompt needs 18; the guarantee does not. On 16 and 17 the system
+      // still asks, in its own words.
+      final out = intentsFor(
+        manifest(intents: [intent(confirmBeforeRunning: 'Sure?')]),
+      );
+      expect(out, contains('if #available(iOS 18.0, *)'));
+      expect(out, contains('try await requestConfirmation()'));
+    });
+
+    test('is absent when nothing asked for it', () {
+      expect(
+        intentsFor(manifest(intents: [intent()])),
+        isNot(contains('requestConfirmation')),
+      );
+    });
+
+    test('survives the manifest round trip', () {
+      final m = manifest(intents: [intent(confirmBeforeRunning: 'Sure?')]);
+      expect(
+        Manifest.decode(m.encode()).intents.single.confirmBeforeRunning,
+        'Sure?',
+      );
     });
   });
 

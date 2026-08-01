@@ -153,6 +153,7 @@ class IntentSpec {
     this.systemImageName,
     this.showsInSpotlight = true,
     this.showsSnippet = false,
+    this.confirmBeforeRunning,
     this.returnType,
     this.androidShortcut = true,
     this.androidCapability,
@@ -168,6 +169,13 @@ class IntentSpec {
   final String? systemImageName;
   final bool showsInSpotlight;
   final bool showsSnippet;
+
+  /// Prompt the system shows before running anything, when set.
+  ///
+  /// Compile-time, like [openAppWhenRun] and unlike anything a handler could
+  /// return: `perform()` asks before it calls into Dart, so a refusal means the
+  /// handler never ran.
+  final String? confirmBeforeRunning;
 
   /// What the handler hands back for the next step of a Shortcut, if anything.
   ///
@@ -250,6 +258,14 @@ class IntentSpec {
         'it cannot receive arguments.',
       );
     }
+    if (execution == ExecutionMode.static_ && confirmBeforeRunning != null) {
+      problems.add(
+        'Intent "$id" is Execution.static_ but asks for confirmation. A static '
+        'intent exists to answer instantly from published state with nothing '
+        'running, and it has no side effect to guard — the prompt would cost '
+        'the only thing that mode buys.',
+      );
+    }
     for (final p in params) {
       problems.addAll(p.validate(id));
     }
@@ -266,6 +282,8 @@ class IntentSpec {
     if (systemImageName != null) 'systemImageName': systemImageName,
     'showsInSpotlight': showsInSpotlight,
     'showsSnippet': showsSnippet,
+    if (confirmBeforeRunning != null)
+      'confirmBeforeRunning': confirmBeforeRunning,
     if (returnType != null) 'returnType': returnType!.name,
     'androidShortcut': androidShortcut,
     if (androidCapability != null) 'androidCapability': androidCapability,
@@ -282,6 +300,7 @@ class IntentSpec {
     systemImageName: j['systemImageName'] as String?,
     showsInSpotlight: j['showsInSpotlight'] as bool? ?? true,
     showsSnippet: j['showsSnippet'] as bool? ?? false,
+    confirmBeforeRunning: j['confirmBeforeRunning'] as String?,
     returnType: switch (j['returnType']) {
       final String name => ParamType.values.byName(name),
       _ => null,

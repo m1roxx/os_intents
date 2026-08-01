@@ -79,6 +79,7 @@ class SpecParser {
         systemImageName: _stringOrNull(annotation, 'systemImageName'),
         showsInSpotlight: spotlight.isNull ? true : spotlight.boolValue,
         showsSnippet: snippet.isNull ? false : snippet.boolValue,
+        confirmBeforeRunning: _stringOrNull(annotation, 'confirmBeforeRunning'),
         returnType: returnType,
         androidShortcut: androidShortcut.isNull
             ? true
