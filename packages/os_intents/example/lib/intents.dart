@@ -63,6 +63,18 @@ Future<IntentResult> dueToday() async {
       subtitle: '${tasks.length} task(s)',
       rows: [for (final t in tasks.take(3)) SnippetRow(t.title, t.projectName)],
       imageSystemName: 'calendar',
+      // A button on the card, running another intent declared in this app.
+      // The values come from what the handler just computed; the *action*
+      // cannot, because Button(intent:) needs a concrete type at compile time.
+      actions: [
+        if (tasks.isNotEmpty)
+          SnippetAction(
+            label: 'Complete first',
+            intentId: 'completeTask',
+            systemImageName: 'checkmark.circle',
+            args: {'taskId': tasks.first.id},
+          ),
+      ],
     ),
   );
 }

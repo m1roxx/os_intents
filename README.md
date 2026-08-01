@@ -41,6 +41,7 @@ Runner[91295] OSINTENTS_HOST intent=addTask process=Runner uiEngine=yes
 | `Execution.background` — runs with no UI | ✅ verified on device | ✅ verified on emulator |
 | `Execution.static_` — answers with no engine | ✅ verified on device | ✅ verified on emulator |
 | Snippet cards | ✅ compiles and round-trips | — |
+| Buttons on a snippet card | ✅ iOS 17+, verified through the store | — |
 | Suggested by the system (donation) | ✅ verified on device | — deliberately, see below |
 
 Android is two layers. App shortcuts and capabilities cost nothing and are

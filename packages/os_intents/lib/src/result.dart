@@ -98,12 +98,21 @@ class SnippetSpec {
     this.subtitle,
     this.rows = const [],
     this.imageSystemName,
+    this.actions = const [],
   });
 
   final String title;
   final String? subtitle;
   final List<SnippetRow> rows;
   final String? imageSystemName;
+
+  /// Buttons on the card, each running another one of your intents.
+  ///
+  /// Needs iOS 17: below that the card renders without them rather than not at
+  /// all. Only intents declared in this app can be named — the button has to be
+  /// built from a real type when the code is generated, which is why an action
+  /// carries an id and not a callback.
+  final List<SnippetAction> actions;
 
   Map<String, Object?> toWire() => {
     'title': title,
@@ -112,6 +121,42 @@ class SnippetSpec {
     'rows': [
       for (final r in rows) {'label': r.label, 'value': r.value},
     ],
+    if (actions.isNotEmpty) 'actions': [for (final a in actions) a.toWire()],
+  };
+}
+
+/// A button on a snippet card, and the intent it runs.
+///
+/// The values are ordinary wire values — a `DateTime` or an enum constant as
+/// itself, an entity as its identifier — so they can come from whatever the
+/// handler just computed. The *action* cannot: `Button(intent:)` needs a
+/// concrete type, so which intents a button may run is fixed when the code is
+/// generated. Naming an id nothing declares leaves the button out.
+@immutable
+class SnippetAction {
+  const SnippetAction({
+    required this.label,
+    required this.intentId,
+    this.args = const {},
+    this.systemImageName,
+  });
+
+  /// What the button says.
+  final String label;
+
+  /// Which of your intents it runs — the same id `IntentHarness` uses.
+  final String intentId;
+
+  final Map<String, Object?> args;
+
+  /// SF Symbol shown beside the label.
+  final String? systemImageName;
+
+  Map<String, Object?> toWire() => {
+    'label': label,
+    'intentId': intentId,
+    if (systemImageName != null) 'systemImageName': systemImageName,
+    'args': {for (final e in args.entries) e.key: wireValue(e.value)},
   };
 }
 
@@ -121,3 +166,20 @@ class SnippetRow {
   final String label;
   final String value;
 }
+
+/// Puts a value into the form the generated native code decodes.
+///
+/// The method channel carries neither a `DateTime` nor an enum, and both are
+/// what a handler deals in — so converting here keeps the wire format an
+/// implementation detail rather than something a caller has to know. The same
+/// shape a generated `perform()` writes on the way in: epoch milliseconds UTC
+/// for a date, the constant's own name for an enum.
+///
+/// Shared by `OsIntents.donate` and [SnippetAction], which hand values to the
+/// same decoders from opposite ends of the package.
+@internal
+Object? wireValue(Object? value) => switch (value) {
+  final DateTime d => d.toUtc().millisecondsSinceEpoch,
+  final Enum e => e.name,
+  _ => value,
+};

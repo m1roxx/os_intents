@@ -95,5 +95,48 @@ void main() {
         {'label': 'Open', 'value': '3'},
       ]);
     });
+
+    test('a card with no buttons carries no actions key', () {
+      // Every card before this had none, and the Swift side reads the key as
+      // absent-or-list — an empty list would be a second way to say the same
+      // thing.
+      const r = IntentResult.snippet(SnippetSpec(title: 'Due today'));
+      final spec = r.toWire()['spec']! as Map<String, Object?>;
+      expect(spec.containsKey('actions'), isFalse);
+    });
+
+    test('a button carries its intent id and values, converted', () {
+      // The values go to the same generated decoder a donation feeds, so they
+      // are converted the same way: millis UTC for a date, the constant's own
+      // name for an enum.
+      final r = IntentResult.snippet(
+        SnippetSpec(
+          title: 'Due today',
+          actions: [
+            SnippetAction(
+              label: 'Complete',
+              intentId: 'completeTask',
+              systemImageName: 'checkmark',
+              args: {
+                'taskId': 't1',
+                'when': DateTime.utc(2026, 8, 1),
+                'priority': _Priority.high,
+              },
+            ),
+          ],
+        ),
+      );
+      final spec = r.toWire()['spec']! as Map<String, Object?>;
+      final action = (spec['actions']! as List).single as Map<String, Object?>;
+      expect(action['label'], 'Complete');
+      expect(action['intentId'], 'completeTask');
+      expect(action['systemImageName'], 'checkmark');
+      final args = action['args']! as Map<String, Object?>;
+      expect(args['taskId'], 't1');
+      expect(args['when'], DateTime.utc(2026, 8, 1).millisecondsSinceEpoch);
+      expect(args['priority'], 'high');
+    });
   });
 }
+
+enum _Priority { high }

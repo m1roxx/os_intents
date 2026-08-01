@@ -155,21 +155,8 @@ class OsIntents {
     String id, [
     Map<String, Object?> args = const {},
   ]) => OsIntentsPlatform.instance.donate(id, {
-    for (final e in args.entries) e.key: _toWire(e.value),
+    for (final e in args.entries) e.key: wireValue(e.value),
   });
-
-  /// Puts a value into the form the generated native decode expects.
-  ///
-  /// The method channel carries neither of these, and both are what a handler
-  /// deals in — so converting here keeps the wire format an implementation
-  /// detail rather than something a caller has to know. It is the same shape
-  /// `perform()` writes on the way in: epoch milliseconds UTC for a date, the
-  /// constant's own name for an enum.
-  static Object? _toWire(Object? value) => switch (value) {
-    final DateTime d => d.toUtc().millisecondsSinceEpoch,
-    final Enum e => e.name,
-    _ => value,
-  };
 
   /// Reads back what a generated `Execution.static_` intent would answer with.
   ///

@@ -174,6 +174,7 @@ dart run os_intents_cli:os_intents doctor --device   # what the system accepted
 | `Execution.background` — runs with no UI | ✅ verified on device | ✅ verified on emulator |
 | `Execution.static_` — answers with no engine | ✅ verified on device | ✅ verified on emulator |
 | Snippet cards | ✅ compiles and round-trips | — |
+| Buttons on a snippet card | ✅ iOS 17+, verified through the store | — |
 | Suggested by the system (donation) | ✅ verified on device | — deliberately, see below |
 
 iOS 16+. Android is two layers: app shortcuts and Assistant capabilities cost
@@ -185,6 +186,36 @@ The two are not interchangeable. A `shortcuts.xml` `<intent>` starts an Activity
 so on the shortcuts layer `Execution.background` **still opens the app**;
 headless is what AppFunctions and its version chain buy. Details in
 [docs/android.md](https://github.com/m1roxx/os_intents/blob/main/docs/android.md).
+
+## Put a button on the card
+
+A snippet can carry buttons, each running another intent your app declares:
+
+```dart
+return IntentResult.snippet(
+  SnippetSpec(
+    title: 'Due today',
+    rows: [for (final t in tasks.take(3)) SnippetRow(t.title, t.projectName)],
+    actions: [
+      SnippetAction(
+        label: 'Complete first',
+        intentId: 'completeTask',
+        systemImageName: 'checkmark.circle',
+        args: {'taskId': tasks.first.id},
+      ),
+    ],
+  ),
+);
+```
+
+The **values** come from whatever the handler just computed. The **action**
+cannot: `Button(intent:)` needs a concrete type, so which intents a button may
+run is fixed when the code is generated, and naming an id nothing declares
+leaves that button out rather than breaking the card.
+
+Buttons need **iOS 17** — below that the card renders without them rather than
+not at all. Apple's iOS 26 `SnippetIntent`, where the card reloads itself after
+a button runs, is not used here yet.
 
 ## Ask before doing something expensive
 

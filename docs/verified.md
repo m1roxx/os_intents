@@ -20,6 +20,7 @@ Not "compiles" — actually ran. iOS via [`probe/run_integration.sh`](../probe/r
 | `static_round_trip` | `publishStatic` and the native read side agree |
 | `entity_queries` | `@EntityQuery` answers, and the wire keys match what the generated Swift reads |
 | `snippet_round_trip` | A card survives the store, spec and spoken text both |
+| `snippet_buttons` | A card carrying a button survives the static store — nested lists of nested maps through a property-list-only path, which has taken the app down before |
 | `donation` | Dart → channel → the generated class found by ObjC name → a real `AppIntent` rebuilt from wire values → `IntentDonationManager` accepted it. An unknown id is refused |
 
 And once by hand, which is the check that matters most. Tapping an App Shortcut
@@ -128,6 +129,11 @@ they need neither Xcode nor the Android SDK to run.
 - **The timeout paths in the iOS bridge.** They were rewritten to fix three
   hangs, and they compile and pass their unit tests — but provoking one on a
   device means a Dart side that never answers, which nothing here can arrange.
+- **A snippet button being tapped.** The card is rendered inside Siri and
+  Shortcuts, and nothing here can reach that surface. What is proven: the
+  button is built from a real intent type, the whole thing type-checks against
+  the SDK, and a card carrying one survives the store a static intent answers
+  from.
 - **A donation actually producing a suggestion.** `IntentDonationManager`
   accepting the intent is verified on a device, which covers every link the
   package owns. Whether iOS then puts the action in front of the user is a
@@ -178,7 +184,14 @@ have been.
 
 ## Also not implemented
 
-Interactive snippets, and `AssistantIntent` schemas (iOS 18+).
+`AssistantIntent` schemas — a decision rather than a gap. The macro enforces its
+contract through protocol conformance (`.reader.openPage` requires
+`OpenIntent`), so emitting one from an arbitrary Dart function produces Swift
+that does not build; supporting it honestly means encoding the parameter
+contract of 143 schemas that Apple has already renamed once.
+
+Snippet cards can carry **buttons** (iOS 17+), but not Apple's iOS 26
+`SnippetIntent`, where the card reloads itself after a button runs.
 
 Entities and snippet cards are iOS only, and for entities that is not a gap
 waiting to be filled. An entity parameter does cross to Android — as its
@@ -205,7 +218,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-246 tests — 7 in `os_intents`, 121 in `os_intents_gen`, 118 in `os_intents_cli` —
+253 tests — 9 in `os_intents`, 126 in `os_intents_gen`, 118 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

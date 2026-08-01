@@ -23,7 +23,9 @@ listed in
 - `@AppEnum` for a closed set, which works on **both** platforms: a real
   `AppEnum` on iOS, a value constraint on Android.
 - `returns:` hands a value to the next step of a Shortcut.
-- `showsSnippet: true` answers with a card.
+- `showsSnippet: true` answers with a card, and `SnippetSpec.actions` puts
+  buttons on it that run your other intents. Buttons need iOS 17; below that
+  the card renders without them.
 - `confirmBeforeRunning:` makes the system ask first; the handler is not called
   at all if the user declines.
 
@@ -42,9 +44,10 @@ listed in
 
 ### Known gaps
 
-Interactive snippets, `AssistantIntent` schemas, and entities or snippet cards
-on Android. Siri invoking a phrase **by voice** has never been observed — the OS
-calling `perform()` has, from the Shortcuts app.
+Apple's iOS 26 `SnippetIntent`, where a card reloads itself after a button runs;
+`AssistantIntent` schemas; and entities or snippet cards on Android. Siri
+invoking a phrase **by voice** has never been observed — the OS calling
+`perform()` has, from the Shortcuts app.
 
 [verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md)
 has the evidence for every claim above;

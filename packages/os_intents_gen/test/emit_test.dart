@@ -381,6 +381,60 @@ void main() {
     });
   });
 
+  group('Swift snippet buttons', () {
+    String actionsFor(Manifest m) =>
+        SwiftEmitter(m).emit()['OsIntentsSnippetActions.swift']!;
+
+    test('builds a real Button from a concrete intent type', () {
+      // Button is generic over the intent, so the button has to be made where
+      // the type is known. AnyView erases the view, not the intent.
+      final out = actionsFor(manifest(intents: [intent()]));
+      expect(out, contains('case "addTask":'));
+      expect(out, contains('let intent = AddTaskOsIntent()'));
+      expect(out, contains('Button(intent: intent)'));
+      expect(out, contains('-> AnyView?'));
+    });
+
+    test('is gated at iOS 17, where Button(intent:) starts', () {
+      // The card is iOS 16. Below 17 the builder is nil and the card renders
+      // without its buttons rather than not at all.
+      final out = actionsFor(manifest(intents: [intent()]));
+      expect(out, contains('@available(iOS 17.0, *)'));
+      expect(out, contains('if #available(iOS 17.0, *)'));
+      expect(out, contains('return nil'));
+    });
+
+    test('decodes values exactly as the donation path does', () {
+      // One decoder, two callers. A disagreement here would show up as a
+      // button that runs the intent with the wrong values.
+      final params = [
+        param('title'),
+        param('due', type: ParamType.dateTime, required: false),
+      ];
+      final m = manifest(intents: [intent(params: params)]);
+      final actions = actionsFor(m);
+      final donations = SwiftEmitter(m).emit()['OsIntentsDonations.swift']!;
+      for (final expr in [
+        'as? String { intent.title = value }',
+        'Date(timeIntervalSince1970: \$0.doubleValue / 1000)',
+      ]) {
+        expect(actions, contains(expr));
+        expect(donations, contains(expr));
+      }
+    });
+
+    test('an id nothing declares produces no button', () {
+      expect(actionsFor(manifest(intents: [intent()])), contains('default:'));
+    });
+
+    test('the snippet view is handed the builder', () {
+      final out = SwiftEmitter(
+        manifest(intents: [intent(showsSnippet: true)]),
+      ).emit()['OsIntentsGenerated.swift']!;
+      expect(out, contains('button: OsIntentsSnippetActions.builder'));
+    });
+  });
+
   group('Swift shortcuts provider', () {
     String shortcutsFor(Manifest m) =>
         SwiftEmitter(m).emit()['OsIntentsShortcuts.swift']!;
@@ -749,7 +803,10 @@ void main() {
       expect(with_, contains('& ShowsSnippetView'));
       expect(
         with_,
-        contains('view: OsIntentsSnippetView(wire: outcome.snippet)'),
+        allOf(
+          contains('OsIntentsSnippetView('),
+          contains('wire: outcome.snippet'),
+        ),
       );
 
       final without = intentsFor(manifest(intents: [intent()]));
@@ -767,7 +824,10 @@ void main() {
       expect(out, contains('let outcome = IntentOutcome(wire: stored)'));
       expect(
         out,
-        contains('view: OsIntentsSnippetView(wire: outcome.snippet)'),
+        allOf(
+          contains('OsIntentsSnippetView('),
+          contains('wire: outcome.snippet'),
+        ),
       );
       expect(out, isNot(contains('wire: nil')));
     });

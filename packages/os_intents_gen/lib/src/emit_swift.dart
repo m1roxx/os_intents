@@ -21,6 +21,7 @@ class SwiftEmitter {
     'OsIntentsShortcuts.swift': _shortcutsFile(),
     if (_needsBackground) 'OsIntentsBackground.swift': _backgroundFile(),
     'OsIntentsDonations.swift': _donationsFile(),
+    'OsIntentsSnippetActions.swift': _snippetActionsFile(),
   };
 
   bool get _needsBackground =>
@@ -102,7 +103,7 @@ class SwiftEmitter {
         ..writeln('      case ${_str(intent.id)}:')
         ..writeln('        let intent = ${intent.swiftTypeName}()');
       for (final p in intent.params) {
-        b.writeln('        ${_donationAssignment(p)}');
+        b.writeln('        ${_wireAssignment(p, from: 'wire')}');
       }
       // `donate` throws. Reporting the failure rather than swallowing it with
       // `try?` costs nothing here and is the difference between "the system
@@ -130,14 +131,18 @@ class SwiftEmitter {
     return b.toString();
   }
 
-  /// One parameter, decoded out of the wire map and assigned if it is there.
+  /// One parameter, decoded out of a wire map and assigned if it is there.
   ///
-  /// Every assignment is conditional, including the required ones: a donation
-  /// says "this happened", and a caller who knows only some of the values is
-  /// better served by a partial donation than by none. An unset parameter keeps
-  /// whatever `init()` gave it.
-  String _donationAssignment(ParamSpec p) {
-    final raw = 'wire[${_str(p.name)}]';
+  /// The decode half of the format, shared by the two things that build an
+  /// intent from Dart-supplied values rather than from the system: a donation
+  /// and a snippet button.
+  ///
+  /// Every assignment is conditional, including the required ones. A caller who
+  /// knows some of the values is better served by a partial intent than by
+  /// none — an unset parameter keeps whatever `init()` gave it, and for a
+  /// button the system will ask for it.
+  String _wireAssignment(ParamSpec p, {required String from}) {
+    final raw = '$from[${_str(p.name)}]';
     final expr = switch (p.type) {
       // Numbers arrive as NSNumber whatever Dart sent, so `as? Int` on a value
       // Dart wrote as a double would succeed and silently truncate.
@@ -164,6 +169,79 @@ class SwiftEmitter {
             r'$0) })',
     };
     return 'if let value = $expr { intent.${p.name} = value }';
+  }
+
+  // ── snippet buttons ────────────────────────────────────────────────────────
+
+  /// Turns a `SnippetAction` off the wire into a real SwiftUI button.
+  ///
+  /// The same shape as [_donationsFile], and for the same reason: an intent has
+  /// to be a concrete type before anything can be done with it. `Button` is
+  /// generic over that type, so the button must be built where the type is
+  /// known — here, in the app target — and handed to the plugin's view already
+  /// made. `AnyView` erases the view, not the intent.
+  ///
+  /// **iOS 17.** `Button(intent:)` does not exist below it. The card itself is
+  /// iOS 16, so on 16 it simply renders without its buttons rather than not at
+  /// all — measured against the SDK, not assumed.
+  String _snippetActionsFile() {
+    final b = StringBuffer()
+      ..writeln(_header)
+      ..writeln('import AppIntents')
+      ..writeln('import Foundation')
+      ..writeln('import SwiftUI')
+      ..writeln('import os_intents_ios')
+      ..writeln()
+      ..writeln('enum OsIntentsSnippetActions {')
+      // The availability check lives here rather than at every call site: a
+      // generated perform() is iOS 16, and handing it a builder it cannot name
+      // would make the whole snippet path 17-only.
+      ..writeln('  /// nil below iOS 17, where Button(intent:) does not exist.')
+      ..writeln('  @available(iOS 16.0, *)')
+      ..writeln('  static var builder: OsIntentsSnippetView.ButtonBuilder? {')
+      ..writeln('    if #available(iOS 17.0, *) {')
+      ..writeln('      return button(id:args:label:systemImageName:)')
+      ..writeln('    }')
+      ..writeln('    return nil')
+      ..writeln('  }')
+      ..writeln()
+      ..writeln('  @available(iOS 17.0, *)')
+      ..writeln('  static func button(')
+      ..writeln('    id: String,')
+      ..writeln('    args: [String: Any],')
+      ..writeln('    label: String,')
+      ..writeln('    systemImageName: String?')
+      ..writeln('  ) -> AnyView? {')
+      ..writeln('    switch id {');
+
+    for (final intent in manifest.intents) {
+      b
+        ..writeln('    case ${_str(intent.id)}:')
+        ..writeln('      let intent = ${intent.swiftTypeName}()');
+      for (final p in intent.params) {
+        b.writeln('      ${_wireAssignment(p, from: 'args')}');
+      }
+      b
+        ..writeln('      return AnyView(')
+        ..writeln('        Button(intent: intent) {')
+        ..writeln('          if let systemImageName {')
+        ..writeln('            Label(label, systemImage: systemImageName)')
+        ..writeln('          } else {')
+        ..writeln('            Text(label)')
+        ..writeln('          }')
+        ..writeln('        }')
+        ..writeln('      )');
+    }
+
+    b
+      // An id nothing declares leaves the button out. A card missing a button
+      // is a smaller failure than a card that will not render.
+      ..writeln('    default:')
+      ..writeln('      return nil')
+      ..writeln('    }')
+      ..writeln('  }')
+      ..writeln('}');
+    return b.toString();
   }
 
   // ── intents ────────────────────────────────────────────────────────────────
@@ -339,7 +417,13 @@ class SwiftEmitter {
       if (i.returnType case final r?) 'value: ${_valueExpr(r)}',
       'dialog: IntentDialog(stringLiteral: $spoken)',
       if (i.showsSnippet)
-        'view: OsIntentsSnippetView(wire: ${snippet ?? 'outcome.snippet'})',
+        // The button builder is handed in rather than looked up, because it is
+        // generated code and this is generated code: the plugin's view cannot
+        // name an app-target intent, but the call site already can.
+        'view: OsIntentsSnippetView(\n'
+            '        wire: ${snippet ?? 'outcome.snippet'},\n'
+            '        button: OsIntentsSnippetActions.builder\n'
+            '      )',
     ];
     return '.result(${args.join(', ')})';
   }

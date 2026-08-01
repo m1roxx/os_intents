@@ -38,6 +38,7 @@ Future<void> runSelfCheck({
   await _checkEntityQueries(registry);
   await _checkSnippetRoundTrip();
   await _checkDonation();
+  await _checkSnippetButtons();
 
   debugPrint('$_tag END');
 }
@@ -189,6 +190,47 @@ Future<void> _checkDonation() async {
       return;
     }
     _pass(name, 'accepted, and an unknown id is refused');
+  } catch (e) {
+    _fail(name, e);
+  }
+}
+
+/// A button on a card has to survive the store the same way the card does.
+///
+/// The static path is where this matters: a `showsSnippet` intent answers from
+/// `UserDefaults` with no Dart running, and `UserDefaults` refuses `NSNull` and
+/// the nested `[AnyHashable: Any]` a method-channel map decodes to — which took
+/// the whole app down once already, for a result with one unset field. A button
+/// adds a nested list of nested maps to that payload, so it is the most
+/// property-list-hostile thing published yet.
+///
+/// What this cannot show is the button being tapped: rendering happens inside
+/// Siri and Shortcuts, and nothing here can reach it.
+Future<void> _checkSnippetButtons() async {
+  const name = 'snippet_buttons';
+  try {
+    await OsIntents.publishStatic({
+      'dueToday': const IntentResult.snippet(
+        SnippetSpec(
+          title: 'Due today',
+          actions: [
+            SnippetAction(
+              label: 'Complete first',
+              intentId: 'completeTask',
+              systemImageName: 'checkmark.circle',
+              args: {'taskId': 't1'},
+            ),
+          ],
+        ),
+        spoken: 'one task',
+      ),
+    });
+    final spoken = await OsIntents.debugStaticValue('dueToday');
+    if (spoken != 'one task') {
+      _fail(name, 'the card did not survive the store: ${spoken ?? "null"}');
+      return;
+    }
+    _pass(name, 'a card carrying a button round-trips the static store');
   } catch (e) {
     _fail(name, e);
   }
