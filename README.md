@@ -60,16 +60,25 @@ One command over three steps — `build_runner` for the registry and manifest,
 what it wrote with the Xcode target and the Android manifest. All three are
 idempotent and can be run on their own.
 
-Verified on the example app: three intents, one entity and its query all reach
-the built bundle, and the phrases resolve to the provider the OS selects.
+Verified on the example app: four intents, an entity with its query and an enum
+all reach the built bundle, and the phrases resolve to the provider the OS
+selects. That is `os_intents doctor` reading the built `.app`, not the sources:
 
 ```
-actions:  AddTaskOsIntent, CompleteTaskOsIntent, DueTodayOsIntent
-entities: ProjectEntity
-queries:  ProjectQuery
-provider: 6Runner18OsIntentsShortcutsV
-  AddTaskOsIntent:  "Add a task to ${applicationName}", "New ${applicationName} task"
-  DueTodayOsIntent: "What's due today in ${applicationName}"
+Intents the OS will see (4)
+  AddTaskOsIntent  "Add task"
+      runs without opening the app
+      title         String          required
+      dueDate       Date            optional
+      project       ProjectEntity   optional
+      priority      linkEnumeration optional
+  CompleteTaskOsIntent, CountOpenTasksOsIntent, DueTodayOsIntent
+
+Entities (1)
+  ProjectEntity  "Project"  resolved by Runner.ProjectQuery
+
+Spoken phrases (3 via Runner.OsIntentsShortcuts)
+  root.ssu.yaml  present — Siri has the phrase model
 ```
 
 `sync --check` and `install --check` fail on drift, for CI — the first that the
