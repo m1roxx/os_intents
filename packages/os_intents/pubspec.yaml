@@ -10,9 +10,7 @@ resolution: workspace
 # the published package, which is why the GIF lives here rather than in docs/.
 screenshots:
   - description: >-
-      Running a Dart-declared action from the iOS Shortcuts app. iOS prompts for
-      the missing parameter, runs the handler in the background, and shows what
-      it returned — the app never appears.
+      A Dart-declared action run from the iOS Shortcuts app: iOS asks for the missing parameter, runs the handler in the background, never shows the app.
     path: screenshots/shortcuts_demo.gif
 
 environment:
