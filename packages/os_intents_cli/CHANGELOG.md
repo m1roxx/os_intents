@@ -1,3 +1,11 @@
+## 0.1.1
+
+Dependency constraints only — no command changed.
+
+`xml` moves to 7. The two readers that use it, the `AndroidManifest.xml` editor
+and the AppFunctions metadata parser, are on API that did not move; their tests
+pass unchanged.
+
 ## 0.1.0
 
 First released version. The only part of os_intents that touches a native

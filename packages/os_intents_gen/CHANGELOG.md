@@ -1,3 +1,17 @@
+## 0.1.1
+
+Dependency constraints only — the generated Dart, Swift and Kotlin are byte for
+byte what 0.1.0 emitted.
+
+`analyzer` is now `>=8.4.1 <15.0.0` and `build` is `>=3.0.2 <5.0.0`, so the
+builder resolves against the majors those packages are on today instead of
+holding an app back to `analyzer` 8. The one API in the parser that did not
+survive that range was `FieldElement.isSynthetic`; it is gone, and nothing
+replaced it, because a synthetic field carries no metadata of its own and the
+`@EntityId` and `@EntityDisplay` lookups already skipped it.
+
+The `xml` dev dependency, which only `emit_shortcuts_test.dart` uses, moves to 7.
+
 ## 0.1.0
 
 First released version. The `build_runner` builder behind

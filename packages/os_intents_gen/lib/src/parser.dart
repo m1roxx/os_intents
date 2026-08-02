@@ -273,7 +273,11 @@ class SpecParser {
     final props = <EntityPropertySpec>[];
 
     for (final field in element.fields) {
-      if (field.isStatic || field.isSynthetic) continue;
+      // Synthetic fields — the ones a bare getter or setter induces — are not
+      // filtered out here: they carry no metadata of their own, so the two
+      // annotation lookups below skip them anyway. `isSynthetic` is spelled
+      // differently in each analyzer major, and the dependency spans several.
+      if (field.isStatic) continue;
 
       if (_annotationNamed(field, 'EntityId') != null) {
         if (idProperty != null) {
