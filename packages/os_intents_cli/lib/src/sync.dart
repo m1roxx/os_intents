@@ -78,6 +78,28 @@ class SyncCommand extends Command<int> {
   /// needs a single synchronized group rather than a file reference per file.
   static const outputDir = 'ios/Runner/OsIntents';
 
+  /// The macOS counterpart, when the project has one.
+  ///
+  /// A copy rather than a shared directory: an Xcode file reference resolves
+  /// relative to the group that holds it, and the two Runner groups sit in
+  /// different projects. The *contents* are byte-identical — App Intents is one
+  /// framework across Apple's platforms and the emitter names both floors in
+  /// the same `@available` — so this is one emitter run written twice, not two
+  /// sets of sources to keep in step.
+  static const macosOutputDir = 'macos/Runner/OsIntents';
+
+  /// Which Apple platforms this project actually has.
+  ///
+  /// Detected rather than flagged. macOS costs nothing here — no version chain,
+  /// no extra dependency, the same Swift — so the thing that decides whether an
+  /// app gets macOS intents should be whether it is a macOS app.
+  static List<String> appleOutputDirs(String root) => [
+    if (Directory(p.join(root, 'ios', 'Runner.xcodeproj')).existsSync())
+      outputDir,
+    if (Directory(p.join(root, 'macos', 'Runner.xcodeproj')).existsSync())
+      macosOutputDir,
+  ];
+
   static String? _read(Directory dir, String name) {
     final f = File(p.join(dir.path, name));
     return f.existsSync() ? f.readAsStringSync() : null;
@@ -214,19 +236,26 @@ class SyncCommand extends Command<int> {
       return 65;
     }
 
+    // Written into every Apple project the app has. The same bytes each time:
+    // App Intents is one framework across Apple's platforms, and the emitter
+    // names both floors in the same `@available` rather than producing two
+    // dialects.
+    final destinations = appleOutputDirs(root);
     var changed = 0;
-    for (final entry in files.entries) {
-      final out = File(p.join(target.path, entry.key));
-      final existing = out.existsSync() ? out.readAsStringSync() : null;
-      if (existing == entry.value) continue;
-      changed++;
-      if (checkOnly) {
-        stderr.writeln('  drift: ${p.relative(out.path, from: root)}');
-        continue;
+    for (final dir in destinations) {
+      for (final entry in files.entries) {
+        final out = File(p.join(root, dir, entry.key));
+        final existing = out.existsSync() ? out.readAsStringSync() : null;
+        if (existing == entry.value) continue;
+        changed++;
+        if (checkOnly) {
+          stderr.writeln('  drift: ${p.relative(out.path, from: root)}');
+          continue;
+        }
+        out.parent.createSync(recursive: true);
+        out.writeAsStringSync(entry.value);
+        stdout.writeln('  wrote ${p.relative(out.path, from: root)}');
       }
-      out.parent.createSync(recursive: true);
-      out.writeAsStringSync(entry.value);
-      stdout.writeln('  wrote ${p.relative(out.path, from: root)}');
     }
 
     if (checkOnly) {
@@ -244,8 +273,27 @@ class SyncCommand extends Command<int> {
       ..writeln()
       ..writeln(
         'os_intents: ${merged.intents.length} intent(s), '
-        '${merged.entities.length} entity(ies) → $outputDir',
+        '${merged.entities.length} entity(ies) → '
+        '${destinations.isEmpty ? '(no Apple project)' : destinations.join(', ')}',
       );
+
+    // macOS has one limitation iOS does not, and it is not visible until an
+    // intent is invoked with the app closed: `FlutterEngine` there has no
+    // `libraryURI` parameter, so a headless engine can only reach an entrypoint
+    // in the library that holds `main()`. While the app is running the router
+    // uses the UI isolate and nothing is lost, which is why this is a note
+    // rather than a refusal.
+    if (destinations.contains(macosOutputDir) &&
+        merged.entrypointLibraryUri != null) {
+      stdout.writeln(
+        '\nOn macOS, an intent that runs with the app closed needs its handler '
+        'in main.dart.\nThe generated entrypoint is part of '
+        '${merged.entrypointLibraryUri}, and macOS FlutterEngine\nhas no '
+        'libraryURI parameter — while the app is open these still run on the UI '
+        'isolate,\nso only a cold background launch is affected. iOS is '
+        'unaffected.',
+      );
+    }
 
     if (phrasesNeedIos17) {
       stdout

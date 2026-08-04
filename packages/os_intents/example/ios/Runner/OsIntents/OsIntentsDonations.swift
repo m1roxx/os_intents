@@ -14,7 +14,7 @@ final class OsIntentsDonor: NSObject, OsIntentsDonating {
     wire: [String: Any],
     completion: @escaping (Bool) -> Void
   ) {
-    guard #available(iOS 16.0, *) else {
+    guard #available(iOS 16.0, macOS 13.0, *) else {
       completion(false)
       return
     }

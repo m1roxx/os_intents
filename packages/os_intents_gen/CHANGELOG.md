@@ -1,3 +1,21 @@
+## Unreleased — macOS
+
+Every `@available` and `#available` the emitter writes names macOS alongside
+iOS: 16/13, 17/14, 18/15. From a table rather than arithmetic — the two version
+lines met at 26, so a formula that is right today is silently wrong at the next
+floor.
+
+The generated background file picks its plugin registrant per platform. Not a
+different name for the same thing: iOS gets an Objective-C class with
+`+registerWithRegistry:`, macOS a free Swift function
+`RegisterGeneratedPlugins(registry:)`.
+
+`swift_compiles_test` runs the whole suite twice, once per platform, against the
+plugin module built for each. It also learned that the plugin and the generated
+code have *different* floors — the plugin deploys at 10.15 and the generated
+code at 13 — and checks each at its own. Checking the plugin at 13 is exactly
+what said nothing was wrong while a real macOS build failed.
+
 ## Unreleased — localisation
 
 `SwiftEmitter` takes `localised:`. With it on, every title, description, prompt

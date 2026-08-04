@@ -43,7 +43,7 @@ rm -rf "$WORK"
 mkdir -p "$(dirname "$WORK")"
 
 step "flutter create"
-"$FLUTTER" create --platforms=android,ios --org dev.osintents \
+"$FLUTTER" create --platforms=android,ios,macos --org dev.osintents \
   "$WORK" >/dev/null || fail "flutter create"
 
 step "depend on os_intents"
@@ -150,6 +150,36 @@ if [ "$(uname)" = "Darwin" ] && [ "${SKIP_IOS:-}" != "1" ]; then
 
   step "os_intents doctor"
   "$DART" run os_intents_cli:os_intents doctor || fail "doctor"
+
+  # macOS is the same emitter output in a second project, and the check that
+  # matters is whether the *other* Xcode project got the same treatment: a
+  # different Runner group, a different Sources phase, and a plugin that has to
+  # resolve FlutterMacOS rather than Flutter.
+  step "macOS: the second Xcode project"
+  grep -q 'OsIntentsGenerated.swift in Sources' macos/Runner.xcodeproj/project.pbxproj \
+    || fail "the generated Swift is in no build phase on macOS"
+  # The build succeeding says the sources compile, not that the plugin is wired
+  # up. Without this line in the registrant the method channel has nobody on the
+  # other end and every invocation waits for a Dart side that never answers.
+  grep -q 'OsIntentsIosPlugin' macos/Flutter/GeneratedPluginRegistrant.swift \
+    || fail "os_intents_ios is not registered on macOS"
+  cmp -s ios/Runner/OsIntents/OsIntentsGenerated.swift \
+         macos/Runner/OsIntents/OsIntentsGenerated.swift \
+    || fail "the two platforms were given different Swift"
+
+  step "flutter build macos --debug"
+  "$FLUTTER" build macos --debug || fail "macos build"
+
+  # The same question the iOS half asks, and the only one no build step can:
+  # the Swift was written, it compiled, and it can still be invisible to the OS.
+  # A macOS bundle keeps its metadata under Contents/Resources rather than at
+  # the top, which is the one structural difference doctor has to know about.
+  step "os_intents doctor, against the macOS bundle"
+  MACOS_APP=$(ls -d build/macos/Build/Products/Debug/*.app 2>/dev/null | head -1)
+  [ -n "$MACOS_APP" ] || fail "no macOS bundle to inspect"
+  test -f "$MACOS_APP/Contents/Resources/Metadata.appintents/extract.actionsdata" \
+    || fail "the macOS bundle carries no App Intents metadata"
+  "$DART" run os_intents_cli:os_intents doctor --app "$MACOS_APP" || fail "macos doctor"
 fi
 
 printf '\nOK — a blank flutter create reaches a built app in one command.\n'

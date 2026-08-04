@@ -83,11 +83,16 @@ class InstallCommand extends Command<int> {
 
     // Each half is skipped when its platform is simply absent, so an iOS-only
     // app never has to know the Android half exists, and the other way round.
-    if (argResults!.flag('xcode') && xcodeProject(root).existsSync()) {
+    // One pass per Apple project the app has. Same reasoning as the Android
+    // half below: a project that is simply absent is skipped, so an iOS-only
+    // app never has to know macOS exists.
+    for (final apple in applePlatforms(root)) {
+      if (!argResults!.flag('xcode')) break;
       attempted++;
       final rc = _installXcode(
         root,
         argResults!.option('target')!,
+        platform: apple,
         checkOnly: checkOnly,
       );
       // Writing stops at the first failure; checking does not, because a CI
@@ -117,8 +122,14 @@ class InstallCommand extends Command<int> {
     return worst;
   }
 
-  static File xcodeProject(String root) =>
-      File(p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'));
+  static File xcodeProject(String root, {String platform = 'ios'}) =>
+      File(p.join(root, platform, 'Runner.xcodeproj', 'project.pbxproj'));
+
+  /// Apple platform directories with a project to edit, in a stable order.
+  static List<String> applePlatforms(String root) => [
+    for (final platform in const ['ios', 'macos'])
+      if (xcodeProject(root, platform: platform).existsSync()) platform,
+  ];
 
   static File androidManifest(String root) => File(
     p.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
@@ -190,14 +201,22 @@ class InstallCommand extends Command<int> {
     return 0;
   }
 
-  int _installXcode(String root, String targetName, {required bool checkOnly}) {
-    final pbx = xcodeProject(root);
+  int _installXcode(
+    String root,
+    String targetName, {
+    required String platform,
+    required bool checkOnly,
+  }) {
+    final pbx = xcodeProject(root, platform: platform);
     final pbxPath = pbx.path;
+    final outputDir = platform == 'macos'
+        ? SyncCommand.macosOutputDir
+        : SyncCommand.outputDir;
 
     // Whatever sync produced, rather than a hardcoded list — the set grows
     // (OsIntentsBackground.swift arrived with Execution.background) and a list
     // here would silently skip new files, leaving them uncompiled.
-    final dir = Directory(p.join(root, SyncCommand.outputDir));
+    final dir = Directory(p.join(root, outputDir));
     final present = dir.existsSync()
         ? (dir.listSync().whereType<File>().toList()
                 ..sort((a, b) => a.path.compareTo(b.path)))
@@ -208,7 +227,7 @@ class InstallCommand extends Command<int> {
 
     if (present.isEmpty) {
       stderr.writeln(
-        'Nothing to install — ${SyncCommand.outputDir} is empty.\n'
+        'Nothing to install — $outputDir is empty.\n'
         'Run `dart run build_runner build` then `os_intents sync` first.',
       );
       return 66;
@@ -222,7 +241,7 @@ class InstallCommand extends Command<int> {
       stderr.writeln(
         'os_intents cannot edit ${p.relative(pbxPath, from: root)}:\n\n'
         '${e.message}\n\n'
-        'Nothing was written. Add ${SyncCommand.outputDir} to the $targetName '
+        'Nothing was written. Add $outputDir to the $targetName '
         'target by hand in Xcode\n(File → Add Files to "Runner"…, "Create '
         'groups"), and the rest of the toolchain works\nunchanged — '
         '`os_intents doctor` will confirm the intents reached the build.',
@@ -231,15 +250,17 @@ class InstallCommand extends Command<int> {
     }
 
     if (identical(edited, original)) {
-      stdout.writeln('os_intents: $targetName already compiles all of them.');
+      stdout.writeln(
+        'os_intents: $platform/$targetName already compiles all of them.',
+      );
       return 0;
     }
 
     if (checkOnly) {
       stderr
         ..writeln(
-          '  missing: $targetName does not compile these, so they reach the '
-          'build as nothing:',
+          '  missing: the $platform $targetName target does not compile '
+          'these, so they reach the build as nothing:',
         )
         ..writeAll(
           notCompiled(
@@ -255,7 +276,7 @@ class InstallCommand extends Command<int> {
     pbx.writeAsStringSync(edited);
 
     stdout
-      ..writeln('os_intents: added to the $targetName target:')
+      ..writeln('os_intents: added to the $platform $targetName target:')
       ..writeAll(present.map((f) => '  • $f\n'))
       ..writeln()
       ..writeln('Backup: ${p.basename(pbxPath)}.os_intents.bak');

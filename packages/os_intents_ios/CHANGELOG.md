@@ -1,3 +1,29 @@
+## Unreleased — macOS
+
+The package serves macOS 13+ as well as iOS 16+. Same Dart, same Swift: the
+macOS `Sources/` is a symlink into `ios/` rather than a copy, because both
+builds compile the same four files and a copy is two things to keep in step.
+
+What differs is inside them, under `#if`, and is four things — every one found
+by a build rather than by reading:
+
+- Flutter ships as `Flutter` on iOS and `FlutterMacOS` on macOS.
+- `FlutterPluginRegistrar.messenger` is a property there and a method here.
+- `FlutterEngine` has **no `libraryURI` parameter** on macOS, so a headless
+  engine can only reach an entrypoint in the library holding `main()`. The
+  engine reports that rather than starting and failing with the bare `false` a
+  missing URI produces.
+- `destroyContext` is iOS-only; macOS has `shutDownEngine`, whose header is
+  explicit that an engine not shut down before release leaks.
+
+`OsIntentsSnippetView` now carries `@available(iOS 16.0, macOS 13.0, *)` and its
+inner gate names macOS 14. `#available(iOS 17.0, *)` alone reads as *satisfied*
+on macOS at any version, which is how the view compiled an iOS-17 branch against
+its own 10.15 floor and failed on SwiftUI API from macOS 11 and 12.
+
+The podspec also stopped describing itself as "a new Flutter plugin project" at
+`http://example.com`.
+
 ## Unreleased — the shortcut half of the contract
 
 `pushDynamicShortcut` and its neighbours answer "nothing published" here. Not a

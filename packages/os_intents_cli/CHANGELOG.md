@@ -1,3 +1,21 @@
+## Unreleased — macOS
+
+`sync` writes the generated Swift into every Apple project the app has, and
+`install` registers it with each. Detected rather than flagged: macOS costs
+nothing here — no version chain, no extra dependency, the same Swift — so what
+decides whether an app gets macOS intents is whether it is a macOS app.
+
+`sync` also notes the one thing that differs at run time: macOS `FlutterEngine`
+has no `libraryURI` parameter, so an intent that runs with the app closed needs
+its handler in `main.dart`. While the app is open the router uses the UI isolate
+and nothing is lost.
+
+`doctor` finds and reads a macOS bundle. Two differences it had to learn: the
+metadata sits under `Contents/Resources/`, and there is no `root.ssu.yaml` —
+the extractor writes no phrase model on macOS, so its absence is reported as a
+note rather than the error it is on iOS. Failing every macOS build over a file
+the extractor does not write would be reporting our own assumption as a bug.
+
 ## Unreleased — localisation
 
 `sync --l10n` writes `OsIntents.xcstrings` and makes the generated Swift look

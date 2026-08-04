@@ -77,7 +77,7 @@ import AppIntents
 import Foundation
 import UniformTypeIdentifiers
 
-@available(iOS 16.0, *)
+@available${_at('16.0')}
 enum OsIntentsFiles {
   /// Spills a file the system supplied to disk, so Dart can read it by path.
   static func wire(_ file: IntentFile?) -> [String: Any]? {
@@ -134,7 +134,14 @@ enum OsIntentsFiles {
     final uri = manifest.entrypointLibraryUri;
     final b = StringBuffer()
       ..writeln(_header)
+      // Flutter ships as two differently-named frameworks with the same API,
+      // and this is the one generated file that names one directly — it hands
+      // over `GeneratedPluginRegistrant`, which only the app target has.
+      ..writeln('#if canImport(FlutterMacOS)')
+      ..writeln('import FlutterMacOS')
+      ..writeln('#else')
       ..writeln('import Flutter')
+      ..writeln('#endif')
       ..writeln('import Foundation')
       ..writeln('import os_intents_ios')
       ..writeln()
@@ -149,7 +156,15 @@ enum OsIntentsFiles {
     b
       ..writeln('    OsIntentsBackgroundEngine.pluginRegistrantCallback = {')
       ..writeln('      registry in')
+      // Flutter generates a different shape per platform, not just a different
+      // name: iOS gets an Objective-C class with a `+registerWithRegistry:`,
+      // macOS a free Swift function. Both live in the app target, which is why
+      // this file exists at all.
+      ..writeln('      #if os(macOS)')
+      ..writeln('      RegisterGeneratedPlugins(registry: registry)')
+      ..writeln('      #else')
       ..writeln('      GeneratedPluginRegistrant.register(with: registry)')
+      ..writeln('      #endif')
       ..writeln('    }')
       ..writeln('  }')
       ..writeln('}');
@@ -184,7 +199,7 @@ enum OsIntentsFiles {
       ..writeln('    wire: [String: Any],')
       ..writeln('    completion: @escaping (Bool) -> Void')
       ..writeln('  ) {')
-      ..writeln('    guard #available(iOS 16.0, *) else {')
+      ..writeln('    guard #available${_at('16.0')} else {')
       ..writeln('      completion(false)')
       ..writeln('      return')
       ..writeln('    }')
@@ -304,15 +319,15 @@ enum OsIntentsFiles {
       // generated perform() is iOS 16, and handing it a builder it cannot name
       // would make the whole snippet path 17-only.
       ..writeln('  /// nil below iOS 17, where Button(intent:) does not exist.')
-      ..writeln('  @available(iOS 16.0, *)')
+      ..writeln('  @available${_at('16.0')}')
       ..writeln('  static var builder: OsIntentsSnippetView.ButtonBuilder? {')
-      ..writeln('    if #available(iOS 17.0, *) {')
+      ..writeln('    if #available${_at('17.0')} {')
       ..writeln('      return button(id:args:label:systemImageName:)')
       ..writeln('    }')
       ..writeln('    return nil')
       ..writeln('  }')
       ..writeln()
-      ..writeln('  @available(iOS 17.0, *)')
+      ..writeln('  @available${_at('17.0')}')
       ..writeln('  static func button(')
       ..writeln('    id: String,')
       ..writeln('    args: [String: Any],')
@@ -382,7 +397,7 @@ enum OsIntentsFiles {
       if (i.showsSnippet) 'ShowsSnippetView',
     ].join(' & ');
 
-    b.writeln('@available(iOS 16.0, *)');
+    b.writeln('@available${_at('16.0')}');
     b.writeln('struct ${i.swiftTypeName}: AppIntent {');
     b.writeln(
       '  static let title: LocalizedStringResource = '
@@ -423,7 +438,7 @@ enum OsIntentsFiles {
       // asks, in its own words, so the guarantee holds either way and only the
       // wording is lost.
       b
-        ..writeln('    if #available(iOS 18.0, *) {')
+        ..writeln('    if #available${_at('18.0')} {')
         ..writeln('      try await requestConfirmation(')
         ..writeln(
           '        dialog: IntentDialog(${_text(i.confirmKey, prompt)})',
@@ -650,7 +665,7 @@ enum OsIntentsFiles {
 
     for (final e in manifest.enums) {
       b
-        ..writeln('@available(iOS 16.0, *)')
+        ..writeln('@available${_at('16.0')}')
         ..writeln('enum ${e.swiftTypeName}: String, AppEnum, CaseIterable {');
       for (final v in e.values) {
         b.writeln('  case ${v.name}');
@@ -721,7 +736,7 @@ enum OsIntentsFiles {
     final subtitle = e.properties.where((p) => p.isSubtitle).firstOrNull;
 
     final b = StringBuffer();
-    b.writeln('@available(iOS 16.0, *)');
+    b.writeln('@available${_at('16.0')}');
     b.writeln('struct ${e.swiftTypeName}: AppEntity, Identifiable {');
     b.writeln('  var id: String');
     for (final p in e.properties) {
@@ -756,7 +771,7 @@ enum OsIntentsFiles {
 
   String _entityQuery(EntitySpec e) {
     final b = StringBuffer();
-    b.writeln('@available(iOS 16.0, *)');
+    b.writeln('@available${_at('16.0')}');
     b.writeln('struct ${e.typeName}Query: EntityStringQuery {');
     b.writeln(
       '  func entities(for identifiers: [String]) async throws -> [${e.swiftTypeName}] {',
@@ -783,7 +798,7 @@ enum OsIntentsFiles {
     b.writeln('  }');
     b.writeln('}');
     b.writeln();
-    b.writeln('@available(iOS 16.0, *)');
+    b.writeln('@available${_at('16.0')}');
     b.writeln('extension ${e.swiftTypeName} {');
     b.writeln('  init(wire: [String: Any]) {');
     b.writeln('    self.id = wire["id"] as? String ?? ""');
@@ -821,7 +836,7 @@ enum OsIntentsFiles {
       return b.toString();
     }
 
-    b.writeln('@available(iOS 16.0, *)');
+    b.writeln('@available${_at('16.0')}');
     b.writeln('struct OsIntentsShortcuts: AppShortcutsProvider {');
     b.writeln('  static var appShortcuts: [AppShortcut] {');
     for (final i in withPhrases) {
@@ -851,6 +866,22 @@ enum OsIntentsFiles {
         .replaceAll(r'$app', r'\(.applicationName)');
     return '"$escaped"';
   }
+
+  /// One feature floor, spelled for every platform the generated code deploys
+  /// to.
+  ///
+  /// A table rather than arithmetic. iOS 16/macOS 13, 17/14 and 18/15 are all
+  /// three apart, and that is a coincidence of Apple's numbering rather than a
+  /// rule — the two lines met at 26. A formula that is right today and silently
+  /// wrong at the next floor is worse than a list.
+  static const _floors = <String, String>{
+    '16.0': 'iOS 16.0, macOS 13.0',
+    '17.0': 'iOS 17.0, macOS 14.0',
+    '18.0': 'iOS 18.0, macOS 15.0',
+  };
+
+  /// `(iOS 16.0, macOS 13.0, *)`, for either `@available` or `#available`.
+  static String _at(String iosVersion) => '(${_floors[iosVersion]!}, *)';
 
   static String _str(String raw) => '"${_escapeInner(raw)}"';
 

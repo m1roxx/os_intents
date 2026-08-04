@@ -5,7 +5,7 @@
 
 import AppIntents
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct OsIntentsShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(

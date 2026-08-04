@@ -7,7 +7,7 @@ import AppIntents
 import Foundation
 import UniformTypeIdentifiers
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 enum OsIntentsFiles {
   /// Spills a file the system supplied to disk, so Dart can read it by path.
   static func wire(_ file: IntentFile?) -> [String: Any]? {

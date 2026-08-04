@@ -40,7 +40,7 @@ public struct OsIntentsSnippetAction: @unchecked Sendable {
   public let args: [String: Any]
 }
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 public struct OsIntentsSnippetView: View {
   public typealias Row = OsIntentsSnippetRow
 
@@ -134,7 +134,7 @@ public struct OsIntentsSnippetView: View {
         // Buttons need iOS 17 — `Button(intent:)` does not exist below it,
         // measured against the SDK. The card itself is iOS 16, so an older
         // system renders it without them rather than not at all.
-        if #available(iOS 17.0, *), button != nil, !actions.isEmpty {
+        if #available(iOS 17.0, macOS 14.0, *), button != nil, !actions.isEmpty {
           HStack(spacing: 8) {
             ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
               buttonView(for: action)
@@ -149,7 +149,7 @@ public struct OsIntentsSnippetView: View {
   }
 
   /// An id nothing declares produces no button rather than a broken card.
-  @available(iOS 17.0, *)
+  @available(iOS 17.0, macOS 14.0, *)
   @ViewBuilder
   private func buttonView(for action: OsIntentsSnippetAction) -> some View {
     if let made = button?(

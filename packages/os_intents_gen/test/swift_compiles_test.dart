@@ -29,20 +29,90 @@ import 'package:test/test.dart';
 /// surface and nothing outside a real app build provides it, so it is the one
 /// thing here that is stubbed rather than compiled from source.
 const _appProvided = '''
+#if canImport(FlutterMacOS)
+import FlutterMacOS
+#else
 import Flutter
+#endif
 
+// Two different shapes, not one name spelled twice: iOS gets an Objective-C
+// class with a `+registerWithRegistry:`, macOS a free Swift function. Both are
+// stubbed here in the shape Flutter actually generates, so the generated
+// background file has to name the right one per platform to compile.
+#if os(macOS)
+func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {}
+#else
 enum GeneratedPluginRegistrant {
   static func register(with registry: FlutterPluginRegistry) {}
 }
+#endif
 ''';
 
-/// Matches the deployment target the emitted `@available` attributes assume.
-const _target = 'arm64-apple-ios16.0-simulator';
+/// A platform the emitted Swift has to compile for.
+///
+/// Both, since macOS arrived: the generated code names macOS floors alongside
+/// the iOS ones and the plugin it calls compiles under `#if os(macOS)`, so a
+/// difference between them is exactly the kind of thing only a second
+/// type-check finds. Each deployment target matches the lowest floor the
+/// emitted `@available` attributes assume.
+enum _Platform {
+  ios(
+    sdk: 'iphonesimulator',
+    target: 'arm64-apple-ios16.0-simulator',
+    pluginTarget: 'arm64-apple-ios13.0-simulator',
+    engine: 'ios',
+    framework: 'Flutter.xcframework',
+    slice: 'ios-arm64_x86_64-simulator',
+    precache: 'flutter precache --ios',
+  ),
+  macos(
+    sdk: 'macosx',
+    target: 'arm64-apple-macos13.0',
+    pluginTarget: 'arm64-apple-macos10.15',
+    engine: 'darwin-x64',
+    framework: 'FlutterMacOS.xcframework',
+    slice: 'macos-arm64_x86_64',
+    precache: 'flutter precache --macos',
+  );
+
+  const _Platform({
+    required this.sdk,
+    required this.target,
+    required this.pluginTarget,
+    required this.engine,
+    required this.framework,
+    required this.slice,
+    required this.precache,
+  });
+
+  final String sdk;
+
+  /// Deployment target for the *generated* code, matching the lowest floor its
+  /// `@available` attributes assume.
+  final String target;
+
+  /// Deployment target for the *plugin*, matching the floor its podspec and
+  /// Package.swift declare — much lower, and the one a real build uses.
+  ///
+  /// The distinction is not academic. A macOS build of the plugin failed at
+  /// 10.15 on SwiftUI API that is fine at 13, and type-checking it at 13 said
+  /// nothing was wrong. The floor a thing ships at is the floor to check it at.
+  final String pluginTarget;
+
+  final String engine;
+  final String framework;
+  final String slice;
+  final String precache;
+}
 
 void main() {
-  final env = _Toolchain.locate();
+  for (final platform in _Platform.values) {
+    _runFor(_Toolchain.locate(platform), platform);
+  }
+}
 
-  group('the emitted Swift', () {
+void _runFor(_Toolchain env, _Platform platform) {
+  group('the emitted Swift, on ${platform.name}', () {
     late Directory work;
     late String moduleDir;
 
@@ -392,15 +462,18 @@ final _minimal = Manifest(
 /// nothing to run.
 class _Toolchain {
   _Toolchain({
+    required this.platform,
     required this.sdkPath,
     required this.frameworkDir,
     required this.pluginSources,
   }) : skipReason = null;
 
-  _Toolchain.unavailable(this.skipReason)
+  _Toolchain.unavailable(this.platform, this.skipReason)
     : sdkPath = '',
       frameworkDir = '',
       pluginSources = const [];
+
+  final _Platform platform;
 
   /// Why there is nothing to run here, or null when there is.
   final String? skipReason;
@@ -412,27 +485,31 @@ class _Toolchain {
 
   final List<String> pluginSources;
 
-  static _Toolchain locate() {
+  static _Toolchain locate(_Platform platform) {
     if (!Platform.isMacOS) {
-      return _Toolchain.unavailable('swiftc needs macOS');
+      return _Toolchain.unavailable(platform, 'swiftc needs macOS');
     }
 
     final sdk = Process.runSync('xcrun', [
       '--sdk',
-      'iphonesimulator',
+      platform.sdk,
       '--show-sdk-path',
     ]);
     if (sdk.exitCode != 0) {
-      return _Toolchain.unavailable('no iphonesimulator SDK — install Xcode');
+      return _Toolchain.unavailable(
+        platform,
+        'no ${platform.sdk} SDK — install Xcode',
+      );
     }
 
     // Located from the Flutter that is running the test rather than a fixed
     // path, so this follows .fvmrc instead of the machine's global SDK.
-    final engine = _engineDir();
+    final engine = _engineDir(platform);
     if (engine == null) {
       return _Toolchain.unavailable(
-        'Flutter.xcframework not found under this Flutter SDK — run '
-        '`flutter precache --ios`',
+        platform,
+        '${platform.framework} not found under this Flutter SDK — run '
+        '`${platform.precache}`',
       );
     }
 
@@ -444,13 +521,15 @@ class _Toolchain {
     );
     if (!plugin.existsSync()) {
       return _Toolchain.unavailable(
+        platform,
         'the os_intents_ios sources are not where expected',
       );
     }
 
     return _Toolchain(
+      platform: platform,
       sdkPath: (sdk.stdout as String).trim(),
-      frameworkDir: p.join(engine, 'ios-arm64_x86_64-simulator'),
+      frameworkDir: p.join(engine, platform.slice),
       pluginSources:
           plugin
               .listSync()
@@ -468,7 +547,7 @@ class _Toolchain {
   static String _repoRoot() =>
       p.normalize(p.join(Directory.current.path, '..', '..'));
 
-  static String? _engineDir() {
+  static String? _engineDir(_Platform platform) {
     for (var dir = p.dirname(Platform.resolvedExecutable); ;) {
       final candidate = p.join(
         dir,
@@ -476,8 +555,8 @@ class _Toolchain {
         'cache',
         'artifacts',
         'engine',
-        'ios',
-        'Flutter.xcframework',
+        platform.engine,
+        platform.framework,
       );
       if (Directory(candidate).existsSync()) return candidate;
       final parent = p.dirname(dir);
@@ -492,13 +571,13 @@ class _Toolchain {
       ..createSync(recursive: true);
     final result = Process.runSync('xcrun', [
       '--sdk',
-      'iphonesimulator',
+      platform.sdk,
       'swiftc',
       '-emit-module',
       '-module-name',
       'os_intents_ios',
       '-target',
-      _target,
+      platform.target,
       '-sdk',
       sdkPath,
       '-F',
@@ -517,14 +596,14 @@ class _Toolchain {
   String typecheckPlugin({String? swiftVersion}) => _diagnostics(
     Process.runSync('xcrun', [
       '--sdk',
-      'iphonesimulator',
+      platform.sdk,
       'swiftc',
       '-typecheck',
       '-module-name',
       'os_intents_ios',
       if (swiftVersion != null) ...['-swift-version', swiftVersion],
       '-target',
-      _target,
+      platform.pluginTarget,
       '-sdk',
       sdkPath,
       '-F',
@@ -551,11 +630,11 @@ class _Toolchain {
     return _diagnostics(
       Process.runSync('xcrun', [
         '--sdk',
-        'iphonesimulator',
+        platform.sdk,
         'swiftc',
         '-typecheck',
         '-target',
-        _target,
+        platform.target,
         '-sdk',
         sdkPath,
         '-F',

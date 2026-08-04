@@ -1,8 +1,17 @@
-// Flutter is an Objective-C framework: none of its types carry Sendability
-// annotations, so every one of them reads as non-Sendable to Swift concurrency.
-// @preconcurrency says "this module predates the checking" rather than silencing
-// anything of ours — os_intents' own types are checked normally.
+// Flutter ships as two differently-named frameworks — `Flutter` on iOS,
+// `FlutterMacOS` on macOS — with the same API. Every file here that talks to
+// the engine carries this, which is the standard shape for a plugin that serves
+// both and the only difference between them in this package.
+//
+// `@preconcurrency`: Flutter is an Objective-C framework, so none of its types
+// carry Sendability annotations and every one reads as non-Sendable to Swift
+// concurrency. It says "this module predates the checking" rather than
+// silencing anything of ours.
+#if canImport(FlutterMacOS)
+@preconcurrency import FlutterMacOS
+#else
 @preconcurrency import Flutter
+#endif
 import Foundation
 
 /// What a Dart handler answered with.

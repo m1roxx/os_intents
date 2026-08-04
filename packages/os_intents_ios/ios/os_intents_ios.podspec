@@ -4,14 +4,15 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'os_intents_ios'
-  s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.version          = '0.1.0'
+  s.summary          = 'Apple-platform implementation of os_intents.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+The runtime half of os_intents on iOS and macOS: the bridge every generated
+AppIntent calls into, the headless engine, and the snippet card.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/m1roxx/os_intents'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'm1roxx' => 'nugmanovilyas228@gmail.com' }
   s.source           = { :path => '.' }
   s.source_files = 'os_intents_ios/Sources/os_intents_ios/**/*'
   s.dependency 'Flutter'

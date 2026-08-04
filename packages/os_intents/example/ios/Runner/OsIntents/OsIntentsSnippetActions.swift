@@ -10,15 +10,15 @@ import os_intents_ios
 
 enum OsIntentsSnippetActions {
   /// nil below iOS 17, where Button(intent:) does not exist.
-  @available(iOS 16.0, *)
+  @available(iOS 16.0, macOS 13.0, *)
   static var builder: OsIntentsSnippetView.ButtonBuilder? {
-    if #available(iOS 17.0, *) {
+    if #available(iOS 17.0, macOS 14.0, *) {
       return button(id:args:label:systemImageName:)
     }
     return nil
   }
 
-  @available(iOS 17.0, *)
+  @available(iOS 17.0, macOS 14.0, *)
   static func button(
     id: String,
     args: [String: Any],

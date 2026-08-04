@@ -3,7 +3,11 @@
 // Regenerate with:
 //   dart run build_runner build && dart run os_intents_cli:os_intents sync
 
+#if canImport(FlutterMacOS)
+import FlutterMacOS
+#else
 import Flutter
+#endif
 import Foundation
 import os_intents_ios
 
@@ -13,7 +17,11 @@ class OsIntentsBackgroundSetup: NSObject {
     OsIntentsBackgroundEngine.entrypointLibraryURI = "package:os_intents_example/intents.dart"
     OsIntentsBackgroundEngine.pluginRegistrantCallback = {
       registry in
+      #if os(macOS)
+      RegisterGeneratedPlugins(registry: registry)
+      #else
       GeneratedPluginRegistrant.register(with: registry)
+      #endif
     }
   }
 }

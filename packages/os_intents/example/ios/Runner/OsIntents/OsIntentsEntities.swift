@@ -7,7 +7,7 @@ import AppIntents
 import Foundation
 import os_intents_ios
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct ProjectEntity: AppEntity, Identifiable {
   var id: String
   var name: String?
@@ -26,7 +26,7 @@ struct ProjectEntity: AppEntity, Identifiable {
 }
 
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct ProjectQuery: EntityStringQuery {
   func entities(for identifiers: [String]) async throws -> [ProjectEntity] {
     try await OsIntentsBridge.shared.resolveEntities(
@@ -47,7 +47,7 @@ struct ProjectQuery: EntityStringQuery {
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 extension ProjectEntity {
   init(wire: [String: Any]) {
     self.id = wire["id"] as? String ?? ""

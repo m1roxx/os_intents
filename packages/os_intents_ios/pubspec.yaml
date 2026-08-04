@@ -28,3 +28,10 @@ flutter:
       ios:
         pluginClass: OsIntentsIosPlugin
         dartPluginClass: OsIntentsIos
+      # Same Swift, same Dart. The package is called os_intents_ios because it
+      # was published under that name before macOS was in it, and a published
+      # name cannot be changed — App Intents is one framework across Apple's
+      # platforms and this is one implementation of it.
+      macos:
+        pluginClass: OsIntentsIosPlugin
+        dartPluginClass: OsIntentsIos

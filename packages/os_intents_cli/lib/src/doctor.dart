@@ -61,6 +61,7 @@ List<Finding> diagnose({
   required Manifest? declared,
   required AppIntentsMetadata shipped,
   required bool hasSpokenPhraseFile,
+  bool isMacOS = false,
 }) {
   final findings = <Finding>[];
 
@@ -204,15 +205,30 @@ List<Finding> diagnose({
 
   // Reported once rather than per intent: every phrase-bearing intent would
   // otherwise repeat the same sentence.
+  //
+  // iOS only, and that is measured rather than assumed. A macOS bundle built
+  // from the same sources carries `extract.actionsdata` and `version.json` and
+  // nothing else — no `nlu/`, no `root.ssu.yaml` — so the extractor does not
+  // produce a phrase model there at all. Reporting its absence as an error
+  // would make doctor fail every macOS build over something no project can fix.
   if (declaresPhrases && !hasSpokenPhraseFile) {
     findings.add(
-      Finding(
-        Severity.error,
-        'The bundle has no root.ssu.yaml, so no phrase was registered with '
-            'Siri.',
-        'The intents still run from Shortcuts and Spotlight; "Hey Siri" will '
-            'not reach them. ${_providerHint(shipped)}',
-      ),
+      isMacOS
+          ? Finding(
+              Severity.note,
+              'No root.ssu.yaml, which is normal on macOS.',
+              'The extractor writes a phrase model on iOS and not here, so '
+                  'whether Siri matches these phrases on macOS is not '
+                  'something this bundle can answer. The actions themselves '
+                  'reached it — they are listed above.',
+            )
+          : Finding(
+              Severity.error,
+              'The bundle has no root.ssu.yaml, so no phrase was registered '
+                  'with Siri.',
+              'The intents still run from Shortcuts and Spotlight; "Hey Siri" '
+                  'will not reach them. ${_providerHint(shipped)}',
+            ),
     );
   }
 
@@ -334,6 +350,26 @@ class DoctorCommand extends Command<int> {
     'build/ios/Release-iphoneos/Runner.app',
   ];
 
+  /// Where `flutter build macos` leaves a bundle.
+  ///
+  /// A directory rather than a path, because the app is named after the project
+  /// and there is nothing here that knows what that is.
+  static const _macosProductDirs = [
+    'build/macos/Build/Products/Debug',
+    'build/macos/Build/Products/Release',
+  ];
+
+  /// Inside a macOS bundle, everything sits under `Contents/`. An iOS bundle is
+  /// flat. Both spellings are tried rather than guessed at from the path.
+  static Directory metadataDir(Directory bundle) {
+    final nested = Directory(
+      p.join(bundle.path, 'Contents', 'Resources', 'Metadata.appintents'),
+    );
+    return nested.existsSync()
+        ? nested
+        : Directory(p.join(bundle.path, 'Metadata.appintents'));
+  }
+
   /// Where `flutter build apk` leaves an APK, newest layout first.
   static const _apkCandidates = [
     'build/app/outputs/flutter-apk/app-debug.apk',
@@ -371,7 +407,7 @@ class DoctorCommand extends Command<int> {
       return 66;
     }
 
-    final metaDir = Directory(p.join(bundle.path, 'Metadata.appintents'));
+    final metaDir = metadataDir(bundle);
     final actionsFile = File(p.join(metaDir.path, 'extract.actionsdata'));
     if (!actionsFile.existsSync()) {
       stderr.writeln(
@@ -403,14 +439,19 @@ class DoctorCommand extends Command<int> {
     final declared = manifests.isEmpty ? null : Manifest.merge(manifests);
 
     final hasSsu = File(p.join(metaDir.path, 'root.ssu.yaml')).existsSync();
+    // Told apart by the bundle's own shape rather than by where it was found:
+    // everything in a macOS app lives under `Contents/`, and `--app` can point
+    // at one from anywhere.
+    final isMacOS = p.basename(p.dirname(metaDir.path)) == 'Resources';
 
-    _report(root, bundle, shipped, declared, hasSsu: hasSsu);
+    _report(root, bundle, shipped, declared, hasSsu: hasSsu, isMacOS: isMacOS);
 
     final findings = [
       ...diagnose(
         declared: declared,
         shipped: shipped,
         hasSpokenPhraseFile: hasSsu,
+        isMacOS: isMacOS,
       ),
       // Appended rather than part of diagnose: staleness is a fact about files
       // on disk, and diagnose stays pure so it can be tested without any.
@@ -585,12 +626,20 @@ class DoctorCommand extends Command<int> {
   Directory? _newestBundle(String root) {
     Directory? best;
     DateTime? bestAt;
-    for (final rel in _candidates) {
-      final dir = Directory(p.join(root, rel));
+    final candidates = <Directory>[
+      for (final rel in _candidates) Directory(p.join(root, rel)),
+      // The macOS app is named after the project, so these are found rather
+      // than named.
+      for (final rel in _macosProductDirs)
+        if (Directory(p.join(root, rel)).existsSync())
+          ...Directory(p.join(root, rel))
+              .listSync()
+              .whereType<Directory>()
+              .where((d) => d.path.endsWith('.app')),
+    ];
+    for (final dir in candidates) {
       if (!dir.existsSync()) continue;
-      final marker = File(
-        p.join(dir.path, 'Metadata.appintents', 'extract.actionsdata'),
-      );
+      final marker = File(p.join(metadataDir(dir).path, 'extract.actionsdata'));
       final at = marker.existsSync()
           ? marker.lastModifiedSync()
           : dir.statSync().modified;
@@ -642,6 +691,7 @@ class DoctorCommand extends Command<int> {
     AppIntentsMetadata shipped,
     Manifest? declared, {
     required bool hasSsu,
+    bool isMacOS = false,
   }) {
     // What the bundle holds for a localised app is a key, not a sentence. Left
     // alone, this whole report would read "addTask.title" — the command that
@@ -719,7 +769,12 @@ class DoctorCommand extends Command<int> {
       }
     }
     out.writeln(
-      '  root.ssu.yaml  ${hasSsu ? 'present — Siri has the phrase model' : 'MISSING — nothing was registered with Siri'}',
+      '  root.ssu.yaml  ${switch ((hasSsu, isMacOS)) {
+        (true, _) => 'present — Siri has the phrase model',
+        (false, true) => 'absent, which is normal on macOS — the extractor '
+            'writes no phrase model there',
+        (false, false) => 'MISSING — nothing was registered with Siri',
+      }}',
     );
 
     stdout.write(out);

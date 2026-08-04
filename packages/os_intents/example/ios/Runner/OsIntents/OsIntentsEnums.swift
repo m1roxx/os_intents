@@ -6,7 +6,7 @@
 import AppIntents
 import Foundation
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 enum PriorityEnum: String, AppEnum, CaseIterable {
   case whenever
   case normal

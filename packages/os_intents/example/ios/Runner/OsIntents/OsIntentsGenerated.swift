@@ -7,7 +7,7 @@ import AppIntents
 import Foundation
 import os_intents_ios
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct AddTaskOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Add task"
   static let description = IntentDescription("Creates a new task in the Inbox")
@@ -45,7 +45,7 @@ struct AddTaskOsIntent: AppIntent {
 }
 
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct DueTodayOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Tasks due today"
   static let openAppWhenRun = false
@@ -75,7 +75,7 @@ struct DueTodayOsIntent: AppIntent {
 }
 
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct LogRunOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Log a run"
   static let description = IntentDescription("Records a run against a route")
@@ -111,7 +111,7 @@ struct LogRunOsIntent: AppIntent {
 }
 
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct CountOpenTasksOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Count tasks"
   static let description = IntentDescription("How many tasks are open")
@@ -127,7 +127,7 @@ struct CountOpenTasksOsIntent: AppIntent {
 }
 
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, *)
 struct CompleteTaskOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Complete task"
   static let description = IntentDescription("Marks a task as done")
@@ -141,7 +141,7 @@ struct CompleteTaskOsIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    if #available(iOS 18.0, *) {
+    if #available(iOS 18.0, macOS 15.0, *) {
       try await requestConfirmation(
         dialog: IntentDialog("Mark this task as done?")
       )

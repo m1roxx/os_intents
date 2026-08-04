@@ -207,6 +207,66 @@ contract of 143 schemas that Apple has already renamed once.
 Snippet cards can carry **buttons** (iOS 17+), but not Apple's iOS 26
 `SnippetIntent`, where the card reloads itself after a button runs.
 
+## macOS
+
+The same Swift, in a second Xcode project. `sync` writes into
+`macos/Runner/OsIntents` whenever the project has a `macos/` folder, `install`
+registers it with that Runner target, and the emitter names both floors in one
+`@available` — App Intents is one framework across Apple's platforms.
+
+Verified by [`probe/run_cold_start.sh`](../probe/run_cold_start.sh), which now
+creates its throwaway project with `--platforms=android,ios,macos`: the two
+platforms are given byte-identical Swift, `macos/Runner.xcodeproj` compiles it,
+`flutter build macos --debug` succeeds, and `doctor` reads the intents back out
+of the built `.app`. That is the check that stands where a stranger stands.
+
+Four differences, every one of them found by a build rather than by reading:
+
+- **`FlutterEngine` has no `libraryURI` parameter on macOS.** The header offers
+  `runWithEntrypoint:` and nothing else, so a headless engine there can only
+  reach an entrypoint in the library that holds `main()` — and the generated one
+  is part of whichever library declared the intents. The engine reports this
+  rather than starting and failing with the bare `false` a missing URI produces,
+  and `sync` says so at generation time. While the app is running the router
+  uses the UI isolate, so only a cold background launch is affected.
+
+- **`GeneratedPluginRegistrant` is a different shape, not a different name.**
+  iOS gets an Objective-C class with `+registerWithRegistry:`; macOS gets a free
+  Swift function, `RegisterGeneratedPlugins(registry:)`. The generated
+  background file names the right one per platform, and the compile test stubs
+  both in the shape Flutter actually writes.
+
+- **`#available(iOS 17.0, *)` is satisfied on macOS at any version.** So the
+  plugin's snippet view compiled an iOS-17 branch against its own 10.15 floor
+  and failed on SwiftUI API from macOS 11 and 12. Every availability clause the
+  package emits or contains now names macOS explicitly. The compile test also
+  learned to check the plugin at *its own* declared floor rather than at the
+  generated code's — checking it at 13 is what said nothing was wrong.
+
+- **A macOS bundle carries no phrase model.** Its metadata lives under
+  `Contents/Resources/Metadata.appintents/` and holds `extract.actionsdata` and
+  `version.json` — no `nlu/`, no `root.ssu.yaml`, both of which the iOS bundle
+  built from the same sources has. So doctor reports its absence as a note there
+  instead of the error it is on iOS; failing every macOS build over a file the
+  extractor does not write would be reporting our own assumption as their bug.
+
+Two things the cold-start check asserts that a green build does not imply: that
+`macos/Flutter/GeneratedPluginRegistrant.swift` actually names
+`OsIntentsIosPlugin` — without it the method channel has nobody on the other end
+and every invocation waits for a Dart side that never answers — and that the two
+platforms were handed byte-identical Swift.
+
+The shared sources are a **symlink**, `macos/…/Sources/os_intents_ios` into
+`ios/`, so there is one copy to keep correct rather than two. `pub publish
+--dry-run` follows it and archives the four real files under the macOS path, so
+a consumer from pub.dev gets sources rather than a dangling link.
+
+**Not verified:** an intent actually being invoked on macOS. The actions reach
+the bundle and the OS's own metadata, which is as far as the iOS side was
+verified before a real Shortcuts invocation was observed by hand — and nothing
+here has done that on a Mac yet. Whether Siri matches a phrase on macOS is
+doubly unobserved, since the bundle carries no phrase model to match against.
+
 ## Localisation, and the two mechanisms it turned out to be
 
 `sync --l10n` makes the generated Swift look every title, description, prompt
@@ -326,7 +386,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-296 tests — 16 in `os_intents`, 156 in `os_intents_gen`, 124 in `os_intents_cli` —
+302 tests — 16 in `os_intents`, 162 in `os_intents_gen`, 124 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

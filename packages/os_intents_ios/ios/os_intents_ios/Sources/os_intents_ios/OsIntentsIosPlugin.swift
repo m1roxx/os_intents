@@ -1,12 +1,31 @@
-// See the note in OsIntentsBridge.swift.
+// Flutter ships as two differently-named frameworks — `Flutter` on iOS,
+// `FlutterMacOS` on macOS — with the same API. Every file here that talks to
+// the engine carries this, which is the standard shape for a plugin that serves
+// both and the only difference between them in this package.
+//
+// `@preconcurrency`: Flutter is an Objective-C framework, so none of its types
+// carry Sendability annotations and every one reads as non-Sendable to Swift
+// concurrency. It says "this module predates the checking" rather than
+// silencing anything of ours.
+#if canImport(FlutterMacOS)
+@preconcurrency import FlutterMacOS
+#else
 @preconcurrency import Flutter
-import UIKit
+#endif
+import Foundation
 
 public class OsIntentsIosPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
+    // `messenger` is a property on macOS and a method on iOS. One of the two
+    // places the frameworks differ in shape rather than only in name.
+    #if os(macOS)
+    let messenger = registrar.messenger
+    #else
+    let messenger = registrar.messenger()
+    #endif
     let channel = FlutterMethodChannel(
       name: "dev.osintents/bridge",
-      binaryMessenger: registrar.messenger()
+      binaryMessenger: messenger
     )
     let instance = OsIntentsIosPlugin()
     registrar.addMethodCallDelegate(instance, channel: channel)

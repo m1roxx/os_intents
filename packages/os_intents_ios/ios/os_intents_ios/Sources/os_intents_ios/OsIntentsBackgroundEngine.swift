@@ -1,6 +1,19 @@
 // See the note in OsIntentsBridge.swift: Flutter is Objective-C and carries no
 // Sendability annotations, so every type it vends reads as non-Sendable.
+// Flutter ships as two differently-named frameworks — `Flutter` on iOS,
+// `FlutterMacOS` on macOS — with the same API. Every file here that talks to
+// the engine carries this, which is the standard shape for a plugin that serves
+// both and the only difference between them in this package.
+//
+// `@preconcurrency`: Flutter is an Objective-C framework, so none of its types
+// carry Sendability annotations and every one reads as non-Sendable to Swift
+// concurrency. It says "this module predates the checking" rather than
+// silencing anything of ours.
+#if canImport(FlutterMacOS)
+@preconcurrency import FlutterMacOS
+#else
 @preconcurrency import Flutter
+#endif
 import Foundation
 
 /// Runs Dart handlers with no UI.
@@ -177,6 +190,25 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
       )
 
       let started: Bool
+      #if os(macOS)
+      // macOS `FlutterEngine` has no `libraryURI` parameter — the header
+      // offers `runWithEntrypoint:` and nothing else — so a headless engine
+      // there can only reach an entrypoint in the library that holds `main()`.
+      // The generated one is a part of whichever library declared the intents,
+      // which is normally not that. Reported rather than started and left to
+      // fail with a bare `false`, which is what the missing URI produces.
+      if let uri = Self.entrypointLibraryURI {
+        failStart(OsIntentsError.handlerFailed(
+          "This intent needs a headless Dart engine, and macOS cannot start "
+            + "one for an entrypoint outside main.dart: FlutterEngine there "
+            + "has no libraryURI parameter. The entrypoint is in \(uri). "
+            + "Declare the intent Execution.foreground, or move it into the "
+            + "library that holds main()."
+        ))
+        return
+      }
+      started = engine.run(withEntrypoint: Self.entrypointName)
+      #else
       if let uri = Self.entrypointLibraryURI {
         started = engine.run(
           withEntrypoint: Self.entrypointName,
@@ -185,6 +217,7 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
       } else {
         started = engine.run(withEntrypoint: Self.entrypointName)
       }
+      #endif
 
       guard started else {
         // Almost always a wrong entrypoint name or a missing
@@ -267,6 +300,13 @@ public final class OsIntentsBackgroundEngine: @unchecked Sendable {
       return self.engine
     }
 
+    // Two names for the same thing. `destroyContext` is iOS-only; macOS
+    // exposes `shutDownEngine`, and its header is explicit that an engine not
+    // shut down before it is released leaks.
+    #if os(macOS)
+    engine?.shutDownEngine()
+    #else
     engine?.destroyContext()
+    #endif
   }
 }

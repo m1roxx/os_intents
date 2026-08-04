@@ -270,7 +270,10 @@ void main() {
       final out = intentsFor(
         manifest(intents: [intent(confirmBeforeRunning: 'Sure?')]),
       );
-      expect(out, contains('if #available(iOS 18.0, *)'));
+      // Both platforms named. `#available(iOS 18.0, *)` alone reads as
+      // "satisfied" on macOS at any version, which is how a macOS build once
+      // compiled an iOS-17 branch against a 10.15 floor.
+      expect(out, contains('if #available(iOS 18.0, macOS 15.0, *)'));
       expect(out, contains('try await requestConfirmation()'));
     });
 
@@ -401,8 +404,8 @@ void main() {
       // The card is iOS 16. Below 17 the builder is nil and the card renders
       // without its buttons rather than not at all.
       final out = actionsFor(manifest(intents: [intent()]));
-      expect(out, contains('@available(iOS 17.0, *)'));
-      expect(out, contains('if #available(iOS 17.0, *)'));
+      expect(out, contains('@available(iOS 17.0, macOS 14.0, *)'));
+      expect(out, contains('if #available(iOS 17.0, macOS 14.0, *)'));
       expect(out, contains('return nil'));
     });
 
