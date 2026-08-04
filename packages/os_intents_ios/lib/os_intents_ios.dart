@@ -100,6 +100,27 @@ class OsIntentsIos extends OsIntentsPlatform {
       }) ??
       false;
 
+  /// iOS has no launcher shortcuts to publish, and says so rather than
+  /// pretending.
+  ///
+  /// Not a gap facing the other way from Android's `donate`. A dynamic shortcut
+  /// is an entry an app puts on the launcher and then owns — rank, icon, a cap
+  /// of a few. The nearest thing here is a Home Screen quick action, which is
+  /// declared in `Info.plist` rather than pushed at runtime, and the thing that
+  /// actually serves the same purpose is [donate], which this platform has.
+  @override
+  Future<bool> pushDynamicShortcut(Map<String, Object?> shortcut) async =>
+      false;
+
+  @override
+  Future<List<String>> dynamicShortcuts() async => const [];
+
+  @override
+  Future<void> removeDynamicShortcuts(List<String>? ids) async {}
+
+  @override
+  Future<int> maxDynamicShortcuts() async => 0;
+
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(
     String id,

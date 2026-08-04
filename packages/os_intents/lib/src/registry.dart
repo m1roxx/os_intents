@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:os_intents_platform_interface/os_intents_platform_interface.dart';
 
 import 'result.dart';
+import 'shortcuts.dart';
 import 'wire.dart';
 
 /// A single generated handler binding.
@@ -158,6 +159,50 @@ class OsIntents {
   ]) => OsIntentsPlatform.instance.donate(id, {
     for (final e in args.entries) e.key: wireValue(e.value),
   });
+
+  /// Puts a particular action on the Android launcher, while the app runs.
+  ///
+  /// The Android half of what [donate] does on iOS, under its own name because
+  /// they are different mechanisms: a donation is a hint to a ranking model
+  /// that iOS may act on, and this is an entry the app owns outright. Both
+  /// answer the same question — "the user just did this, offer it back".
+  ///
+  /// ```dart
+  /// await OsIntents.pushShortcut(
+  ///   DynamicShortcut(
+  ///     id: 'task-${task.id}',
+  ///     intentId: 'completeTask',
+  ///     shortLabel: task.title,
+  ///     args: {'taskId': task.id},
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// Returns whether anything was published — **false on iOS**, where there is
+  /// no launcher to publish to, and false on Android when the app is already at
+  /// [maxShortcuts] on a device too old for the system to make room itself.
+  /// Which shortcut to lose is the app's decision, not this package's, so it is
+  /// reported rather than guessed at.
+  static Future<bool> pushShortcut(DynamicShortcut shortcut) =>
+      OsIntentsPlatform.instance.pushDynamicShortcut(shortcut.toWire());
+
+  /// Ids of the dynamic shortcuts currently published, lowest rank first.
+  static Future<List<String>> shortcuts() =>
+      OsIntentsPlatform.instance.dynamicShortcuts();
+
+  /// Takes dynamic shortcuts back off the launcher.
+  ///
+  /// Passing nothing removes all of them, which is what a sign-out wants: a
+  /// shortcut naming somebody's task should not outlive their session.
+  static Future<void> removeShortcuts([List<String>? ids]) =>
+      OsIntentsPlatform.instance.removeDynamicShortcuts(ids);
+
+  /// How many dynamic shortcuts this launcher will hold. 0 on iOS.
+  ///
+  /// Worth asking rather than assuming — Android guarantees at least five and
+  /// launchers commonly allow more.
+  static Future<int> maxShortcuts() =>
+      OsIntentsPlatform.instance.maxDynamicShortcuts();
 
   /// Reads back what a generated `Execution.static_` intent would answer with.
   ///

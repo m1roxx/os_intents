@@ -192,8 +192,39 @@ class OsIntentsAndroidPlugin :
                 result.success(null)
             }
 
+            "pushShortcut" -> {
+                val spec = call.arguments as? Map<*, *>
+                if (spec == null) {
+                    result.error("bad_args", "Expected a shortcut map.", null)
+                    return
+                }
+                result.success(shortcuts()?.push(spec) ?: false)
+            }
+
+            "shortcuts" -> result.success(shortcuts()?.ids() ?: emptyList<String>())
+
+            "removeShortcuts" -> {
+                val ids = call.argument<List<String>>("ids")
+                shortcuts()?.remove(ids)
+                result.success(null)
+            }
+
+            "maxShortcuts" -> result.success(shortcuts()?.max() ?: 0)
+
             else -> result.notImplemented()
         }
+    }
+
+    /**
+     * The dynamic-shortcut helper, or null where there is nothing to talk to.
+     *
+     * Null on API 24, where `ShortcutManager` does not exist, and null with no
+     * context. Both surface as "the platform did nothing", which is the same
+     * answer iOS gives and lets one code path call this everywhere.
+     */
+    private fun shortcuts(): DynamicShortcuts? {
+        val context = binding?.applicationContext ?: return null
+        return DynamicShortcuts.of(context)
     }
 
     private fun handleDebug(call: MethodCall, result: MethodChannel.Result) {

@@ -180,6 +180,41 @@ Two things localise by a different mechanism, both Apple's rather than ours:
 
 Pass `--l10n` to `sync --check` too, or CI will report drift.
 
+### Offering an action back after the user takes it
+
+Declaring an intent makes it *available*. Telling the system one just happened
+makes it *suggested* — and the two platforms do that by different mechanisms,
+so they have different names here rather than one call that quietly does nothing
+on half your users' devices.
+
+```dart
+await TaskRepo.instance.complete(task.id);
+
+// iOS: a hint to Siri's ranking model.
+await OsIntents.donate('completeTask', {'taskId': task.id});
+
+// Android: an entry on the launcher, which the app owns.
+await OsIntents.pushShortcut(
+  DynamicShortcut(
+    id: 'task-${task.id}',
+    intentId: 'completeTask',
+    shortLabel: task.title,
+    args: {'taskId': task.id},
+  ),
+);
+```
+
+Each returns false on the platform that has no counterpart, so both are safe to
+call unconditionally. A dynamic shortcut runs the named intent through exactly
+the path a generated app shortcut uses, so the handler sees `args` as if the
+system had filled them in.
+
+`OsIntents.shortcuts()`, `removeShortcuts()` and `maxShortcuts()` round it out.
+Pushing the same id twice replaces the entry, which is what makes "the last five
+things you did" cheap to keep. At the cap, Android 11+ drops the lowest-ranked
+entry itself; below that `pushShortcut` returns false rather than picking one of
+your shortcuts to throw away.
+
 ## Why another one
 
 Not first, and not alone — five packages occupy this niche, two of them active.

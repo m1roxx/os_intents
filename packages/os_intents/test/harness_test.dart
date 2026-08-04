@@ -206,6 +206,67 @@ void main() {
       expect(IntentFile.fromWire({'filename': 'x.pdf'}), isNull);
     });
   });
+
+  // The Android half of "the user just did this, offer it back". What can be
+  // asserted here is the wire form; that ShortcutManager accepts it, lists it,
+  // replaces on the same id and removes it is checked on a real emulator by
+  // `dynamic_shortcuts` in probe/android_appfunctions.
+  group('a dynamic shortcut', () {
+    test('carries what the launcher and the router each need', () {
+      final wire = const DynamicShortcut(
+        id: 'task-7',
+        intentId: 'completeTask',
+        shortLabel: 'Buy milk',
+        longLabel: 'Complete: buy milk',
+        iconResource: '@mipmap/ic_launcher',
+        rank: 3,
+        args: {'taskId': '7'},
+      ).toWire();
+
+      // The launcher's half.
+      expect(wire['id'], 'task-7');
+      expect(wire['shortLabel'], 'Buy milk');
+      expect(wire['longLabel'], 'Complete: buy milk');
+      expect(wire['iconResource'], '@mipmap/ic_launcher');
+      expect(wire['rank'], 3);
+      // The router's half: which intent, and the values it will receive.
+      expect(wire['intentId'], 'completeTask');
+      expect(wire['args'], {'taskId': '7'});
+    });
+
+    test('converts values the same way a donation does', () {
+      // Both feed the same generated decoder, so a date or an enum has to
+      // arrive in the same shape from either direction.
+      final wire = DynamicShortcut(
+        id: 'x',
+        intentId: 'addTask',
+        shortLabel: 'x',
+        args: {
+          'when': DateTime.utc(2026, 8, 1),
+          'priority': _Priority.high,
+          'link': Uri.parse('https://example.com'),
+          'elapsed': const Duration(minutes: 1),
+        },
+      ).toWire();
+      final args = wire['args']! as Map<String, Object?>;
+      expect(args['when'], DateTime.utc(2026, 8, 1).millisecondsSinceEpoch);
+      expect(args['priority'], 'high');
+      expect(args['link'], 'https://example.com');
+      expect(args['elapsed'], const Duration(minutes: 1).inMicroseconds);
+    });
+
+    test('leaves out what was not set, rather than sending nulls', () {
+      final wire = const DynamicShortcut(
+        id: 'x',
+        intentId: 'addTask',
+        shortLabel: 'x',
+      ).toWire();
+      expect(wire.containsKey('longLabel'), isFalse);
+      expect(wire.containsKey('iconResource'), isFalse);
+      expect(wire['rank'], 0);
+      expect(wire['args'], isEmpty);
+    });
+  });
 }
 
 enum _Priority { high }

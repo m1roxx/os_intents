@@ -51,6 +51,7 @@ Android via [`probe/run_android_integration.sh`](../probe/run_android_integratio
 | `shortcut_routing` | The Intent an app shortcut builds reaches the handler, on the UI isolate |
 | `static_round_trip` | `publishStatic` and the native read side agree, so a static intent can answer without an isolate |
 | `donation_declined` | `donate` returns false rather than throwing — the documented contract, so one code path can call it on both platforms |
+| `dynamic_shortcuts` | The Android half of "offer this back": `ShortcutManager` accepted the entry, listed it, replaced it on the same id, and removed it. Room for 15 on this device |
 
 `dumpsys shortcut` independently shows the two generated shortcuts registered
 against the app, labelled from the generated string resources — and `addTask`
@@ -141,6 +142,12 @@ they need neither Xcode nor the Android SDK to run.
   button is built from a real intent type, the whole thing type-checks against
   the SDK, and a card carrying one survives the store a static intent answers
   from.
+- **A dynamic shortcut being tapped.** That it reached `ShortcutManager` and
+  came back out is verified above, and the Intent it carries is the same shape a
+  generated app shortcut builds — which `shortcut_routing` does prove end to
+  end. What has never happened is a tap on the entry itself: the emulator image
+  that boots here ships no launcher, which is the same reason that check starts
+  the Activity by hand.
 - **A donation actually producing a suggestion.** `IntentDonationManager`
   accepting the intent is verified on a device, which covers every link the
   package owns. Whether iOS then puts the action in front of the user is a
@@ -319,7 +326,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-293 tests — 13 in `os_intents`, 156 in `os_intents_gen`, 124 in `os_intents_cli` —
+296 tests — 16 in `os_intents`, 156 in `os_intents_gen`, 124 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

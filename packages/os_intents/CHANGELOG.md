@@ -1,3 +1,27 @@
+## Unreleased — dynamic Android shortcuts
+
+`OsIntents.pushShortcut`, `shortcuts`, `removeShortcuts` and `maxShortcuts`,
+with a `DynamicShortcut` to describe one. The Android half of what `donate`
+does on iOS, and under its own name on purpose: a donation is a hint to a
+ranking model that iOS may act on, while a dynamic shortcut is an entry the app
+puts on the launcher and then owns. Both answer "the user just did this, offer
+it back", and each returns false on the platform without a counterpart, so both
+are safe to call unconditionally.
+
+A dynamic shortcut runs the named intent through exactly the path a generated
+app shortcut uses, so the handler sees `args` as if the system had filled them
+in — converted the same way a donation's are.
+
+Pushing the same id replaces the entry rather than adding a second, which is
+what makes "the last five things you did" cheap to keep. At the cap, Android 11+
+drops the lowest-ranked entry itself — the platform's own policy, via
+`pushDynamicShortcut`. Below that there is no such call, and `pushShortcut`
+returns false rather than picking one of the app's shortcuts to throw away.
+
+Verified on an emulator, not only in the wire format: `dynamic_shortcuts` in
+`probe/android_appfunctions` pushes, lists, replaces and removes through the
+real `ShortcutManager`.
+
 ## Unreleased
 
 ### More kinds of parameter

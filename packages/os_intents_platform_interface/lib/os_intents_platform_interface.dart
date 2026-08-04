@@ -61,6 +61,31 @@ abstract class OsIntentsPlatform extends PlatformInterface {
   /// route it to.
   Future<bool> donate(String id, Map<String, Object?> args);
 
+  /// Publishes a launcher shortcut the app manages itself.
+  ///
+  /// Returns whether the platform did anything. False on iOS, and not as a
+  /// stand-in for an error: there is nothing there to publish to. The iOS
+  /// counterpart of the same intention is [donate], which is a different
+  /// mechanism rather than the same one under another name — see
+  /// `DynamicShortcut`.
+  Future<bool> pushDynamicShortcut(Map<String, Object?> shortcut);
+
+  /// Ids of the dynamic shortcuts currently published, in rank order.
+  Future<List<String>> dynamicShortcuts();
+
+  /// Removes dynamic shortcuts by id. Unknown ids are ignored.
+  ///
+  /// Passing null removes all of them.
+  Future<void> removeDynamicShortcuts(List<String>? ids);
+
+  /// How many dynamic shortcuts this launcher will hold, or 0 where there are
+  /// none.
+  ///
+  /// Worth asking rather than assuming: the platform guarantees at least five
+  /// and launchers commonly allow more, and what the app should do at the cap
+  /// is the app's decision.
+  Future<int> maxDynamicShortcuts();
+
   /// Forces an invocation through the headless engine, for development.
   ///
   /// Returns null on platforms with no background support.
@@ -94,6 +119,19 @@ class _UnimplementedOsIntents extends OsIntentsPlatform {
 
   @override
   Future<bool> donate(String id, Map<String, Object?> args) async => false;
+
+  @override
+  Future<bool> pushDynamicShortcut(Map<String, Object?> shortcut) async =>
+      false;
+
+  @override
+  Future<List<String>> dynamicShortcuts() async => const [];
+
+  @override
+  Future<void> removeDynamicShortcuts(List<String>? ids) async {}
+
+  @override
+  Future<int> maxDynamicShortcuts() async => 0;
 
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(

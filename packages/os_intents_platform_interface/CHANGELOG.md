@@ -1,3 +1,10 @@
+## Unreleased
+
+Four methods for launcher shortcuts an app publishes at runtime:
+`pushDynamicShortcut`, `dynamicShortcuts`, `removeDynamicShortcuts` and
+`maxDynamicShortcuts`. The unimplemented default answers "nothing published"
+for all of them, so a platform without a launcher needs no code.
+
 ## 0.1.0
 
 First released version. The contract between

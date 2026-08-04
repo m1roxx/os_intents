@@ -40,6 +40,7 @@ Future<void> _runSelfCheck() async {
   await _checkShortcutRouting();
   await _checkStaticRoundTrip();
   await _checkDonationDeclined();
+  await _checkDynamicShortcuts();
   debugPrint('$_tag END');
 }
 
@@ -184,5 +185,80 @@ Future<void> _checkDonationDeclined() async {
     // Throwing would be worse than returning false: a caller sharing one code
     // path across platforms would have to guard on the platform.
     _fail(name, 'threw instead of declining: $e');
+  }
+}
+
+/// The Android half of "the user just did this, offer it back".
+///
+/// `donate` declines here on purpose, so this is the call that has to work
+/// instead — and every part of it is on the device rather than in the package:
+/// whether `ShortcutManager` accepts the entry, whether the launcher component
+/// could be resolved, and whether what went in comes back out.
+///
+/// It cannot check the last step, a *tap*. This emulator image ships no
+/// launcher at all, which is the same reason `shortcut_routing` starts the
+/// Activity by hand. What it does check is that the entry reached the system,
+/// which is the half the package owns.
+Future<void> _checkDynamicShortcuts() async {
+  const name = 'dynamic_shortcuts';
+  try {
+    final max = await OsIntents.maxShortcuts();
+    if (max <= 0) {
+      _fail(name, 'the launcher reports room for $max shortcuts');
+      return;
+    }
+
+    // From a known-empty state, so a leftover from a previous run cannot make
+    // this pass.
+    await OsIntents.removeShortcuts();
+    if ((await OsIntents.shortcuts()).isNotEmpty) {
+      _fail(name, 'removeShortcuts() left something behind');
+      return;
+    }
+
+    final pushed = await OsIntents.pushShortcut(
+      const DynamicShortcut(
+        id: 'probe-task-1',
+        intentId: 'openInbox',
+        shortLabel: 'Inbox',
+        longLabel: 'Open the inbox',
+        args: {'source': 'selfcheck'},
+      ),
+    );
+    if (!pushed) {
+      _fail(name, 'ShortcutManager refused the push');
+      return;
+    }
+
+    final ids = await OsIntents.shortcuts();
+    if (!ids.contains('probe-task-1')) {
+      _fail(name, 'pushed, but the system does not list it: $ids');
+      return;
+    }
+
+    // Same id again replaces rather than adds, which is what makes "the last
+    // five things you did" cheap to keep.
+    await OsIntents.pushShortcut(
+      const DynamicShortcut(
+        id: 'probe-task-1',
+        intentId: 'openInbox',
+        shortLabel: 'Inbox again',
+      ),
+    );
+    final after = await OsIntents.shortcuts();
+    if (after.length != 1) {
+      _fail(name, 're-pushing the same id added a second entry: $after');
+      return;
+    }
+
+    await OsIntents.removeShortcuts(['probe-task-1']);
+    if ((await OsIntents.shortcuts()).isNotEmpty) {
+      _fail(name, 'removing by id left it behind');
+      return;
+    }
+
+    _pass(name, 'pushed, listed, replaced and removed — room for $max');
+  } catch (e) {
+    _fail(name, 'threw: $e');
   }
 }

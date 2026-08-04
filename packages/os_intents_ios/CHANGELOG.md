@@ -1,3 +1,11 @@
+## Unreleased — the shortcut half of the contract
+
+`pushDynamicShortcut` and its neighbours answer "nothing published" here. Not a
+gap facing the other way from Android's `donate`: a dynamic shortcut is a
+launcher entry an app owns, the nearest iOS thing is a Home Screen quick action
+declared in `Info.plist` rather than pushed at runtime, and what actually serves
+the same purpose on this platform is `donate`, which is implemented.
+
 ## Unreleased
 
 `IntentOutcome` gains `urlValue` and `durationValue`, for intents declaring

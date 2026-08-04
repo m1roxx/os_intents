@@ -97,10 +97,34 @@ class OsIntentsAndroid extends OsIntentsPlatform {
   /// package's.
   ///
   /// So this returns false, and `OsIntents.donate` documents that. Publishing
-  /// dynamic shortcuts from Dart is worth having on its own terms, under its
-  /// own name.
+  /// dynamic shortcuts from Dart is the thing worth having, and it is here
+  /// under its own name — [pushDynamicShortcut].
   @override
   Future<bool> donate(String id, Map<String, Object?> args) async => false;
+
+  /// The Android half of "this just happened, offer it back".
+  ///
+  /// Goes through `ShortcutManager`, and the eviction policy is the platform's
+  /// own rather than one invented here: on API 30+ `pushDynamicShortcut` drops
+  /// the lowest-ranked entry when the app is at its cap, which is exactly what
+  /// the API exists to do. Below that there is no such call, and a push that
+  /// would exceed the cap answers false instead of guessing which of the app's
+  /// own shortcuts to throw away.
+  @override
+  Future<bool> pushDynamicShortcut(Map<String, Object?> shortcut) async =>
+      await _channel.invokeMethod<bool>('pushShortcut', shortcut) ?? false;
+
+  @override
+  Future<List<String>> dynamicShortcuts() async =>
+      (await _channel.invokeListMethod<String>('shortcuts')) ?? const [];
+
+  @override
+  Future<void> removeDynamicShortcuts(List<String>? ids) =>
+      _channel.invokeMethod<void>('removeShortcuts', {'ids': ids});
+
+  @override
+  Future<int> maxDynamicShortcuts() async =>
+      await _channel.invokeMethod<int>('maxShortcuts') ?? 0;
 
   @override
   Future<Map<String, Object?>?> debugInvokeBackground(
