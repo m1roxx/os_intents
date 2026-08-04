@@ -28,13 +28,23 @@ class KotlinEmitter {
   static const serviceName = 'OsIntentsAppFunctionService';
   static const xmlFileName = 'os_intents_app_functions';
 
-  /// Only intents the OS can run without a screen are exposed.
+  /// Only intents the OS can run without a screen, and can describe.
   ///
   /// An `Execution.foreground` intent needs an Activity, which an
   /// `AppFunctionService` has no way to provide; offering it to an agent would
-  /// produce an action that always fails.
+  /// produce an action that always fails. A file parameter is the second
+  /// reason, and a different one: `androidx.appfunctions` has no file type at
+  /// all, so there is nothing to describe it as.
   List<IntentSpec> get exposed =>
-      manifest.intents.where((i) => i.needsHeadlessEngine).toList();
+      manifest.intents.where((i) => i.canBeAppFunction).toList();
+
+  /// Intents left out because a parameter has no Android counterpart, with the
+  /// parameters that did it — for `sync` to report rather than swallow.
+  Map<String, List<String>> get unsupported => {
+    for (final i in manifest.intents)
+      if (i.needsHeadlessEngine && i.androidUnsupportedParams.isNotEmpty)
+        i.id: i.androidUnsupportedParams,
+  };
 
   /// File name → contents. Empty when nothing qualifies.
   Map<String, String> emit() {
@@ -253,8 +263,19 @@ class KotlinEmitter {
     final base = switch (p.type) {
       // Epoch milliseconds, matching the iOS side.
       ParamType.dateTime => 'Long',
+      // Microseconds, matching the iOS side. `java.time.Duration` is not among
+      // the serialisable proxies alpha10 ships, so this stays an integer.
+      ParamType.duration => 'Long',
       // Entities travel as their identifier; the app resolves them itself.
       ParamType.entity => 'String',
+      // A link travels as its text. alpha10 does ship an `AppFunctionUri`
+      // proxy for `android.net.Uri`, so a richer type is probably available —
+      // but nothing here has built an APK through it, and a wrong guess is a
+      // KSP failure in the consuming app's build. See docs/android.md.
+      ParamType.uri => 'String',
+      ParamType.file => throw StateError(
+        'file parameters are filtered out by `exposed` before this is reached',
+      ),
       _ => p.type.kotlin,
     };
     return p.isRequired ? base : '$base?';

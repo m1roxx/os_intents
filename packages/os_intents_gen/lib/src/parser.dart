@@ -56,7 +56,7 @@ class SpecParser {
     final executionRaw = annotation.read('execution');
     final execution = executionRaw.isNull
         ? ExecutionMode.foreground
-        : ExecutionMode.parse(_enumName(executionRaw.objectValue));
+        : ExecutionMode.parse(_dartEnumName(executionRaw.objectValue));
 
     final phrasesReader = annotation.read('phrases');
     final phrases = phrasesReader.isNull
@@ -102,16 +102,22 @@ class SpecParser {
 
     final name = reader.typeValue.getDisplayString();
     final type = ParamType.fromDart(name);
-    if (type == null) {
+    if (type == null || !type.canReturn) {
       throw ParseFailure(
         'Intent "$id" declares `returns: $name`, which cannot cross to the '
         'system. A returned value becomes the input of the next Shortcut step, '
-        'and only String, int, double, bool and DateTime can be handed over '
-        'that way.',
+        'and only ${_returnableTypes.join(', ')} can be handed over that way. '
+        'A Measurement cannot: its Swift type depends on a dimension, and '
+        '`returns:` has nowhere to put one.',
       );
     }
     return type;
   }
+
+  static final List<String> _returnableTypes = [
+    for (final t in ParamType.values)
+      if (t.canReturn) t.dart,
+  ];
 
   void _requireFutureOfIntentResult(TopLevelFunctionElement fn, String id) {
     final name = fn.returnType.getDisplayString();
@@ -150,6 +156,7 @@ class SpecParser {
           name: p.displayName,
           title: reader.read('title').stringValue,
           type: type,
+          dimension: _dimension(reader, type, p.displayName, intentId),
           // The two names go in different slots, and putting an enum's into
           // entityTypeName was not a cosmetic mistake: swiftType, the Kotlin
           // value constraint and the Dart decode all read enumTypeName, so all
@@ -167,6 +174,40 @@ class SpecParser {
       );
     }
     return specs;
+  }
+
+  /// Reads `dimension:` off `@Param`, and insists on it exactly where it is
+  /// needed.
+  ///
+  /// A `Measurement` parameter has no Swift type without one — App Intents has
+  /// no generic measurement, only one overload per dimension — so this is the
+  /// one place the annotation carries something the Dart type cannot.
+  MeasurementDimension? _dimension(
+    ConstantReader param,
+    ParamType type,
+    String pName,
+    String iId,
+  ) {
+    final reader = param.read('dimension');
+    final declared = reader.isNull
+        ? null
+        : MeasurementDimension.byName(_dartEnumName(reader.objectValue));
+
+    if (type == ParamType.measurement && declared == null) {
+      throw ParseFailure(
+        'Parameter "$pName" of intent "$iId" is a Measurement but declares no '
+        'dimension. The system asks for a quantity with a unit picker, and '
+        'which picker is fixed when the code is generated — write '
+        "@Param(title: …, dimension: Dimension.length).",
+      );
+    }
+    if (type != ParamType.measurement && declared != null) {
+      throw ParseFailure(
+        'Parameter "$pName" of intent "$iId" declares a dimension but is a '
+        '${type.dart}, not a Measurement. Nothing downstream would read it.',
+      );
+    }
+    return declared;
   }
 
   (ParamType, String?) _paramType(DartType type, String pName, String iId) {
@@ -209,10 +250,15 @@ class SpecParser {
 
     throw ParseFailure(
       'Parameter "$pName" of intent "$iId" has unsupported type $display. '
-      'Use String, int, double, bool, DateTime, a class annotated with '
-      '@AppEntity, or an enum annotated with @AppEnum.',
+      'Use ${_plainTypes.join(', ')}, a class annotated with @AppEntity, or an '
+      'enum annotated with @AppEnum.',
     );
   }
+
+  static final List<String> _plainTypes = [
+    for (final t in ParamType.values)
+      if (t != ParamType.entity && t != ParamType.enum_) t.dart,
+  ];
 
   // ── enums ──────────────────────────────────────────────────────────────────
 
@@ -384,10 +430,13 @@ bool _boolOr(ConstantReader r, String field, bool fallback) {
 
 /// Reads the name of an enum constant without depending on analyzer internals
 /// beyond the synthetic `_name` field every enum value carries.
-String _enumName(DartObject value) {
+String _dartEnumName(DartObject value) {
   final name = value.getField('_name')?.toStringValue();
   if (name != null) return name;
-  final match = RegExp(r'\bExecution\.(\w+)').firstMatch(value.toString());
-  if (match != null) return match.group(1)!;
-  throw ParseFailure('Could not read the Execution value from $value.');
+  // `_name` is synthetic and its spelling has moved between analyzer majors,
+  // which this package deliberately spans. The printed form carries the
+  // constant as the last dotted identifier in it.
+  final matches = RegExp(r'\.(\w+)').allMatches(value.toString());
+  if (matches.isNotEmpty) return matches.last.group(1)!;
+  throw ParseFailure('Could not read an enum constant from $value.');
 }

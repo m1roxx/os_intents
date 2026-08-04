@@ -41,6 +41,22 @@ public struct IntentOutcome {
     guard let ms = (value as? NSNumber)?.doubleValue else { return nil }
     return Date(timeIntervalSince1970: ms / 1000)
   }
+
+  /// A `Uri` crosses as its text.
+  public var urlValue: URL? {
+    guard let text = value as? String else { return nil }
+    return URL(string: text)
+  }
+
+  /// A `Duration` crosses as microseconds — Dart's own integer form of it,
+  /// just as a `DateTime` crosses as its `millisecondsSinceEpoch`.
+  ///
+  /// Not `Foundation.Duration`: App Intents has no vocabulary for one, and the
+  /// system's shape for "how long" is a measurement with a unit picker.
+  public var durationValue: Measurement<UnitDuration>? {
+    guard let micros = (value as? NSNumber)?.doubleValue else { return nil }
+    return Measurement(value: micros / 1_000_000, unit: UnitDuration.seconds)
+  }
 }
 
 /// A continuation several racers may try to resume, of which exactly one wins.

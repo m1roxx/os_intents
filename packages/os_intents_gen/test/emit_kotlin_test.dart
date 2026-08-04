@@ -221,6 +221,60 @@ void main() {
       expect(out, contains('"title" to params.title,'));
       expect(out, contains('id = "addTask",'));
     });
+
+    test('links and durations reduce to what both platforms carry', () {
+      final out = serviceFor([
+        intent(
+          params: [
+            param('link', type: ParamType.uri),
+            param('elapsed', type: ParamType.duration),
+            param('distance', type: ParamType.measurement),
+          ],
+        ),
+      ]);
+      // A link as its text, a duration as microseconds, a measurement as the
+      // magnitude in its base unit — the same three values the Swift writes.
+      // alpha10 does ship an AppFunctionUri proxy, so a richer type for the
+      // first is probably available; nothing here has built an APK through it.
+      expect(out, contains('val link: String,'));
+      expect(out, contains('val elapsed: Long,'));
+      expect(out, contains('val distance: Double,'));
+    });
+  });
+
+  group('what Android cannot express', () {
+    test('an intent taking a file is left out entirely', () {
+      // Not coerced to a String that would look like it worked:
+      // androidx.appfunctions has no file type, and Android's model is a
+      // content URI plus a grant rather than the bytes.
+      final out = emitter([
+        intent(params: [param('document', type: ParamType.file)]),
+      ]).emit();
+      expect(out, isEmpty);
+    });
+
+    test('its neighbours are not', () {
+      final out = serviceFor([
+        intent(
+          id: 'attach',
+          params: [param('doc', type: ParamType.file)],
+        ),
+        intent(id: 'addTask', params: [param('title')]),
+      ]);
+      expect(out, isNot(contains('suspend fun attach(')));
+      expect(out, contains('suspend fun addTask('));
+    });
+
+    test('the reason is reported rather than swallowed', () {
+      expect(
+        emitter([
+          intent(params: [param('document', type: ParamType.file)]),
+        ]).unsupported,
+        {
+          'addTask': ['document'],
+        },
+      );
+    });
   });
 
   group('setup file', () {

@@ -25,12 +25,34 @@ enum ExecutionMode {
 }
 
 /// Dart types a parameter may have, and how each maps onto the platforms.
+///
+/// Every Swift mapping here was type-checked against the real SDK before it was
+/// written down, not read off documentation: `swift_compiles_test` puts one of
+/// each through `swiftc -typecheck`, so a type App Intents does not actually
+/// accept fails a test rather than a user's build.
 enum ParamType {
   string('String', 'String', 'String'),
   int_('int', 'Int', 'Long'),
   double_('double', 'Double', 'Double'),
   bool_('bool', 'Bool', 'Boolean'),
   dateTime('DateTime', 'Date', 'Long'),
+  // A link. `URL` is a first-class App Intents parameter, and Android has an
+  // `AppFunctionUri` serialisable proxy for `android.net.Uri` — but nothing has
+  // built an APK through it here, so the Kotlin side stays a String, which is
+  // what crosses the wire either way. See docs/android.md.
+  uri('Uri', 'URL', 'String'),
+  // A length of time, which is not the same thing as a moment in time. Swift
+  // has no Duration in App Intents' vocabulary; the system's own shape for
+  // "how long" is a Measurement over UnitDuration, with a unit picker.
+  duration('Duration', 'Measurement<UnitDuration>', 'Long'),
+  // A quantity with a dimension. The Swift type depends on which dimension,
+  // which is why this one is `<measurement>` here and resolved through
+  // [ParamSpec.swiftType].
+  measurement('Measurement', '<measurement>', 'Double'),
+  // A file the system hands over. iOS only: `androidx.appfunctions` has no
+  // counterpart — its model is a content URI plus a grant, not an inline file
+  // — so an intent taking one is left out of the AppFunctions surface.
+  file('IntentFile', 'IntentFile', '<unsupported>'),
   entity('<entity>', '<entity>', '<entity>'),
   // A Dart enum crosses as its constant name, so the Kotlin side is a plain
   // String narrowed by @AppFunctionStringValueConstraint. Swift gets a real
@@ -43,10 +65,79 @@ enum ParamType {
   final String swift;
   final String kotlin;
 
+  /// Whether an intent may declare `returns:` this type.
+  ///
+  /// A returned value becomes the input of the next Shortcut step, so it has to
+  /// be something `ReturnsValue<T>` can carry. Entities and enums cannot: the
+  /// generated type is only known to the app target, and `perform()`'s
+  /// signature is fixed before it exists. A measurement cannot either — its
+  /// Swift type depends on a dimension, and `returns:` is a bare `Type` with
+  /// nowhere to put one.
+  bool get canReturn => switch (this) {
+    ParamType.entity || ParamType.enum_ || ParamType.measurement => false,
+    _ => true,
+  };
+
+  /// Whether `androidx.appfunctions` can express this at all.
+  bool get hasAndroidCounterpart => this != ParamType.file;
+
   static ParamType? fromDart(String name) {
     for (final t in values) {
       if (t == ParamType.entity || t == ParamType.enum_) continue;
       if (t.dart == name) return t;
+    }
+    return null;
+  }
+}
+
+/// What a [ParamType.measurement] parameter measures.
+///
+/// App Intents does not have one `Measurement` parameter — it has one per
+/// dimension, each with its own unit picker, and the dimension is part of the
+/// Swift type. So it cannot be inferred from a Dart value at run time; it is
+/// declared on `@Param` and fixed when the code is generated.
+///
+/// `IntentParameter` has an overload for 22 dimensions, and **seven of them are
+/// iOS 16**: the other fifteen — every electrical and optical one, plus area,
+/// angle, frequency, pressure, power, information storage and the rest —
+/// arrived in iOS 17. Measured, not read off documentation: the 22-dimension
+/// case in `swift_compiles_test` is what found it, with fifteen
+/// "only available in iOS 17.0 or newer".
+///
+/// So this is the seven, and the floor stays where the rest of the package's
+/// is. Adding the others means either raising the floor for everyone or
+/// version-gating a struct that three other generated files refer to by name —
+/// a real cost for dimensions almost nothing ships. What is here is what an app
+/// actually asks for: how far, how heavy, how long, how fast, how hot, how
+/// much, how many calories.
+///
+/// [baseUnit] is the SI base unit in each, which is the unit the wire carries.
+enum MeasurementDimension {
+  duration('UnitDuration', 'seconds'),
+  energy('UnitEnergy', 'joules'),
+  length('UnitLength', 'meters'),
+  mass('UnitMass', 'kilograms'),
+  speed('UnitSpeed', 'metersPerSecond'),
+  temperature('UnitTemperature', 'kelvin'),
+  volume('UnitVolume', 'liters');
+
+  const MeasurementDimension(this.swiftUnitType, this.baseUnit);
+
+  /// Foundation's unit class, e.g. `UnitLength`.
+  final String swiftUnitType;
+
+  /// The unit the value crosses the wire in, e.g. `meters`.
+  ///
+  /// A measurement travels as one double rather than a value-and-unit pair:
+  /// the dimension is already fixed by the declaration, so a unit on the wire
+  /// would be a second source of truth for the same fact.
+  final String baseUnit;
+
+  String get swiftType => 'Measurement<$swiftUnitType>';
+
+  static MeasurementDimension? byName(String name) {
+    for (final d in values) {
+      if (d.name == name) return d;
     }
     return null;
   }
@@ -60,6 +151,7 @@ class ParamSpec {
     required this.isRequired,
     this.entityTypeName,
     this.enumTypeName,
+    this.dimension,
     this.description,
     this.requestValueDialog,
     this.androidCapabilityParameter,
@@ -75,6 +167,9 @@ class ParamSpec {
   /// Set when [type] is [ParamType.enum_]; names the `@AppEnum` typeName.
   final String? enumTypeName;
 
+  /// Set when [type] is [ParamType.measurement]; what is being measured.
+  final MeasurementDimension? dimension;
+
   final bool isRequired;
   final String? description;
   final String? requestValueDialog;
@@ -86,6 +181,7 @@ class ParamSpec {
   String get swiftType => switch (type) {
     ParamType.entity => '${entityTypeName}Entity',
     ParamType.enum_ => '${enumTypeName}Enum',
+    ParamType.measurement => dimension!.swiftType,
     _ => type.swift,
   };
 
@@ -104,11 +200,21 @@ class ParamSpec {
     ParamType.enum_ when enumTypeName == null => [
       _wrongSlot(intentId, 'an enum', 'enumTypeName'),
     ],
-    ParamType.entity || ParamType.enum_ => const [],
-    _ when entityTypeName != null || enumTypeName != null => [
-      'Parameter "$name" of intent "$intentId" is a ${type.name} but carries a '
-          'type name, which nothing downstream will read.',
+    // Same shape, and it fails the same way: `swiftType` would name the type
+    // `Measurement<null>`, which is a compile error in a file the user cannot
+    // edit rather than a message here.
+    ParamType.measurement when dimension == null => [
+      _wrongSlot(intentId, 'a measurement', 'dimension'),
     ],
+    ParamType.entity || ParamType.enum_ || ParamType.measurement => const [],
+    _
+        when entityTypeName != null ||
+            enumTypeName != null ||
+            dimension != null =>
+      [
+        'Parameter "$name" of intent "$intentId" is a ${type.name} but carries '
+            'a type name or dimension, which nothing downstream will read.',
+      ],
     _ => const [],
   };
 
@@ -122,6 +228,7 @@ class ParamSpec {
     'type': type.name,
     if (entityTypeName != null) 'entityTypeName': entityTypeName,
     if (enumTypeName != null) 'enumTypeName': enumTypeName,
+    if (dimension != null) 'dimension': dimension!.name,
     'isRequired': isRequired,
     if (description != null) 'description': description,
     if (requestValueDialog != null) 'requestValueDialog': requestValueDialog,
@@ -135,6 +242,10 @@ class ParamSpec {
     type: ParamType.values.byName(j['type']! as String),
     entityTypeName: j['entityTypeName'] as String?,
     enumTypeName: j['enumTypeName'] as String?,
+    dimension: switch (j['dimension']) {
+      final String name => MeasurementDimension.values.byName(name),
+      _ => null,
+    },
     isRequired: j['isRequired']! as bool,
     description: j['description'] as String?,
     requestValueDialog: j['requestValueDialog'] as String?,
@@ -219,6 +330,26 @@ class IntentSpec {
   /// `values` entry along with it and the two files have to agree on the name.
   String get androidLabelResource => 'os_intents_${id}_label';
 
+  /// Parameters `androidx.appfunctions` has no way to express.
+  ///
+  /// Only files so far, and it is not an oversight on either side: Android
+  /// hands an agent a content URI and a grant rather than the bytes, which is a
+  /// different model rather than a missing feature. Reported rather than
+  /// silently coerced — a `String` parameter called `document` would look like
+  /// it worked.
+  List<String> get androidUnsupportedParams => [
+    for (final p in params)
+      if (!p.type.hasAndroidCounterpart) p.name,
+  ];
+
+  /// Whether this intent can be offered to an on-device agent.
+  ///
+  /// Two conditions, both hard: it must not need an Activity, and every
+  /// parameter must be expressible. Either one failing leaves it out of the
+  /// AppFunctions surface entirely — the app shortcut layer is unaffected.
+  bool get canBeAppFunction =>
+      needsHeadlessEngine && androidUnsupportedParams.isEmpty;
+
   /// Whether this intent can end up needing the headless Dart engine.
   ///
   /// True for background, and also for static: a static intent whose value has
@@ -264,6 +395,12 @@ class IntentSpec {
         'intent exists to answer instantly from published state with nothing '
         'running, and it has no side effect to guard — the prompt would cost '
         'the only thing that mode buys.',
+      );
+    }
+    if (returnType != null && !returnType!.canReturn) {
+      problems.add(
+        'Intent "$id" declares `returns: ${returnType!.dart}`, which cannot be '
+        'handed to the next Shortcut step.',
       );
     }
     for (final p in params) {

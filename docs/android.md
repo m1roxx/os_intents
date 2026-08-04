@@ -301,6 +301,47 @@ parameter narrowing Android actually offers.
 
 Re-check when `androidx.appfunctions` moves; alpha10 is where this was true.
 
+## Files: the same answer, from the same reading
+
+Asked again for `IntentFile`, and read the same two artifacts. **There is no
+file type in the library.** What there is:
+
+```
+androidx/appfunctions/AppFunctionUriGrant.class
+androidx/appfunctions/AppFunctionUriGrant$GrantUriMode.class
+androidx/appfunctions/metadata/AppFunctionBytesTypeMetadata.class
+```
+
+A grant, not a payload. Android's model is that an agent is handed a **content
+URI and permission to read it**, which the app's own provider then serves —
+different in kind from iOS handing over the bytes in an `IntentFile`. Bytes
+exist as a metadata type, but nothing maps a parameter onto a file the way
+`IntentFile` does.
+
+So an intent with a file parameter is left out of the AppFunctions surface
+entirely, and `sync --android` names the intent and the parameter rather than
+coercing it into a `String` that would look like it worked. Its app shortcut is
+untouched.
+
+The same unpacking answered a second question. `androidx.appfunctions` ships
+**serialisable proxies** for exactly six types:
+
+```
+$InstantFactory  $LocalDateFactory  $LocalDateTimeFactory
+$LocalTimeFactory  $UriFactory  $ZoneIdFactory
+```
+
+`android.net.Uri` is among them, so a `Uri` parameter probably can have a real
+`Uri` on the Kotlin side rather than the `String` it gets today. The KSP
+compiler carries no reference to it — the proxies are discovered by annotation
+from the runtime classpath — so this is inference, not measurement, and a wrong
+guess is a KSP failure in the consuming app's build rather than in ours. It
+stays a `String`, which is what crosses the wire either way, until an APK has
+been built through the alternative.
+
+`java.time.Duration` is **not** on that list, which is why a `Duration`
+parameter is a `Long` of microseconds rather than a native type.
+
 ## Still not answered
 
 An agent actually invoking one of these `@AppFunction` methods. Gemini's

@@ -44,6 +44,20 @@ final class OsIntentsDonor: NSObject, OsIntentsDonating {
         } catch {
           completion(false)
         }
+      case "logRun":
+        let intent = LogRunOsIntent()
+        if let value = (wire["route"] as? String).flatMap({ URL(string: $0) }) { intent.route = value }
+        if let value = (wire["elapsed"] as? NSNumber).map({ Measurement(value: $0.doubleValue / 1_000_000, unit: UnitDuration.seconds) }) { intent.elapsed = value }
+        if let value = (wire["distance"] as? NSNumber).map({ Measurement(value: $0.doubleValue, unit: UnitLength.meters) }) { intent.distance = value }
+        if let value = OsIntentsFiles.file(fromWire: wire["photo"]) { intent.photo = value }
+        do {
+          _ = try await IntentDonationManager.shared.donate(
+            intent: intent
+          )
+          completion(true)
+        } catch {
+          completion(false)
+        }
       case "countOpenTasks":
         let intent = CountOpenTasksOsIntent()
         do {

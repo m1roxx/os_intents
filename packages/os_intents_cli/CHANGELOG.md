@@ -1,3 +1,14 @@
+## Unreleased
+
+`sync --android` names an intent it left out because a parameter has no Android
+counterpart, and says what Android does instead.
+
+`doctor` reads two more parameter types back out of a built bundle — `URL` and
+`IntentFile`, whose type identifiers (`11` and `12`) come from a real build
+rather than from a guess, which is the rule that table has always been kept to.
+`doctor --android` now measures against the intents that were actually emitted,
+so an intent left out for taking a file is no longer reported as missing.
+
 ## 0.1.1
 
 Dependency constraints only — no command changed.

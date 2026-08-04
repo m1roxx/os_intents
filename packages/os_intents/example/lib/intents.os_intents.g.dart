@@ -24,6 +24,15 @@ final IntentRegistry $osIntentsRegistry = IntentRegistry({
     id: 'dueToday',
     invoke: (args) => dueToday(),
   ),
+  'logRun': IntentBinding(
+    id: 'logRun',
+    invoke: (args) => logRun(
+      route: _require(Uri.tryParse(args['route'] as String? ?? ''), 'route'),
+      elapsed: _require(args['elapsed'] == null ? null : Duration(microseconds: args['elapsed']! as int), 'elapsed'),
+      distance: _require(args['distance'] == null ? null : Measurement((args['distance']! as num).toDouble(), Dimension.length), 'distance'),
+      photo: IntentFile.fromWire(args['photo']),
+    ),
+  ),
   'countOpenTasks': IntentBinding(
     id: 'countOpenTasks',
     invoke: (args) => countOpenTasks(),

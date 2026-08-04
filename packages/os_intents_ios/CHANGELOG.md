@@ -1,3 +1,12 @@
+## Unreleased
+
+`IntentOutcome` gains `urlValue` and `durationValue`, for intents declaring
+`returns: Uri` or `returns: Duration`.
+
+Nothing here imports AppIntents, deliberately: the file staging an `IntentFile`
+needs is generated into the app target instead, where everything else naming an
+App Intents type already lives. The plugin's deployment floor stays at iOS 13.
+
 ## 0.1.0
 
 First released version. iOS implementation of

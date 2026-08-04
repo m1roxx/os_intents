@@ -271,7 +271,20 @@ class AppIntentsMetadata {
   /// Deliberately incomplete: an unproven guess here would print a confident
   /// wrong type, which is worse than printing the number. Extend it when a
   /// build produces new evidence.
-  static const _primitiveNames = <int, String>{0: 'String', 8: 'Date'};
+  static const _primitiveNames = <int, String>{
+    0: 'String',
+    8: 'Date',
+    // Observed when the example gained a `Uri` parameter: the bundle wrote
+    // `{"primitive": {"wrapper": {"typeIdentifier": 11}}}`.
+    11: 'URL',
+  };
+
+  /// Types the framework owns rather than Foundation, under their own key.
+  ///
+  /// Same evidence rule as [_primitiveNames]. A file parameter is the only one
+  /// a build here has produced: `{"intents": {"wrapper": {"typeIdentifier":
+  /// 12}}}`.
+  static const _intentsTypeNames = <int, String>{12: 'IntentFile'};
 
   static String _typeLabel(Map<String, Object?> valueType) {
     final entity = _entityTypeName(valueType);
@@ -281,6 +294,13 @@ class AppIntentsMetadata {
     if (primitive['typeIdentifier'] case final int id) {
       return _primitiveNames[id] ?? 'type #$id';
     }
+    final owned = _object(_object(valueType['intents'])['wrapper']);
+    if (owned['typeIdentifier'] case final int id) {
+      return _intentsTypeNames[id] ?? 'intents type #$id';
+    }
+    // A measurement carries its dimension as `wrapper.unitType`, and no build
+    // here has produced more than one of them — so the kind is printed and the
+    // code is not guessed at.
     if (valueType.keys.firstOrNull case final String kind) return kind;
     return 'unknown';
   }

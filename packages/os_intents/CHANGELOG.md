@@ -1,3 +1,33 @@
+## Unreleased
+
+### More kinds of parameter
+
+`Uri`, `Duration`, `Measurement` and `IntentFile` join `String`, `int`,
+`double`, `bool` and `DateTime`. Additive throughout — nothing that compiled
+against 0.1.0 changes.
+
+- **`Uri`** becomes a `URL` on iOS and its text on Android.
+- **`Duration`** becomes the system's own "how long" control. It crosses as
+  microseconds, which is Dart's own integer form of a `Duration` — the same rule
+  by which a `DateTime` crosses as its `millisecondsSinceEpoch`.
+- **`Measurement`** is a quantity with a unit picker. Which picker is part of the
+  generated Swift type, so it is declared rather than inferred:
+  `@Param(title: 'Distance', dimension: Dimension.length)`. Whatever unit the
+  user chooses, `value` arrives in the SI base unit.
+
+  Seven dimensions — `length`, `mass`, `duration`, `speed`, `temperature`,
+  `volume`, `energy`. App Intents has 22 and the other fifteen are iOS 17, which
+  was measured against the SDK rather than read off documentation.
+- **`IntentFile`** is iOS only. The bytes are already staged on disk when the
+  handler runs, so `path` can be read straight away. `androidx.appfunctions` has
+  no file type at all — Android's model is a content URI plus a permission grant
+  — so an intent taking one is left out of what Android offers to agents, and
+  `sync --android` says which and why rather than coercing it to a `String`.
+
+`returns:` accepts `Uri`, `Duration` and `IntentFile` too. Not `Measurement`: a
+bare `Type` has nowhere to put a dimension, and the generator refuses it rather
+than emitting Swift that will not build.
+
 ## 0.1.0
 
 First released version. **Pre-alpha:** both pipelines work end to end and are

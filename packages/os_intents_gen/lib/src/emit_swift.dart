@@ -20,12 +20,88 @@ class SwiftEmitter {
     if (manifest.enums.isNotEmpty) 'OsIntentsEnums.swift': _enumsFile(),
     'OsIntentsShortcuts.swift': _shortcutsFile(),
     if (_needsBackground) 'OsIntentsBackground.swift': _backgroundFile(),
+    if (_needsFiles) 'OsIntentsFiles.swift': _filesFile(),
     'OsIntentsDonations.swift': _donationsFile(),
     'OsIntentsSnippetActions.swift': _snippetActionsFile(),
   };
 
   bool get _needsBackground =>
       manifest.intents.any((i) => i.needsHeadlessEngine);
+
+  bool get _needsFiles => manifest.intents.any(
+    (i) =>
+        i.returnType == ParamType.file ||
+        i.params.any((p) => p.type == ParamType.file),
+  );
+
+  // ── files ──────────────────────────────────────────────────────────────────
+
+  /// Moves an `IntentFile` between the system and a Dart isolate.
+  ///
+  /// Generated into the app target rather than added to the plugin, and that is
+  /// the same division every other AppIntents-shaped thing here follows: the
+  /// plugin's deployment floor is iOS 13 and it deals in Flutter types, while
+  /// everything that names an App Intents type is emitted and carries
+  /// `@available(iOS 16.0, *)`. Importing AppIntents into the plugin to hold
+  /// two functions would put that floor at risk for every user of the package.
+  ///
+  /// Incoming, the bytes are copied into the app's temporary directory. The
+  /// system's own `fileURL` is not handed on: it may be security-scoped and
+  /// gone by the time an isolate gets to it, and a path that is sometimes
+  /// readable is worse than one that always is.
+  String _filesFile() =>
+      '''
+$_header
+import AppIntents
+import Foundation
+import UniformTypeIdentifiers
+
+@available(iOS 16.0, *)
+enum OsIntentsFiles {
+  /// Spills a file the system supplied to disk, so Dart can read it by path.
+  static func wire(_ file: IntentFile?) -> [String: Any]? {
+    guard let file else { return nil }
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("os_intents", isDirectory: true)
+    let target = directory.appendingPathComponent(
+      UUID().uuidString + "-" + file.filename
+    )
+    do {
+      try FileManager.default.createDirectory(
+        at: directory, withIntermediateDirectories: true
+      )
+      try file.data.write(to: target)
+    } catch {
+      // The action itself may still be able to answer, so this reports the
+      // parameter as absent rather than failing the whole invocation.
+      NSLog("OSINTENTS file %@ could not be staged: %@",
+            file.filename, String(describing: error))
+      return nil
+    }
+    var wire: [String: Any] = [
+      "path": target.path,
+      "filename": file.filename,
+    ]
+    if let mime = file.type?.preferredMIMEType {
+      wire["mimeType"] = mime
+    }
+    return wire
+  }
+
+  /// Rebuilds a file a handler answered with, or one a snippet button carries.
+  static func file(fromWire wire: Any?) -> IntentFile? {
+    // Nested method-channel maps decode as [AnyHashable: Any], not
+    // [String: Any] — the same trap the snippet decoder hit.
+    guard let map = wire as? [AnyHashable: Any],
+          let path = map["path"] as? String
+    else { return nil }
+    let url = URL(fileURLWithPath: path)
+    let name = map["filename"] as? String ?? url.lastPathComponent
+    let type = (map["mimeType"] as? String).flatMap({ UTType(mimeType: \$0) })
+    return IntentFile(fileURL: url, filename: name, type: type)
+  }
+}
+''';
 
   /// Supplies the background engine with the two things only the app target
   /// has: which Dart library holds the generated entrypoint, and
@@ -158,6 +234,16 @@ class SwiftEmitter {
         '($raw as? NSNumber).map({ Date(timeIntervalSince1970: '
             r'$0.doubleValue / 1000) })',
       ParamType.string => '$raw as? String',
+      ParamType.uri => '($raw as? String).flatMap({ URL(string: \$0) })',
+      // Microseconds in, seconds out: Measurement is what App Intents offers
+      // for a length of time, and the wire carries Dart's own integer form.
+      ParamType.duration =>
+        '($raw as? NSNumber).map({ Measurement(value: '
+            r'$0.doubleValue / 1_000_000, unit: UnitDuration.seconds) })',
+      ParamType.measurement =>
+        '($raw as? NSNumber).map({ Measurement(value: \$0.doubleValue, '
+            'unit: ${p.dimension!.swiftUnitType}.${p.dimension!.baseUnit}) })',
+      ParamType.file => 'OsIntentsFiles.file(fromWire: $raw)',
       // An entity crosses as its identifier, so this is the one value a
       // donation cannot fully rebuild: the other properties are display-only
       // and the system re-resolves them through the query.
@@ -441,6 +527,19 @@ class SwiftEmitter {
     ParamType.double_ => 'outcome.doubleValue ?? 0',
     ParamType.bool_ => 'outcome.boolValue ?? false',
     ParamType.dateTime => 'outcome.dateValue ?? Date(timeIntervalSince1970: 0)',
+    // A URL has no empty value, so the fallback is a path that exists and
+    // means nothing rather than a force-unwrapped literal in a file the user
+    // cannot edit.
+    ParamType.uri => 'outcome.urlValue ?? URL(fileURLWithPath: "/")',
+    ParamType.duration =>
+      'outcome.durationValue ?? Measurement(value: 0, unit: UnitDuration.seconds)',
+    ParamType.file =>
+      'OsIntentsFiles.file(fromWire: outcome.value) '
+          '?? IntentFile(data: Data(), filename: "")',
+    ParamType.measurement => throw StateError(
+      'measurement returns are refused by the parser: the Swift type needs a '
+      'dimension and `returns:` has nowhere to put one',
+    ),
     ParamType.entity => throw StateError('entity returns are not supported'),
     ParamType.enum_ => throw StateError('enum returns are not supported'),
   };
@@ -449,6 +548,14 @@ class SwiftEmitter {
     final args = <String>['title: ${_str(p.title)}'];
     if (p.description != null) {
       args.add('description: ${_str(p.description!)}');
+    }
+    // Which unit the picker opens on, and the one the value is converted to
+    // before it crosses. Only the measurement overloads of `@Parameter` accept
+    // it, which is why it is not written for anything else.
+    if (p.type == ParamType.duration) {
+      args.add('defaultUnit: .seconds');
+    } else if (p.type == ParamType.measurement) {
+      args.add('defaultUnit: .${p.dimension!.baseUnit}');
     }
     if (p.requestValueDialog != null) {
       args.add('requestValueDialog: ${_str(p.requestValueDialog!)}');
@@ -466,6 +573,22 @@ class SwiftEmitter {
       p.isRequired
           ? 'Int(${p.name}.timeIntervalSince1970 * 1000)'
           : '${p.name}.map { Int(\$0.timeIntervalSince1970 * 1000) }',
+    ParamType.uri =>
+      p.isRequired ? '${p.name}.absoluteString' : '${p.name}?.absoluteString',
+    // Microseconds, which is what Dart's Duration counts in.
+    ParamType.duration =>
+      p.isRequired
+          ? 'Int(${p.name}.converted(to: .seconds).value * 1_000_000)'
+          : '${p.name}.map { Int(\$0.converted(to: .seconds).value * 1_000_000) }',
+    // The magnitude in the dimension's base unit, whatever unit the user
+    // picked — the conversion belongs here rather than in every handler.
+    ParamType.measurement =>
+      p.isRequired
+          ? '${p.name}.converted(to: .${p.dimension!.baseUnit}).value'
+          : '${p.name}.map { \$0.converted(to: .${p.dimension!.baseUnit}).value }',
+    // Optional either way: the helper takes an optional and answers nil, so a
+    // file that could not be staged reads as an absent parameter.
+    ParamType.file => 'OsIntentsFiles.wire(${p.name})',
     // Entities travel as their identifier; the app resolves them itself.
     ParamType.entity => p.isRequired ? '${p.name}.id' : '${p.name}?.id',
     // An enum travels as its Dart constant's name, which is exactly the raw

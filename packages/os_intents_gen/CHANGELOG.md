@@ -1,3 +1,23 @@
+## Unreleased
+
+`ParamType` gains `uri`, `duration`, `measurement` and `file`, and `ParamSpec`
+gains a `dimension`. All three emitters carry them.
+
+The Swift mappings were type-checked against the real SDK before they were
+written down, which is what `swift_compiles_test` is for — and it earned its
+place immediately. `Measurement`'s `defaultUnit:` argument exists for 22
+dimensions, and **fifteen of them are iOS 17**; only `duration`, `energy`,
+`length`, `mass`, `speed`, `temperature` and `volume` are iOS 16. So
+`MeasurementDimension` is those seven, and the package's floor did not move.
+
+The test now puts every dimension, every new parameter type in both its required
+and optional form, and every new return type through `swiftc -typecheck`.
+
+`KotlinEmitter` filters an intent with a file parameter out of the AppFunctions
+surface and reports it through `unsupported`, the same shape as leaving a
+foreground intent out — an `@AppFunction` cannot describe a file, and a `String`
+that looked like one would be worse than its absence.
+
 ## 0.1.1
 
 Dependency constraints only — the generated Dart, Swift and Kotlin are byte for

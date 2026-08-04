@@ -79,6 +79,40 @@ Future<IntentResult> dueToday() async {
   );
 }
 
+/// The parameter types that are not a number or a string.
+///
+/// A `Uri` becomes a `URL`, a `Duration` becomes the system's own "how long"
+/// control, and a `Measurement` becomes a quantity with a unit picker — which
+/// picker is decided by `dimension:`, because App Intents has one parameter
+/// type per dimension rather than a generic one. Whatever unit the user
+/// chooses, `value` arrives in the SI base unit: metres here.
+///
+/// `IntentFile` is the one that is iOS-only. The bytes are already on disk by
+/// the time this runs, so `photo.path` can be read straight away — and Android
+/// leaves this whole action out of what it offers to agents, because
+/// `androidx.appfunctions` has no file type at all. `os_intents sync --android`
+/// says so rather than quietly dropping it.
+@AppIntent(
+  title: 'Log a run',
+  description: 'Records a run against a route',
+  execution: Execution.background,
+  systemImageName: 'figure.run',
+)
+Future<IntentResult> logRun({
+  @Param(title: 'Route') required Uri route,
+  @Param(title: 'Elapsed') required Duration elapsed,
+  @Param(title: 'Distance', dimension: Dimension.length)
+  required Measurement distance,
+  @Param(title: 'Photo') IntentFile? photo,
+}) async {
+  final km = (distance.value / 1000).toStringAsFixed(1);
+  final minutes = elapsed.inMinutes;
+  final note = photo == null ? '' : ', with ${photo.filename}';
+  return IntentResult.dialog(
+    'Logged $km km in $minutes min on ${route.host}$note',
+  );
+}
+
 /// Hands a number back, so a Shortcut can feed it into its next step.
 ///
 /// `returns:` is what puts `ReturnsValue<Int>` in the generated `perform()`.

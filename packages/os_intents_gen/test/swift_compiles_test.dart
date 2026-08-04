@@ -142,6 +142,87 @@ final _full = Manifest(
           enumTypeName: 'Priority',
           isRequired: false,
         ),
+        ParamSpec(
+          name: 'link',
+          title: 'Link',
+          type: ParamType.uri,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'remindIn',
+          title: 'Remind in',
+          type: ParamType.duration,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'distance',
+          title: 'Distance',
+          type: ParamType.measurement,
+          dimension: MeasurementDimension.length,
+          isRequired: false,
+        ),
+        ParamSpec(
+          name: 'document',
+          title: 'Document',
+          type: ParamType.file,
+          isRequired: false,
+        ),
+      ],
+    ),
+    // The required half of each new type. `_argExpr` writes a different
+    // expression for a required parameter than for an optional one — the
+    // optional path maps over it — so one of each is two code paths, not one.
+    IntentSpec(
+      id: 'logRun',
+      functionName: 'logRun',
+      title: 'Log a run',
+      execution: ExecutionMode.background,
+      params: [
+        ParamSpec(
+          name: 'route',
+          title: 'Route',
+          type: ParamType.uri,
+          isRequired: true,
+        ),
+        ParamSpec(
+          name: 'elapsed',
+          title: 'Elapsed',
+          type: ParamType.duration,
+          isRequired: true,
+        ),
+        ParamSpec(
+          name: 'distance',
+          title: 'Distance',
+          type: ParamType.measurement,
+          dimension: MeasurementDimension.length,
+          isRequired: true,
+        ),
+        ParamSpec(
+          name: 'photo',
+          title: 'Photo',
+          type: ParamType.file,
+          isRequired: true,
+        ),
+      ],
+    ),
+    // Every dimension has its own `defaultUnit` namespace with its own cases,
+    // and `.converted(to:)` has to name a unit that exists on that class. The
+    // table in [MeasurementDimension] was read out of the SDK; this is what
+    // proves it was read correctly, all 22 at once.
+    IntentSpec(
+      id: 'everyDimension',
+      functionName: 'everyDimension',
+      title: 'Every dimension',
+      execution: ExecutionMode.background,
+      params: [
+        for (final d in MeasurementDimension.values)
+          ParamSpec(
+            name: d.name,
+            title: d.name,
+            type: ParamType.measurement,
+            dimension: d,
+            isRequired: true,
+          ),
       ],
     ),
     IntentSpec(
@@ -188,6 +269,27 @@ final _full = Manifest(
       title: 'Is busy',
       execution: ExecutionMode.background,
       returnType: ParamType.bool_,
+    ),
+    IntentSpec(
+      id: 'lastRoute',
+      functionName: 'lastRoute',
+      title: 'Last route',
+      execution: ExecutionMode.background,
+      returnType: ParamType.uri,
+    ),
+    IntentSpec(
+      id: 'timeSpent',
+      functionName: 'timeSpent',
+      title: 'Time spent',
+      execution: ExecutionMode.background,
+      returnType: ParamType.duration,
+    ),
+    IntentSpec(
+      id: 'exportTasks',
+      functionName: 'exportTasks',
+      title: 'Export tasks',
+      execution: ExecutionMode.background,
+      returnType: ParamType.file,
     ),
     // Returning a value *and* showing a card: both conformances land in the
     // same return type, and the `.result(…)` call has to carry both arguments.

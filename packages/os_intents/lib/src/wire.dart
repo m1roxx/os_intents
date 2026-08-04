@@ -6,6 +6,8 @@
 /// public API is still in the public API. A file nobody exports is.
 library;
 
+import 'values.dart';
+
 /// Puts a value into the form the generated native code decodes.
 ///
 /// The method channel carries neither a `DateTime` nor an enum, and both are
@@ -16,8 +18,17 @@ library;
 ///
 /// Shared by `OsIntents.donate` and `SnippetAction`, which hand values to the
 /// same generated decoder from opposite ends of the package.
+///
+/// Each Dart type crosses as its own canonical integer or string rather than as
+/// one uniform shape: a moment in time as `millisecondsSinceEpoch`, a length of
+/// time as `inMicroseconds`, a link as its text. That looks like two rules for
+/// time and is one — whatever Dart itself calls the integer form of the type.
 Object? wireValue(Object? value) => switch (value) {
   final DateTime d => d.toUtc().millisecondsSinceEpoch,
+  final Duration d => d.inMicroseconds,
+  final Uri u => u.toString(),
+  final Measurement m => m.value,
+  final IntentFile f => f.toWire(),
   final Enum e => e.name,
   _ => value,
 };

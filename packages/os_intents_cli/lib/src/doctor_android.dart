@@ -105,9 +105,10 @@ List<Finding> diagnoseAndroid({
     return findings;
   }
 
-  final headless = declared.intents
-      .where((i) => i.needsHeadlessEngine)
-      .toList();
+  // `canBeAppFunction`, not `needsHeadlessEngine`: an intent taking a file is
+  // deliberately not emitted, so measuring against the wider set would report
+  // a missing AppFunction for something that was never meant to be there.
+  final headless = declared.intents.where((i) => i.canBeAppFunction).toList();
   final wantsShortcuts = declared.intents.any((i) => i.hasAndroidShortcut);
 
   if (wantsShortcuts && !apk.hasShortcutsXml) {

@@ -110,6 +110,42 @@ Future<IntentResult> addTask({
 `AppShortcutsProvider`, a Kotlin `@AppFunction`, and the Dart dispatcher that
 routes an invocation back to your function.
 
+### What a parameter may be
+
+| Dart | iOS | Android | notes |
+|---|---|---|---|
+| `String` `int` `double` `bool` | same | same | |
+| `DateTime` | `Date` | `Long` | epoch milliseconds, UTC |
+| `Uri` | `URL` | `String` | |
+| `Duration` | `Measurement<UnitDuration>` | `Long` | microseconds — Dart's own integer form, as `DateTime` uses its `millisecondsSinceEpoch` |
+| `Measurement` | `Measurement<Unit…>` | `Double` | needs `@Param(dimension:)`; the value arrives in the SI base unit |
+| `IntentFile` | `IntentFile` | — | iOS only |
+| an `@AppEntity` class | `AppEntity` + query | `String` | crosses as its identifier |
+| an `@AppEnum` enum | `AppEnum` | `String` + value constraint | crosses as the constant's name |
+
+`Measurement` is a quantity the user picks with a unit, and which unit picker
+they see is part of the generated Swift type — so it is declared rather than
+inferred:
+
+```dart
+@Param(title: 'Distance', dimension: Dimension.length) required Measurement distance,
+```
+
+Seven dimensions: `length`, `mass`, `duration`, `speed`, `temperature`,
+`volume`, `energy`. App Intents has 22, and the other fifteen are iOS 17 —
+measured against the SDK, which is why the list stops where the package's own
+floor does.
+
+`IntentFile` has no Android counterpart, and that is a difference in model
+rather than a gap: Android hands an agent a content URI and a permission grant
+instead of the bytes. An intent taking one is left out of the AppFunctions
+surface, and `sync --android` says which and why. Its app shortcut is
+unaffected.
+
+The same types can be returned with `returns:`, except `Measurement` — a bare
+`Type` has nowhere to put a dimension, and the generator refuses it rather than
+emitting Swift that will not build.
+
 ## Why another one
 
 Not first, and not alone — five packages occupy this niche, two of them active.

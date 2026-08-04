@@ -110,6 +110,20 @@ String _decode(
     ParamType.int_ => '$raw as int?',
     ParamType.double_ => '($raw as num?)?.toDouble()',
     ParamType.bool_ => '$raw as bool?',
+    // `tryParse` rather than `parse`: the value comes from outside the app, and
+    // a handler that never runs because a link would not parse is worse than
+    // one that is told the link was missing.
+    ParamType.uri => 'Uri.tryParse($raw as String? ?? \'\')',
+    // Microseconds, which is Dart's own integer form of a Duration — the same
+    // rule as a DateTime crossing as its millisecondsSinceEpoch.
+    ParamType.duration =>
+      '$raw == null ? null : Duration(microseconds: $raw! as int)',
+    // The magnitude only. Which dimension it is was fixed by the declaration,
+    // so putting a unit on the wire would be a second source of the same truth.
+    ParamType.measurement =>
+      '$raw == null ? null : '
+          'Measurement(($raw! as num).toDouble(), Dimension.${p.dimension!.name})',
+    ParamType.file => 'IntentFile.fromWire($raw)',
     ParamType.entity => throw StateError('handled above'),
     // An enum crosses as its constant's own name, so the decode is a lookup by
     // name. `byName` throws on an unknown one, which is the right shape: a

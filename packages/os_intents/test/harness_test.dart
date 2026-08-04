@@ -136,6 +136,75 @@ void main() {
       expect(args['when'], DateTime.utc(2026, 8, 1).millisecondsSinceEpoch);
       expect(args['priority'], 'high');
     });
+
+    test('links, durations, measurements and files convert too', () {
+      // The encode half of an agreement whose other half is asserted in
+      // os_intents_gen: these are the exact shapes the generated Swift decodes,
+      // and each Dart type crosses as its own canonical integer or string.
+      final r = IntentResult.snippet(
+        SnippetSpec(
+          title: 'Last run',
+          actions: [
+            SnippetAction(
+              label: 'Repeat',
+              intentId: 'logRun',
+              args: {
+                'route': Uri.parse('https://example.com/r/1'),
+                'elapsed': const Duration(minutes: 30),
+                'distance': const Measurement(5000, Dimension.length),
+                'photo': const IntentFile(
+                  path: '/tmp/a.jpg',
+                  filename: 'a.jpg',
+                  mimeType: 'image/jpeg',
+                ),
+              },
+            ),
+          ],
+        ),
+      );
+      final spec = r.toWire()['spec']! as Map<String, Object?>;
+      final action = (spec['actions']! as List).single as Map<String, Object?>;
+      final args = action['args']! as Map<String, Object?>;
+
+      expect(args['route'], 'https://example.com/r/1');
+      // Microseconds, which is Dart's own integer form of a Duration — the
+      // same rule as a DateTime crossing as its millisecondsSinceEpoch.
+      expect(args['elapsed'], const Duration(minutes: 30).inMicroseconds);
+      // The magnitude only: which dimension it is was fixed by the parameter's
+      // declaration, so a unit here would be a second source of the same fact.
+      expect(args['distance'], 5000.0);
+      expect(args['photo'], {
+        'path': '/tmp/a.jpg',
+        'filename': 'a.jpg',
+        'mimeType': 'image/jpeg',
+      });
+    });
+  });
+
+  group('a file off the wire', () {
+    test('round-trips', () {
+      const file = IntentFile(
+        path: '/tmp/x.pdf',
+        filename: 'Report.pdf',
+        mimeType: 'application/pdf',
+      );
+      expect(IntentFile.fromWire(file.toWire()), file);
+    });
+
+    test('survives the [AnyHashable: Any] a nested channel map decodes to', () {
+      // Nested method-channel maps do not arrive as Map<String, Object?>, and
+      // assuming they do has taken this app down before.
+      final wire = <Object?, Object?>{'path': '/tmp/x.pdf'};
+      final file = IntentFile.fromWire(wire);
+      expect(file?.path, '/tmp/x.pdf');
+      // Falls back to the path's last segment rather than to nothing.
+      expect(file?.filename, 'x.pdf');
+    });
+
+    test('is null when there is no path to read', () {
+      expect(IntentFile.fromWire(null), isNull);
+      expect(IntentFile.fromWire({'filename': 'x.pdf'}), isNull);
+    });
   });
 }
 

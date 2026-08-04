@@ -41,6 +41,7 @@ ParamSpec param(
   bool required = true,
   String? entityTypeName,
   String? enumTypeName,
+  MeasurementDimension? dimension,
 }) => ParamSpec(
   name: name,
   title: name,
@@ -48,6 +49,7 @@ ParamSpec param(
   isRequired: required,
   entityTypeName: entityTypeName,
   enumTypeName: enumTypeName,
+  dimension: dimension,
 );
 
 void main() {
@@ -921,6 +923,138 @@ void main() {
       // package and these tests are plain Dart. That the encoder writes
       // `value` is asserted in os_intents' harness_test, under flutter_test.
       expect(swiftFor(ParamType.int_), contains('outcome.intValue'));
+    });
+  });
+
+  // Every assertion in here is one half of a two-sided agreement: the Swift
+  // that writes a value onto the wire, and the Dart that reads it back. They
+  // are asserted next to each other on purpose — the way this breaks is not a
+  // compile error on either side, it is a number that means something else.
+  group('links, durations, measurements and files', () {
+    String swiftParams(ParamSpec p) => SwiftEmitter(
+      manifest(
+        intents: [
+          intent(execution: ExecutionMode.background, params: [p]),
+        ],
+      ),
+    ).emit()['OsIntentsGenerated.swift']!;
+
+    String dartFor(ParamSpec p) => emitDartRegistry(
+      manifest(
+        intents: [
+          intent(params: [p]),
+        ],
+      ),
+    );
+
+    test('a link crosses as its text, both ways', () {
+      final swift = swiftParams(param('link', type: ParamType.uri));
+      expect(swift, contains('var link: URL'));
+      expect(swift, contains('"link": link.absoluteString'));
+      // tryParse, not parse: the value arrives from outside the app and a
+      // handler that never runs is worse than one told the link was missing.
+      expect(dartFor(param('link', type: ParamType.uri)), contains('tryParse'));
+    });
+
+    test('an optional link maps rather than force-unwrapping', () {
+      expect(
+        swiftParams(param('link', type: ParamType.uri, required: false)),
+        contains('link?.absoluteString'),
+      );
+    });
+
+    test('a duration crosses as microseconds, which is Dart\'s own unit', () {
+      final swift = swiftParams(param('elapsed', type: ParamType.duration));
+      expect(swift, contains('var elapsed: Measurement<UnitDuration>'));
+      expect(swift, contains('defaultUnit: .seconds'));
+      expect(
+        swift,
+        contains('Int(elapsed.converted(to: .seconds).value * 1_000_000)'),
+      );
+      expect(
+        dartFor(param('elapsed', type: ParamType.duration)),
+        contains('Duration(microseconds:'),
+      );
+    });
+
+    test('a measurement crosses as its base unit, and only its magnitude', () {
+      final p = param(
+        'distance',
+        type: ParamType.measurement,
+        dimension: MeasurementDimension.length,
+      );
+      final swift = swiftParams(p);
+      expect(swift, contains('var distance: Measurement<UnitLength>'));
+      expect(swift, contains('defaultUnit: .meters'));
+      expect(swift, contains('distance.converted(to: .meters).value'));
+      // The dimension is not on the wire: the declaration already fixed it,
+      // and a second copy is a second thing that can disagree.
+      expect(
+        dartFor(p),
+        contains(
+          'Measurement((args[\'distance\']! as num).toDouble(), '
+          'Dimension.length)',
+        ),
+      );
+    });
+
+    test('every dimension names a unit that exists on its own Unit class', () {
+      // The pairing is the whole content of the table, and getting one wrong
+      // is a compile error in a file the user cannot edit. swift_compiles_test
+      // proves the pairs; this proves none was quietly dropped.
+      for (final d in MeasurementDimension.values) {
+        final swift = swiftParams(
+          param('q', type: ParamType.measurement, dimension: d),
+        );
+        expect(swift, contains('var q: Measurement<${d.swiftUnitType}>'));
+        expect(swift, contains('q.converted(to: .${d.baseUnit}).value'));
+      }
+    });
+
+    test('a file goes through the staging helper in both directions', () {
+      final p = param('document', type: ParamType.file);
+      final files = SwiftEmitter(
+        manifest(
+          intents: [
+            intent(execution: ExecutionMode.background, params: [p]),
+          ],
+        ),
+      ).emit();
+      expect(files, contains('OsIntentsFiles.swift'));
+      expect(
+        files['OsIntentsGenerated.swift'],
+        contains('OsIntentsFiles.wire(document)'),
+      );
+      expect(dartFor(p), contains('IntentFile.fromWire('));
+    });
+
+    test('nothing emits the file helper when no intent takes one', () {
+      final files = SwiftEmitter(manifest(intents: [intent()])).emit();
+      expect(files, isNot(contains('OsIntentsFiles.swift')));
+    });
+
+    test('a dimension survives the manifest round trip', () {
+      // The same failure the declared return type had: a field on the spec but
+      // not in toJson means build_runner writes a manifest without it and the
+      // CLI generates `Measurement<null>`.
+      final original = manifest(
+        intents: [
+          intent(
+            params: [
+              param(
+                'distance',
+                type: ParamType.measurement,
+                dimension: MeasurementDimension.mass,
+              ),
+            ],
+          ),
+        ],
+      );
+      final round = Manifest.decode(original.encode());
+      expect(
+        round.intents.single.params.single.dimension,
+        MeasurementDimension.mass,
+      );
     });
   });
 }

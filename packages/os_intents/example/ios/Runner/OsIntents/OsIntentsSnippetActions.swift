@@ -52,6 +52,21 @@ enum OsIntentsSnippetActions {
           }
         }
       )
+    case "logRun":
+      let intent = LogRunOsIntent()
+      if let value = (args["route"] as? String).flatMap({ URL(string: $0) }) { intent.route = value }
+      if let value = (args["elapsed"] as? NSNumber).map({ Measurement(value: $0.doubleValue / 1_000_000, unit: UnitDuration.seconds) }) { intent.elapsed = value }
+      if let value = (args["distance"] as? NSNumber).map({ Measurement(value: $0.doubleValue, unit: UnitLength.meters) }) { intent.distance = value }
+      if let value = OsIntentsFiles.file(fromWire: args["photo"]) { intent.photo = value }
+      return AnyView(
+        Button(intent: intent) {
+          if let systemImageName {
+            Label(label, systemImage: systemImageName)
+          } else {
+            Text(label)
+          }
+        }
+      )
     case "countOpenTasks":
       let intent = CountOpenTasksOsIntent()
       return AnyView(

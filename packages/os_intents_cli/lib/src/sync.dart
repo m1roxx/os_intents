@@ -323,6 +323,24 @@ class SyncCommand extends Command<int> {
 
     final emitter = KotlinEmitter(merged, packageName: appId);
     final files = emitter.emit();
+
+    // Said before the "nothing to generate" line below, because an intent left
+    // out for this reason is exactly the case where that line would otherwise
+    // read as "your intents are all foreground" and send someone looking in the
+    // wrong place.
+    if (!checkOnly) {
+      for (final entry in emitter.unsupported.entries) {
+        stdout.writeln(
+          '  note: "${entry.key}" is not offered to on-device agents — '
+          '${entry.value.join(', ')} '
+          '${entry.value.length == 1 ? 'is a file' : 'are files'}, and '
+          'androidx.appfunctions has no file type. Android hands an agent a '
+          'content URI and a grant instead, which is a different shape rather '
+          'than a missing one. The app shortcut is unaffected.',
+        );
+      }
+    }
+
     if (files.isEmpty) {
       stdout.writeln(
         'os_intents: nothing to generate for Android — every intent is '

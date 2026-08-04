@@ -62,6 +62,45 @@
       "params": []
     },
     {
+      "id": "logRun",
+      "functionName": "logRun",
+      "title": "Log a run",
+      "description": "Records a run against a route",
+      "phrases": [],
+      "execution": "background",
+      "systemImageName": "figure.run",
+      "showsInSpotlight": true,
+      "showsSnippet": false,
+      "androidShortcut": true,
+      "params": [
+        {
+          "name": "route",
+          "title": "Route",
+          "type": "uri",
+          "isRequired": true
+        },
+        {
+          "name": "elapsed",
+          "title": "Elapsed",
+          "type": "duration",
+          "isRequired": true
+        },
+        {
+          "name": "distance",
+          "title": "Distance",
+          "type": "measurement",
+          "dimension": "length",
+          "isRequired": true
+        },
+        {
+          "name": "photo",
+          "title": "Photo",
+          "type": "file",
+          "isRequired": false
+        }
+      ]
+    },
+    {
       "id": "countOpenTasks",
       "functionName": "countOpenTasks",
       "title": "Count tasks",

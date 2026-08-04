@@ -8,6 +8,7 @@ IntentSpec spec({
   ExecutionMode execution = ExecutionMode.foreground,
   List<ParamSpec> params = const [],
   String? confirmBeforeRunning,
+  ParamType? returnType,
 }) => IntentSpec(
   id: id,
   functionName: id,
@@ -16,6 +17,7 @@ IntentSpec spec({
   phrases: phrases,
   params: params,
   confirmBeforeRunning: confirmBeforeRunning,
+  returnType: returnType,
 );
 
 ParamSpec param(
@@ -24,6 +26,7 @@ ParamSpec param(
   bool required = true,
   String? entityTypeName,
   String? enumTypeName,
+  MeasurementDimension? dimension,
 }) => ParamSpec(
   name: name,
   title: name,
@@ -31,6 +34,7 @@ ParamSpec param(
   isRequired: required,
   entityTypeName: entityTypeName,
   enumTypeName: enumTypeName,
+  dimension: dimension,
 );
 
 void main() {
@@ -100,6 +104,52 @@ void main() {
         ).swiftType,
         'PriorityEnum',
       );
+    });
+
+    test('a measurement with no dimension is refused', () {
+      // The third slot, and it fails the same way the other two did:
+      // `swiftType` would name `Measurement<null>`, which is a compile error
+      // in a file the user cannot edit.
+      final problems = problemsFor(
+        param('distance', type: ParamType.measurement),
+      );
+      expect(problems, hasLength(1));
+      expect(
+        problems.single,
+        allOf(contains('distance'), contains('dimension'), contains('"null"')),
+      );
+    });
+
+    test('a dimension on anything else is refused', () {
+      expect(
+        problemsFor(param('title', dimension: MeasurementDimension.length)),
+        hasLength(1),
+      );
+    });
+
+    test('and the measurement Swift type is then a real one', () {
+      expect(
+        param(
+          'distance',
+          type: ParamType.measurement,
+          dimension: MeasurementDimension.length,
+        ).swiftType,
+        'Measurement<UnitLength>',
+      );
+    });
+  });
+
+  group('what may be returned', () {
+    test('a measurement may not, because returns: has no dimension', () {
+      final problems = spec(returnType: ParamType.measurement).validate();
+      expect(problems, hasLength(1));
+      expect(problems.single, contains('Measurement'));
+    });
+
+    test('links, durations and files may', () {
+      for (final t in [ParamType.uri, ParamType.duration, ParamType.file]) {
+        expect(spec(returnType: t).validate(), isEmpty, reason: t.name);
+      }
     });
   });
 

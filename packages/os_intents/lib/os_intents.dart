@@ -11,3 +11,4 @@ export 'src/entity.dart';
 export 'src/harness.dart';
 export 'src/registry.dart';
 export 'src/result.dart';
+export 'src/values.dart';

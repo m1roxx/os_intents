@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3BA50B35A210B1677B4123A2 /* OsIntentsFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87BFBC909EA38EEBAAF607DC /* OsIntentsFiles.swift */; };
 		7F06E2D3F290685374E3E592 /* OsIntentsSnippetActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53B76963D2FDB23A73F2C6B /* OsIntentsSnippetActions.swift */; };
 		27D436513B9F13C559A3BAA4 /* OsIntentsDonations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */; };
 		7063029AFBAB444FB07E31A2 /* OsIntentsEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5492B94897476416F50E7BB /* OsIntentsEnums.swift */; };
@@ -49,6 +50,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		87BFBC909EA38EEBAAF607DC /* OsIntentsFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsFiles.swift; sourceTree = "<group>"; };
 		B53B76963D2FDB23A73F2C6B /* OsIntentsSnippetActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsSnippetActions.swift; sourceTree = "<group>"; };
 		A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsDonations.swift; sourceTree = "<group>"; };
 		C5492B94897476416F50E7BB /* OsIntentsEnums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OsIntentsEnums.swift; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 		DB067D25CD9598A839231707 /* OsIntents */ = {
 			isa = PBXGroup;
 			children = (
+				87BFBC909EA38EEBAAF607DC /* OsIntentsFiles.swift */,
 				B53B76963D2FDB23A73F2C6B /* OsIntentsSnippetActions.swift */,
 				A5B79D175985A8A3A37232E0 /* OsIntentsDonations.swift */,
 				C5492B94897476416F50E7BB /* OsIntentsEnums.swift */,
@@ -310,6 +313,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3BA50B35A210B1677B4123A2 /* OsIntentsFiles.swift in Sources */,
 				7F06E2D3F290685374E3E592 /* OsIntentsSnippetActions.swift in Sources */,
 				27D436513B9F13C559A3BAA4 /* OsIntentsDonations.swift in Sources */,
 				7063029AFBAB444FB07E31A2 /* OsIntentsEnums.swift in Sources */,

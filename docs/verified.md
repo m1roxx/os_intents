@@ -69,6 +69,13 @@ invisible to the OS.
 - **iOS** — `os_intents doctor` reads `Metadata.appintents/extract.actionsdata`
   out of a built `.app` and reports the intents, parameters, entities, queries
   and phrases the system will see, then cross-checks them against the manifests.
+
+  This is also where the parameter types are checked rather than assumed. A
+  `Uri`, a `Duration`, a `Measurement` and an `IntentFile` were added to the
+  example, built, and read back out of the bundle as `URL`, `measurement`,
+  `measurement` and `IntentFile` — so the type identifiers in the reader's table
+  (`11` for a URL, `12` for a file) come from a build rather than from a guess,
+  which is the rule that table has always been kept to.
 - **Android** — `os_intents doctor --android` reads the built APK: the
   AppFunction metadata KSP wrote into `assets/` as plain XML, and whether the
   shortcuts XML was packaged. It reports the descriptions that travelled from
@@ -193,6 +200,51 @@ contract of 143 schemas that Apple has already renamed once.
 Snippet cards can carry **buttons** (iOS 17+), but not Apple's iOS 26
 `SnippetIntent`, where the card reloads itself after a button runs.
 
+## What a parameter may be, and what it costs
+
+`String`, `int`, `double`, `bool`, `DateTime`, `Uri`, `Duration`,
+`Measurement`, `IntentFile`, an `@AppEntity` class and an `@AppEnum` enum. The
+last three of the plain ones are new, and each carries a finding worth keeping:
+
+- **A `Duration` is not a `Date`.** App Intents has no duration type; the
+  system's shape for "how long" is a `Measurement<UnitDuration>` with a unit
+  picker. It crosses the wire as **microseconds** — Dart's own integer form of a
+  `Duration`, the same rule by which a `DateTime` crosses as its
+  `millisecondsSinceEpoch`. One rule, not two.
+
+- **`Measurement` has seven dimensions here and App Intents has 22.** The other
+  fifteen — area, angle, pressure, power, frequency, information storage and
+  every electrical and optical one — are **iOS 17**, while `length`, `mass`,
+  `duration`, `speed`, `temperature`, `volume` and `energy` are iOS 16. Measured
+  rather than read off documentation: the 22-dimension case in
+  `swift_compiles_test` failed with fifteen "only available in iOS 17.0 or
+  newer", which is how the split was found at all. Supporting the rest means
+  either raising the floor for everyone or version-gating a struct that three
+  other generated files name, so the list stops where the package's floor does.
+
+- **`IntentFile` is iOS only, and not for want of trying.** Read out of
+  `androidx.appfunctions` 1.0.0-alpha10 the same way the entity question was:
+  there is no file type in the library. What it has is `AppFunctionUriGrant` —
+  Android's model is a content URI plus a permission grant, which is a different
+  shape rather than a missing feature. An intent taking a file is therefore left
+  out of the AppFunctions surface entirely, with `sync --android` naming it and
+  the parameter; its app shortcut is unaffected. The same reading turned up an
+  `AppFunctionUri` serialisable proxy for `android.net.Uri`, so a `Uri`
+  parameter probably has a richer Kotlin type available than the `String` it
+  gets — nothing here has built an APK through it, so it stays a `String`.
+
+Incoming files are staged: the plugin writes what the system supplied into the
+app's temporary directory before the handler runs, so the path is always
+readable. That costs a copy per invocation, and the system's own `fileURL` is
+deliberately not passed through — it may be security-scoped and gone by the time
+an isolate reaches it.
+
+**What is not verified:** a real file arriving from Siri or Shortcuts. The
+staging helper compiles against the SDK, the round trip through the wire format
+is unit-tested from both ends, and `doctor` confirms the parameter reached the
+bundle as an `IntentFile` — but nothing here can make the system hand over a
+document.
+
 Entities and snippet cards are iOS only, and for entities that is not a gap
 waiting to be filled. An entity parameter does cross to Android — as its
 identifier, same wire format as iOS, resolved by your handler — but there is no
@@ -218,7 +270,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-253 tests — 9 in `os_intents`, 126 in `os_intents_gen`, 118 in `os_intents_cli` —
+274 tests — 13 in `os_intents`, 143 in `os_intents_gen`, 118 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 

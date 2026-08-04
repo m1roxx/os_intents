@@ -1,6 +1,8 @@
 import 'package:meta/meta.dart';
 import 'package:meta/meta_meta.dart';
 
+import 'values.dart';
+
 /// Where the handler body runs when the system invokes the intent.
 enum Execution {
   /// Bring the app to the foreground and run the handler on the main isolate.
@@ -126,9 +128,10 @@ class AppIntent {
   /// carries `ReturnsValue<T>` — so it has to be known when the code is
   /// generated, not when the handler runs.
   ///
-  /// `String`, `int`, `double`, `bool` and `DateTime`. Anything else is
-  /// rejected by the generator rather than compiled into Swift that will not
-  /// build.
+  /// `String`, `int`, `double`, `bool`, `DateTime`, `Uri`, `Duration` and
+  /// `IntentFile`. Anything else is rejected by the generator rather than
+  /// compiled into Swift that will not build — including `Measurement`, whose
+  /// Swift type depends on a dimension that a bare `Type` has nowhere to put.
   ///
   /// Without this, an [IntentResult.value] has nowhere to go: the intent still
   /// runs and still speaks its dialog, but the value is dropped. Nothing can
@@ -171,11 +174,25 @@ class Param {
     this.description,
     this.requestValueDialog,
     this.defaultValue,
+    this.dimension,
     this.androidCapabilityParameter,
   });
 
   final String title;
   final String? description;
+
+  /// What a [Measurement] parameter measures. Required on one, refused on
+  /// anything else.
+  ///
+  /// The one thing here the Dart type cannot say. App Intents has no generic
+  /// measurement — it has one parameter overload per dimension, each with its
+  /// own unit picker — so which picker the user sees is part of the generated
+  /// Swift type and has to be known before the handler ever runs.
+  ///
+  /// ```dart
+  /// @Param(title: 'Distance', dimension: Dimension.length) required Measurement distance
+  /// ```
+  final Dimension? dimension;
 
   /// Prompt spoken when the user triggered the intent without this value.
   /// Leaving it null makes the parameter effectively required up front.

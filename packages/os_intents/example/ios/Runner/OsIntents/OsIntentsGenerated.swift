@@ -76,6 +76,42 @@ struct DueTodayOsIntent: AppIntent {
 
 
 @available(iOS 16.0, *)
+struct LogRunOsIntent: AppIntent {
+  static let title: LocalizedStringResource = "Log a run"
+  static let description = IntentDescription("Records a run against a route")
+  static let openAppWhenRun = false
+
+  @Parameter(title: "Route")
+  var route: URL
+  @Parameter(title: "Elapsed", defaultUnit: .seconds)
+  var elapsed: Measurement<UnitDuration>
+  @Parameter(title: "Distance", defaultUnit: .meters)
+  var distance: Measurement<UnitLength>
+  @Parameter(title: "Photo")
+  var photo: IntentFile?
+
+  static var parameterSummary: some ParameterSummary {
+    Summary("Log a run \(\.$route)") {
+      \.$photo
+    }
+  }
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    let outcome = try await OsIntentsBridge.shared.invokeBackground(
+      id: "logRun",
+      args: [
+        "route": route.absoluteString,
+        "elapsed": Int(elapsed.converted(to: .seconds).value * 1_000_000),
+        "distance": distance.converted(to: .meters).value,
+        "photo": OsIntentsFiles.wire(photo),
+      ]
+    )
+    return .result(dialog: IntentDialog(stringLiteral: outcome.spoken ?? ""))
+  }
+}
+
+
+@available(iOS 16.0, *)
 struct CountOpenTasksOsIntent: AppIntent {
   static let title: LocalizedStringResource = "Count tasks"
   static let description = IntentDescription("How many tasks are open")
