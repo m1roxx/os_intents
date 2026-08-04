@@ -1,4 +1,6 @@
-## Unreleased — dynamic Android shortcuts
+## 0.2.0
+
+### Dynamic Android shortcuts
 
 `OsIntents.pushShortcut`, `shortcuts`, `removeShortcuts` and `maxShortcuts`,
 with a `DynamicShortcut` to describe one. The Android half of what `donate`
@@ -21,8 +23,6 @@ returns false rather than picking one of the app's shortcuts to throw away.
 Verified on an emulator, not only in the wire format: `dynamic_shortcuts` in
 `probe/android_appfunctions` pushes, lists, replaces and removes through the
 real `ShortcutManager`.
-
-## Unreleased
 
 ### More kinds of parameter
 

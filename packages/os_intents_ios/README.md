@@ -1,14 +1,25 @@
 # os_intents_ios
 
-The iOS implementation of [`os_intents`](https://pub.dev/packages/os_intents).
+The Apple-platform implementation of
+[`os_intents`](https://pub.dev/packages/os_intents) — iOS **and macOS**, from
+one set of sources. The name predates the macOS half and cannot be changed once
+published; App Intents is one framework across Apple's platforms, and this is
+one implementation of it.
 
 This package is endorsed: depending on `os_intents` pulls it in automatically,
 and you should not need to import it. It is documented here so that what runs on
 the device is not a black box.
 
-**iOS 16+.** `AppIntent` itself is iOS 16; `AppIntentsPackage` is iOS 17, which
-is why the bridge is not built on it — that would silently cost every iOS 16 user
-the feature.
+**iOS 16+ and macOS 13+.** `AppIntent` itself is iOS 16; `AppIntentsPackage` is
+iOS 17, which is why the bridge is not built on it — that would silently cost
+every iOS 16 user the feature.
+
+The macOS sources are a symlink into `ios/`, not a copy, so both builds compile
+the same four files. What differs is inside them, under `#if`, and is four
+things — the framework's name, `messenger` being a property rather than a
+method, `FlutterEngine` having no `libraryURI` parameter, and `destroyContext`
+being called `shutDownEngine`. Every one was found by a build; see
+[docs/verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md).
 
 ## What is inside
 

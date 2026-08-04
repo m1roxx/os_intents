@@ -1,4 +1,6 @@
-## Unreleased — macOS
+## 0.2.0
+
+### macOS
 
 The package serves macOS 13+ as well as iOS 16+. Same Dart, same Swift: the
 macOS `Sources/` is a symlink into `ios/` rather than a copy, because both
@@ -24,7 +26,7 @@ its own 10.15 floor and failed on SwiftUI API from macOS 11 and 12.
 The podspec also stopped describing itself as "a new Flutter plugin project" at
 `http://example.com`.
 
-## Unreleased — the shortcut half of the contract
+### The shortcut half of the contract
 
 `pushDynamicShortcut` and its neighbours answer "nothing published" here. Not a
 gap facing the other way from Android's `donate`: a dynamic shortcut is a
@@ -32,7 +34,7 @@ launcher entry an app owns, the nearest iOS thing is a Home Screen quick action
 declared in `Info.plist` rather than pushed at runtime, and what actually serves
 the same purpose on this platform is `donate`, which is implemented.
 
-## Unreleased
+### More kinds of parameter
 
 `IntentOutcome` gains `urlValue` and `durationValue`, for intents declaring
 `returns: Uri` or `returns: Duration`.

@@ -1,4 +1,6 @@
-## Unreleased — macOS
+## 0.2.0
+
+### macOS
 
 `sync` writes the generated Swift into every Apple project the app has, and
 `install` registers it with each. Detected rather than flagged: macOS costs
@@ -16,7 +18,7 @@ the extractor writes no phrase model on macOS, so its absence is reported as a
 note rather than the error it is on iOS. Failing every macOS build over a file
 the extractor does not write would be reporting our own assumption as a bug.
 
-## Unreleased — localisation
+### Localisation
 
 `sync --l10n` writes `OsIntents.xcstrings` and makes the generated Swift look
 its text up in it. Off by default, and not out of caution: a keyed lookup with
@@ -40,7 +42,7 @@ half itself either way.
 "Add task" rather than "addTask.title" — with the key alongside, since a keyed
 title is worth seeing.
 
-## Unreleased
+### More kinds of parameter
 
 `sync --android` names an intent it left out because a parameter has no Android
 counterpart, and says what Android does instead.

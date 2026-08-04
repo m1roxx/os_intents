@@ -1,4 +1,6 @@
-## Unreleased — dynamic shortcuts
+## 0.2.0
+
+### Dynamic shortcuts
 
 New `DynamicShortcuts`, wrapping `ShortcutManager` behind `pushShortcut`,
 `shortcuts`, `removeShortcuts` and `maxShortcuts`.

@@ -1,6 +1,6 @@
 name: os_intents_android
 description: "Android implementation of os_intents: bridges generated AppFunctions and shortcuts into Dart. You want os_intents — this resolves with it."
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/m1roxx/os_intents
 issue_tracker: https://github.com/m1roxx/os_intents/issues
 topics: [app-functions, app-actions, shortcuts, assistant]
@@ -13,7 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  os_intents_platform_interface: ^0.1.0
+  os_intents_platform_interface: ^0.2.0
   plugin_platform_interface: ^2.1.8
 
 dev_dependencies:

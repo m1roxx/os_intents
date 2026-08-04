@@ -1,4 +1,6 @@
-## Unreleased — macOS
+## 0.2.0
+
+### macOS
 
 Every `@available` and `#available` the emitter writes names macOS alongside
 iOS: 16/13, 17/14, 18/15. From a table rather than arithmetic — the two version
@@ -16,7 +18,7 @@ code have *different* floors — the plugin deploys at 10.15 and the generated
 code at 13 — and checks each at its own. Checking the plugin at 13 is exactly
 what said nothing was wrong while a real macOS build failed.
 
-## Unreleased — localisation
+### Localisation
 
 `SwiftEmitter` takes `localised:`. With it on, every title, description, prompt
 and choice is a keyed `LocalizedStringResource` against an `OsIntents` table
@@ -41,7 +43,7 @@ Phrases are a separate table because they cannot be keyed at all:
 with no `LocalizedStringResource` initialiser in the SDK, so the English phrase
 is its own key.
 
-## Unreleased
+### More kinds of parameter
 
 `ParamType` gains `uri`, `duration`, `measurement` and `file`, and `ParamSpec`
 gains a `dimension`. All three emitters carry them.

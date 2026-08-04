@@ -1,4 +1,6 @@
-## Unreleased
+## 0.2.0
+
+### Dynamic shortcuts
 
 Four methods for launcher shortcuts an app publishes at runtime:
 `pushDynamicShortcut`, `dynamicShortcuts`, `removeDynamicShortcuts` and
