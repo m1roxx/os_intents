@@ -1,0 +1,49 @@
+name: Bug report
+description: Something generated, built or invoked wrongly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Most failures in this space are silent — the code compiles and the OS
+        just cannot see it. `os_intents doctor` exists for exactly that, so its
+        output is the most useful thing you can paste here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: declaration
+    attributes:
+      label: The intent declaration
+      description: >
+        The smallest `@AppIntent` (plus `@Param`/`@AppEntity`/`@AppEnum` if
+        involved) that shows the problem.
+      render: dart
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `os_intents doctor`
+      description: >
+        Run against a built app (`--android` / `--device` for the Android
+        layers). If doctor itself fails, paste that — it is a bug too.
+      render: text
+  - type: textarea
+    id: checks
+    attributes:
+      label: Output of `sync --check` and `install --check`
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >
+        `flutter --version`, the os_intents version, Xcode version and iOS
+        deployment target (for iOS), AGP/Gradle/compileSdk (for the
+        AppFunctions layer), device or simulator/emulator.
+      render: text
+    validations:
+      required: true

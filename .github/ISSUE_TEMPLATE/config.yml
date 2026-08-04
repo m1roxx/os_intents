@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or "does it support…?"
+    url: https://github.com/m1roxx/os_intents/discussions
+    about: >
+      Ask in Discussions. docs/verified.md answers "does it actually work" per
+      feature, and docs/troubleshooting.md covers the silent failures.
+  - name: Shipping an app on os_intents?
+    url: https://github.com/m1roxx/os_intents/discussions
+    about: >
+      Open a discussion — early adopters get hands-on integration help, and
+      real-app feedback is what moves this to 1.0.

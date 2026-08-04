@@ -29,7 +29,8 @@ Runner[91295] OSINTENTS_HOST intent=addTask process=Runner uiEngine=yes
 > [`run_cold_start.sh`](probe/run_cold_start.sh). No real user's app has shipped
 > on this yet. What is verified, what is only compiled, and what has never been
 > observed is listed honestly in [docs/verified.md](docs/verified.md) — the
-> largest gap is still Siri invoking a phrase by voice.
+> largest gap is still Siri invoking a phrase by voice. The path from here to
+> 1.0 is [ROADMAP.md](ROADMAP.md); early adopters get hands-on integration help.
 
 ## What works
 

@@ -1,0 +1,27 @@
+name: Feature request
+description: Something the package should declare, generate or verify
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: >
+        The app-level goal, not the mechanism — "the user should be able to ask
+        Siri for X" rather than "add API Y".
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: What the platform offers for it
+      description: >
+        If you know the App Intents / AppFunctions API this maps to, name it.
+        This project only ships what it can verify against the real SDKs, so a
+        pointer saves a research round-trip.
+        [ROADMAP.md](https://github.com/m1roxx/os_intents/blob/main/ROADMAP.md)
+        lists what is already planned and what was measured and declined.
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead

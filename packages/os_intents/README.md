@@ -33,18 +33,22 @@ Runner[91295] OSINTENTS_HOST intent=addTask process=Runner uiEngine=yes
 > user's app has shipped on this yet. What is verified, what only compiles, and
 > what has never been observed is listed honestly in
 > [docs/verified.md](https://github.com/m1roxx/os_intents/blob/main/docs/verified.md).
-> The one thing still unobserved is Siri invoking a phrase by voice.
+> The one thing still unobserved is Siri invoking a phrase by voice. The path
+> from here to 1.0 is
+> [ROADMAP.md](https://github.com/m1roxx/os_intents/blob/main/ROADMAP.md);
+> early adopters get hands-on integration help — open a
+> [discussion](https://github.com/m1roxx/os_intents/discussions).
 
 ## Install
 
 ```yaml
 dependencies:
-  os_intents: ^0.1.0
+  os_intents: ^0.2.0
 
 dev_dependencies:
   build_runner: ^2.4.13
-  os_intents_gen: ^0.1.0   # the builder
-  os_intents_cli: ^0.1.0   # carries the result into ios/ and android/
+  os_intents_gen: ^0.2.0   # the builder
+  os_intents_cli: ^0.2.0   # carries the result into ios/ and android/
 ```
 
 ## Declare an action
