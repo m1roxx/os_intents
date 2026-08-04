@@ -23,12 +23,13 @@ foreground — measured, not assumed:
 Runner[91295] OSINTENTS_HOST intent=addTask process=Runner uiEngine=yes
 ```
 
-> **Status: pre-alpha. Nothing is published.** Both platforms work end to end
-> and are verified on a device — iOS on a simulator, Android on an API 36
-> emulator — by the two harnesses in [`probe/`](probe/). What is verified, what
-> is only compiled, and what has never been observed is listed honestly in
-> [docs/verified.md](docs/verified.md). The one thing still unobserved is Siri
-> invoking a phrase by voice.
+> **Status: pre-alpha, published at 0.2.0.** iOS, macOS and Android work end to
+> end; iOS and Android are verified on a device by the two harnesses in
+> [`probe/`](probe/), macOS from a blank `flutter create` by
+> [`run_cold_start.sh`](probe/run_cold_start.sh). No real user's app has shipped
+> on this yet. What is verified, what is only compiled, and what has never been
+> observed is listed honestly in [docs/verified.md](docs/verified.md) — the
+> largest gap is still Siri invoking a phrase by voice.
 
 ## What works
 
