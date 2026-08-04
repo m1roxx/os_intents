@@ -96,7 +96,12 @@ jobs:
       # output against the real os_intents_ios module, so it needs the SDK's
       # Flutter.xcframework on disk. Without it the test skips with a reason
       # and this job would pass while checking nothing.
+      #
+      # Both, since the test runs once per platform: with only the iOS
+      # artifacts the macOS half skips itself and the job goes green having
+      # checked half of what it says it checks.
       - run: flutter precache --ios
+      - run: flutter precache --macos
 
       - name: swiftc -typecheck the emitter's output
         working-directory: packages/os_intents_gen
