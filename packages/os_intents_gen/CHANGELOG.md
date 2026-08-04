@@ -1,3 +1,28 @@
+## Unreleased — localisation
+
+`SwiftEmitter` takes `localised:`. With it on, every title, description, prompt
+and choice is a keyed `LocalizedStringResource` against an `OsIntents` table
+rather than a literal standing as its own key.
+
+That is a different program, not the same one with the strings swapped, and
+`swift_compiles_test` now type-checks both: `TypeDisplayRepresentation` and
+`IntentDialog` take a bare string by conversion but a keyed resource only
+through an initialiser, and an `AppEnum`'s case display representation stops
+being a string at all.
+
+New `StringCatalogEmitter`, and it is the one emitter here that does not own its
+output. A catalogue holds translations that came from a person, so it merges:
+keys are added, translations kept, orphans reported rather than deleted, and a
+changed source string marks the other languages `needs_review` — what Xcode does
+in the same situation, and what makes the staleness visible in the editor the
+file will be opened in. The merge is a fixed point, which is what makes
+`--check` mean anything.
+
+Phrases are a separate table because they cannot be keyed at all:
+`AppShortcutPhrase` is `ExpressibleByStringInterpolation` over a plain `String`,
+with no `LocalizedStringResource` initialiser in the SDK, so the English phrase
+is its own key.
+
 ## Unreleased
 
 `ParamType` gains `uri`, `duration`, `measurement` and `file`, and `ParamSpec`

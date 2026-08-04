@@ -143,6 +143,29 @@ enum MeasurementDimension {
   }
 }
 
+/// One user-visible string, with the key the generated Swift looks it up by.
+///
+/// The key is derived rather than stored, so the emitter and the catalogue
+/// builder cannot drift: both ask the spec. And it is derived from *ids*, not
+/// from the English text — a key whose identity is the copy loses every
+/// translation the moment somebody improves the wording.
+class LocalisableString {
+  const LocalisableString({
+    required this.key,
+    required this.value,
+    required this.comment,
+  });
+
+  final String key;
+
+  /// What the Dart annotation says, which is the source language's value.
+  final String value;
+
+  /// Where it appears, for whoever ends up translating it with no other
+  /// context than this file.
+  final String comment;
+}
+
 class ParamSpec {
   ParamSpec({
     required this.name,
@@ -176,6 +199,32 @@ class ParamSpec {
 
   /// Android: the built-in intent parameter that fills this, e.g. `task.name`.
   final String? androidCapabilityParameter;
+
+  String titleKey(String intentId) => '$intentId.$name.title';
+  String descriptionKey(String intentId) => '$intentId.$name.description';
+  String requestValueDialogKey(String intentId) => '$intentId.$name.ask';
+
+  List<LocalisableString> localisableStrings(String intentId) => [
+    LocalisableString(
+      key: titleKey(intentId),
+      value: title,
+      comment: 'Name of the "$name" parameter of the "$intentId" action.',
+    ),
+    if (description case final d?)
+      LocalisableString(
+        key: descriptionKey(intentId),
+        value: d,
+        comment: 'Explanation of the "$name" parameter of "$intentId".',
+      ),
+    if (requestValueDialog case final d?)
+      LocalisableString(
+        key: requestValueDialogKey(intentId),
+        value: d,
+        comment:
+            'Spoken when "$intentId" was triggered without a value for '
+            '"$name". A question.',
+      ),
+  ];
 
   /// Swift type used in the generated `@Parameter` declaration.
   String get swiftType => switch (type) {
@@ -361,6 +410,41 @@ class IntentSpec {
   String get swiftTypeName =>
       '${id[0].toUpperCase()}${id.substring(1)}OsIntent';
 
+  String get titleKey => '$id.title';
+  String get descriptionKey => '$id.description';
+  String get confirmKey => '$id.confirm';
+
+  /// Everything about this action a user could read or hear, except its
+  /// phrases.
+  ///
+  /// Phrases are not here because they cannot be keyed: `AppShortcutPhrase` is
+  /// `ExpressibleByStringInterpolation` over a plain `String`, with no
+  /// `LocalizedStringResource` initialiser at all. Apple localises them through
+  /// a table named `AppShortcuts` whose keys *are* the English phrases, which is
+  /// a different mechanism and gets a different file.
+  List<LocalisableString> get localisableStrings => [
+    LocalisableString(
+      key: titleKey,
+      value: title,
+      comment: 'Name of the "$id" action, shown in Shortcuts and Spotlight.',
+    ),
+    if (description case final d?)
+      LocalisableString(
+        key: descriptionKey,
+        value: d,
+        comment:
+            'Explanation of the "$id" action, shown in the Shortcuts '
+            'editor.',
+      ),
+    if (confirmBeforeRunning case final c?)
+      LocalisableString(
+        key: confirmKey,
+        value: c,
+        comment: 'Asked before "$id" runs at all. The user may say no.',
+      ),
+    for (final p in params) ...p.localisableStrings(id),
+  ];
+
   /// Apple rejects shortcut phrases that don't name the app, and the failure
   /// surfaces only at App Review. Catch it at build time instead.
   List<String> validate() {
@@ -517,6 +601,23 @@ class EnumSpec {
 
   String get swiftTypeName => '${typeName}Enum';
 
+  String get displayNameKey => 'enum.$typeName';
+  String valueKey(EnumValueSpec v) => 'enum.$typeName.${v.name}';
+
+  List<LocalisableString> get localisableStrings => [
+    LocalisableString(
+      key: displayNameKey,
+      value: displayName ?? typeName,
+      comment: 'Name of the "$typeName" set of choices.',
+    ),
+    for (final v in values)
+      LocalisableString(
+        key: valueKey(v),
+        value: v.title,
+        comment: 'One choice in "$typeName".',
+      ),
+  ];
+
   List<String> validate() => [
     if (values.isEmpty)
       'Enum "$typeName" has no values, so nothing could ever be chosen.',
@@ -560,6 +661,16 @@ class EntitySpec {
   final String? queryClassName;
 
   String get swiftTypeName => '${typeName}Entity';
+
+  String get displayNameKey => 'entity.$typeName';
+
+  List<LocalisableString> get localisableStrings => [
+    LocalisableString(
+      key: displayNameKey,
+      value: displayName ?? typeName,
+      comment: 'Name of the "$typeName" kind of object.',
+    ),
+  ];
 
   List<String> validate() {
     final problems = <String>[];
@@ -643,6 +754,19 @@ class Manifest {
   /// is not in `main.dart`, and without the URI the engine looks only there and
   /// fails to start with nothing but a `false`.
   String? get entrypointLibraryUri => hasBackgroundIntents ? libraryUri : null;
+
+  /// Every string the generated Swift looks up by key, in a stable order.
+  ///
+  /// Not the phrases — see [IntentSpec.localisableStrings] for why they cannot
+  /// be keyed and [phrases] for where they go instead.
+  List<LocalisableString> get localisableStrings => [
+    for (final i in intents) ...i.localisableStrings,
+    for (final e in enums) ...e.localisableStrings,
+    for (final e in entities) ...e.localisableStrings,
+  ];
+
+  /// Spoken phrases, which are their own table keyed by the English text.
+  List<String> get phrases => [for (final i in intents) ...i.phrases];
 
   List<String> validate() => [
     for (final i in intents) ...i.validate(),

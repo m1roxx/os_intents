@@ -53,10 +53,14 @@ void main() {
 
     tearDownAll(() => work.deleteSync(recursive: true));
 
-    void expectsCompiles(String name, Manifest manifest) {
+    void expectsCompiles(
+      String name,
+      Manifest manifest, {
+      bool localised = false,
+    }) {
       test(name, () {
         final result = env.typecheck(
-          SwiftEmitter(manifest).emit(),
+          SwiftEmitter(manifest, localised: localised).emit(),
           into: Directory(p.join(work.path, name.replaceAll(' ', '_')))
             ..createSync(recursive: true),
           moduleDir: moduleDir,
@@ -68,6 +72,15 @@ void main() {
     expectsCompiles('every parameter type, entity and execution mode', _full);
     expectsCompiles('strings that have to survive escaping', _awkward);
     expectsCompiles('one intent and nothing else', _minimal);
+
+    // The localised output is a different program, not the same one with the
+    // literals swapped: a keyed `LocalizedStringResource` is not
+    // interchangeable with a literal everywhere the literal was accepted.
+    // `TypeDisplayRepresentation` and `IntentDialog` both take one only through
+    // an initialiser, and a case display representation stops being a bare
+    // string. Each of those is a compile error rather than a wrong word.
+    expectsCompiles('all of it again, keyed', _full, localised: true);
+    expectsCompiles('and the awkward strings keyed', _awkward, localised: true);
 
     // Not the emitter's output, but the module it is generated to call, and
     // the only thing standing between it and a Swift 6 build is this check:

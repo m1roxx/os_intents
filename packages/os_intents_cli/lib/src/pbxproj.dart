@@ -85,9 +85,24 @@ class Pbxproj {
   /// Found through the target rather than by isa alone: a Flutter project has
   /// two, and putting the generated Swift in RunnerTests' phase would compile
   /// the intents into the test bundle, where the OS never looks.
-  String? sourcesPhaseOf(String targetId) {
+  String? sourcesPhaseOf(String targetId) =>
+      phaseOf(targetId, 'PBXSourcesBuildPhase');
+
+  /// The Resources phase of [targetId].
+  ///
+  /// Where a String Catalogue has to land. A `.xcstrings` in the Sources phase
+  /// is not an error Xcode reports — it simply is not in the bundle, and every
+  /// lookup then falls back to the key, so the app ships "addTask.title" to
+  /// Siri. Same failure shape as an unregistered Swift file, one phase over.
+  String? resourcesPhaseOf(String targetId) =>
+      phaseOf(targetId, 'PBXResourcesBuildPhase');
+
+  /// Found through the target rather than by isa alone: a Flutter project has
+  /// two of each, and putting the generated Swift in RunnerTests' phase would
+  /// compile the intents into the test bundle, where the OS never looks.
+  String? phaseOf(String targetId, String isa) {
     for (final phase in childIds(targetId, 'buildPhases')) {
-      if (isaOf(phase) == 'PBXSourcesBuildPhase') return phase;
+      if (isaOf(phase) == isa) return phase;
     }
     return null;
   }

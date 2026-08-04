@@ -52,6 +52,15 @@ class SyncCommand extends Command<int> {
             'Android 16+. See docs/android.md.',
         negatable: false,
       )
+      ..addFlag(
+        'l10n',
+        help:
+            'Look every title, description and prompt up in a String '
+            'Catalogue, and generate one. Off by default: a keyed lookup with '
+            'no catalogue answering it renders as the key, so the two have to '
+            'arrive together. Pass it to --check too.',
+        negatable: false,
+      )
       // Hidden because it exists for one caller: `build` runs install straight
       // after this, and telling the user to do the thing that is about to
       // happen anyway reads as a warning rather than as progress.
@@ -68,6 +77,36 @@ class SyncCommand extends Command<int> {
   /// Everything generated lands here, in one directory, so the Xcode target
   /// needs a single synchronized group rather than a file reference per file.
   static const outputDir = 'ios/Runner/OsIntents';
+
+  static String? _read(Directory dir, String name) {
+    final f = File(p.join(dir.path, name));
+    return f.existsSync() ? f.readAsStringSync() : null;
+  }
+
+  /// Apple's floor for `AppShortcuts.xcstrings`, which is not the floor for a
+  /// String Catalogue in general.
+  ///
+  /// Measured, and it cost a build: an app on 13 fails outright with
+  /// "AppShortcuts.xcstrings is only supported for iOS 17.0 and above. Use
+  /// AppShortcuts.strings for previous versions." The ordinary catalogue
+  /// alongside it compiles fine, because that one is turned into `.strings` at
+  /// build time while the phrase table is read by a step that is 17-only.
+  static const phraseCatalogueMinimumIos = 17;
+
+  /// The lowest `IPHONEOS_DEPLOYMENT_TARGET` in the project, or null.
+  ///
+  /// The lowest rather than the first: a project may set different targets per
+  /// configuration, and the one that matters is the one that will fail.
+  static int? readDeploymentTarget(String root) {
+    final pbx = File(
+      p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'),
+    );
+    if (!pbx.existsSync()) return null;
+    final majors = RegExp(
+      r'IPHONEOS_DEPLOYMENT_TARGET\s*=\s*(\d+)',
+    ).allMatches(pbx.readAsStringSync()).map((m) => int.parse(m.group(1)!));
+    return majors.isEmpty ? null : majors.reduce((a, b) => a < b ? a : b);
+  }
 
   @override
   Future<int> run() async {
@@ -108,8 +147,47 @@ class SyncCommand extends Command<int> {
       return 65;
     }
 
-    final files = SwiftEmitter(merged).emit();
+    final localised = argResults!.flag('l10n');
     final target = Directory(p.join(root, outputDir));
+    final files = SwiftEmitter(merged, localised: localised).emit();
+
+    // Merged into `files` so the catalogues go through the same write-or-report
+    // loop as everything else, and `--check` covers them without knowing they
+    // are special. They are special in exactly one way — the merge below reads
+    // what is already on disk, because a translator's work is in there.
+    List<String> orphans = const [];
+    var phrasesNeedIos17 = false;
+    if (localised) {
+      final catalogues = StringCatalogEmitter(merged);
+      final existing = _read(target, StringCatalogEmitter.fileName);
+      final deploymentTarget = readDeploymentTarget(root);
+      // Below 17 this file does not degrade — it fails the build. So it is not
+      // written at all there, and the note below says what to do instead.
+      phrasesNeedIos17 =
+          merged.phrases.isNotEmpty &&
+          deploymentTarget != null &&
+          deploymentTarget < phraseCatalogueMinimumIos;
+      try {
+        final out = catalogues.merge(
+          existing: existing,
+          existingPhrases: _read(target, StringCatalogEmitter.phrasesFileName),
+        );
+        files[StringCatalogEmitter.fileName] = out.catalog;
+        if (merged.phrases.isNotEmpty && !phrasesNeedIos17) {
+          files[StringCatalogEmitter.phrasesFileName] = out.phrases;
+        }
+        orphans = catalogues.orphans(existing);
+      } on FormatException catch (e) {
+        stderr.writeln(
+          'os_intents cannot read $outputDir/${StringCatalogEmitter.fileName}:'
+          '\n  ${e.message}\n\n'
+          'Nothing was written. Fix or delete it and run sync again — deleting '
+          'it costs\nevery translation in it, so it is not something os_intents '
+          'will do for you.',
+        );
+        return 65;
+      }
+    }
 
     // Not behind --android: the shortcuts layer costs nothing. Everything the
     // flag gates is the AppFunctions version chain, and this needs none of it.
@@ -168,6 +246,42 @@ class SyncCommand extends Command<int> {
         'os_intents: ${merged.intents.length} intent(s), '
         '${merged.entities.length} entity(ies) → $outputDir',
       );
+
+    if (phrasesNeedIos17) {
+      stdout
+        ..writeln(
+          '\nPhrases are not in the catalogue: '
+          '${StringCatalogEmitter.phrasesFileName} needs iOS '
+          '$phraseCatalogueMinimumIos and this app deploys to '
+          '${readDeploymentTarget(root)}.\n'
+          'Below that Apple reads phrases from per-language '
+          '${StringCatalogEmitter.phrasesTableName}.strings instead, which is '
+          'a variant\ngroup rather than one file — add it in Xcode and it will '
+          'be built correctly.\nThe keys are the English phrases themselves:',
+        )
+        ..writeAll(merged.phrases.map((k) => '  • $k\n'))
+        ..writeln(
+          'Everything else — titles, descriptions, prompts, choices — is in '
+          '${StringCatalogEmitter.fileName}\nand works on every version this '
+          'package supports.',
+        );
+    }
+
+    if (orphans.isNotEmpty) {
+      // Left in place, deliberately. A key nothing declares any more is
+      // usually a renamed intent, and what sits under it is somebody's
+      // translation work — much more expensive than the key itself.
+      stdout
+        ..writeln(
+          '\n${orphans.length} key(s) in the catalogue that no intent declares '
+          'any more:',
+        )
+        ..writeAll(orphans.map((k) => '  • $k\n'))
+        ..writeln(
+          'Left untouched — they still hold their translations. Delete them '
+          'yourself once\nyou are sure nothing is coming back.',
+        );
+    }
 
     if (changed > 0 && argResults!.flag('hints') && !_isInXcodeProject(root)) {
       stdout.writeln(

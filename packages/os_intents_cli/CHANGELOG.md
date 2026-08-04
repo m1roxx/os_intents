@@ -1,3 +1,27 @@
+## Unreleased — localisation
+
+`sync --l10n` writes `OsIntents.xcstrings` and makes the generated Swift look
+its text up in it. Off by default, and not out of caution: a keyed lookup with
+no catalogue answering renders as the key, so an app would ship "addTask.title"
+to Siri with nothing failing anywhere. The Swift and the catalogue arrive
+together or not at all. Pass it to `--check` too.
+
+`install` learned a second build phase. A `.xcstrings` goes into **Resources**,
+typed `text.json.xcstrings`; in Sources it would never reach the bundle and
+every lookup would fall back to its key — the same silent shape as an
+unregistered Swift file, one phase over. `--check` covers both.
+
+`AppShortcuts.xcstrings` is written only when the app deploys to iOS 17 or
+later. Below that Xcode fails the build outright — measured, and it cost one —
+and Apple reads phrases from per-language `AppShortcuts.strings` instead, which
+is a variant group rather than one file. `sync --l10n` lists the keys and says
+so rather than writing a file that breaks the build. Xcode extracts the English
+half itself either way.
+
+`doctor` resolves keys back through the catalogue, so the report still reads
+"Add task" rather than "addTask.title" — with the key alongside, since a keyed
+title is worth seeing.
+
 ## Unreleased
 
 `sync --android` names an intent it left out because a parameter has no Android

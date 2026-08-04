@@ -146,6 +146,40 @@ The same types can be returned with `returns:`, except `Measurement` — a bare
 `Type` has nowhere to put a dimension, and the generator refuses it rather than
 emitting Swift that will not build.
 
+### Shipping in more than one language
+
+```bash
+dart run os_intents_cli:os_intents sync --l10n
+```
+
+Every title, description, prompt and choice is then looked up by key in
+`ios/Runner/OsIntents/OsIntents.xcstrings`, which `sync` writes and `install`
+adds to the target's Resources phase. Open it in Xcode, translate, done.
+
+The key is derived from ids — `addTask.title`, `addTask.due.ask` — not from the
+English text, so improving the wording does not orphan every translation of it.
+When the English *does* change, the other languages are marked `needs_review`
+rather than silently left describing the old copy, which is what Xcode itself
+does in the same situation.
+
+**`sync` merges; it never overwrites.** A catalogue holds work that came from a
+person. New keys are added, translations are kept, and a key no intent declares
+any more is reported rather than deleted — you decide when that is safe.
+
+Two things localise by a different mechanism, both Apple's rather than ours:
+
+- **Phrases** cannot be keyed — `AppShortcutPhrase` is a plain `String` in the
+  SDK, so the English phrase is its own key. Xcode extracts them into
+  `AppShortcuts.strings` for you; add a `<lang>.lproj` copy to translate them.
+  The keys are the strings you wrote in Dart, `$app` and all. A single-file
+  `AppShortcuts.xcstrings` exists but needs iOS 17, and `sync --l10n` lists the
+  keys instead of writing one when your deployment target is lower.
+- **Android** already localises: shortcut labels are string resources, so a
+  `values-de/strings.xml` is all it takes. AppFunction descriptions come from
+  KDoc and cannot be localised at all — that is the platform's design.
+
+Pass `--l10n` to `sync --check` too, or CI will report drift.
+
 ## Why another one
 
 Not first, and not alone — five packages occupy this niche, two of them active.

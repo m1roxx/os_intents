@@ -11,6 +11,7 @@
 /// against the manifests, which is the only comparison that can catch this.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -642,6 +643,16 @@ class DoctorCommand extends Command<int> {
     Manifest? declared, {
     required bool hasSsu,
   }) {
+    // What the bundle holds for a localised app is a key, not a sentence. Left
+    // alone, this whole report would read "addTask.title" — the command that
+    // exists to tell you what the OS will show would stop showing it. So the
+    // catalogue is read back and every key resolved through it, with the key
+    // kept alongside: that it is a key at all is itself worth seeing.
+    final l10n = _catalogue(root);
+    String say(String? text) => text == null ? '<none>' : l10n[text] ?? text;
+    String keyNote(String? text) =>
+        text != null && l10n.containsKey(text) ? '  ($text)' : '';
+
     final out = StringBuffer()
       ..writeln('os_intents doctor')
       ..writeln('  bundle    ${p.relative(bundle.path, from: root)}');
@@ -665,8 +676,10 @@ class DoctorCommand extends Command<int> {
         if (a.opensApp) 'opens the app' else 'runs without opening the app',
         if (!a.isDiscoverable) 'hidden from Shortcuts and Spotlight',
       ];
-      out.writeln('  ${a.identifier}  "${a.title ?? '<no title>'}"');
-      if (a.description case final d?) out.writeln('      $d');
+      out.writeln('  ${a.identifier}  "${say(a.title)}"${keyNote(a.title)}');
+      if (a.description case final d?) {
+        out.writeln('      ${say(d)}${keyNote(d)}');
+      }
       out.writeln('      ${flags.join(', ')}');
       for (final param in a.params) {
         out.writeln(
@@ -682,7 +695,8 @@ class DoctorCommand extends Command<int> {
     for (final e in shipped.entities) {
       final query = e.defaultQueryIdentifier;
       out.writeln(
-        '  ${e.typeName}  "${e.displayName ?? e.typeName}"  '
+        '  ${e.typeName}  "${say(e.displayName ?? e.typeName)}"'
+        '${keyNote(e.displayName ?? e.typeName)}  '
         '${query == null ? 'no query — cannot be resolved by name' : 'resolved by $query'}',
       );
     }
@@ -709,6 +723,36 @@ class DoctorCommand extends Command<int> {
     );
 
     stdout.write(out);
+  }
+
+  /// Key → source-language text, out of the catalogue `sync --l10n` wrote.
+  ///
+  /// Empty for an app that does not localise, which is what makes [_report]
+  /// safe either way: a title that is not a key simply is not in here.
+  static Map<String, String> _catalogue(String root) {
+    final file = File(
+      p.join(root, SyncCommand.outputDir, StringCatalogEmitter.fileName),
+    );
+    if (!file.existsSync()) return const {};
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is! Map) return const {};
+      final source = decoded['sourceLanguage'] as String? ?? 'en';
+      final strings = decoded['strings'];
+      if (strings is! Map) return const {};
+      return {
+        for (final entry in strings.entries)
+          if (((entry.value as Map?)?['localizations'] as Map?)?[source]
+              case final Map localization)
+            if ((localization['stringUnit'] as Map?)?['value']
+                case final String value)
+              entry.key as String: value,
+      };
+    } on FormatException {
+      // A catalogue nobody can parse is `sync`'s problem to report, not
+      // something to fail a read-only report over.
+      return const {};
+    }
   }
 
   void _printFindings(List<Finding> findings, {String artefact = 'bundle'}) {

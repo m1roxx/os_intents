@@ -336,4 +336,72 @@ void main() {
       expect(notCompiled(broken), ['OsIntentsGenerated.swift']);
     });
   });
+
+  // A String Catalogue is not a source file, and putting it in the Sources
+  // phase is not an error Xcode reports — it simply never reaches the bundle,
+  // every lookup falls back to its key, and the app shows "addTask.title"
+  // where the title should be. The same silent shape as an uncompiled Swift
+  // file, one phase over.
+  group('a String Catalogue', () {
+    const catalogue = 'OsIntents.xcstrings';
+    final installed = installInto(_pristine, files: [..._files, catalogue]);
+    final project = Pbxproj.parse(installed);
+    final group = project.childGroupNamed(
+      project.childGroupNamed(project.mainGroupId!, 'Runner')!,
+      'OsIntents',
+    )!;
+
+    test('goes into Resources, not Sources', () {
+      final target = project.nativeTargetNamed('Runner')!;
+      final ref = project.fileRefIn(group, catalogue)!;
+      expect(
+        project.buildFileFor(project.resourcesPhaseOf(target)!, ref),
+        isNotNull,
+      );
+      expect(
+        project.buildFileFor(project.sourcesPhaseOf(target)!, ref),
+        isNull,
+      );
+    });
+
+    test('is typed so Xcode compiles it rather than copying it', () {
+      expect(
+        project.object(
+          project.fileRefIn(group, catalogue)!,
+        )!['lastKnownFileType'],
+        'text.json.xcstrings',
+      );
+    });
+
+    test('lands beside the Swift, which is still in Sources', () {
+      expect(installed, compiledInto('Runner'));
+    });
+
+    test('does not go into the test target\'s Resources phase', () {
+      final tests = project.nativeTargetNamed('RunnerTests');
+      final phase = tests == null ? null : project.resourcesPhaseOf(tests);
+      final ref = project.fileRefIn(group, catalogue)!;
+      expect(phase == null ? null : project.buildFileFor(phase, ref), isNull);
+    });
+
+    test('is reported by --check when it is not registered', () {
+      expect(InstallCommand.notCompiled(_pristine, files: [catalogue]), [
+        catalogue,
+      ]);
+      expect(
+        InstallCommand.notCompiled(installed, files: [catalogue]),
+        isEmpty,
+      );
+    });
+
+    test('installing again changes nothing', () {
+      expect(
+        identical(
+          installInto(installed, files: [..._files, catalogue]),
+          installed,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

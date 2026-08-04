@@ -202,7 +202,7 @@ class InstallCommand extends Command<int> {
         ? (dir.listSync().whereType<File>().toList()
                 ..sort((a, b) => a.path.compareTo(b.path)))
               .map((f) => p.basename(f.path))
-              .where((f) => f.endsWith('.swift'))
+              .where((f) => _Kind.of(f) != null)
               .toList()
         : <String>[];
 
@@ -274,7 +274,6 @@ class InstallCommand extends Command<int> {
   }) {
     final project = Pbxproj.parse(text);
     final targetId = project.nativeTargetNamed(targetName);
-    final phaseId = targetId == null ? null : project.sourcesPhaseOf(targetId);
     final mainGroupId = project.mainGroupId;
     final appGroupId = mainGroupId == null
         ? null
@@ -282,13 +281,18 @@ class InstallCommand extends Command<int> {
     final groupId = appGroupId == null
         ? null
         : project.childGroupNamed(appGroupId, groupName);
-    if (phaseId == null || groupId == null) return files;
+    if (targetId == null || groupId == null) return files;
 
     return [
       for (final file in files)
-        if (switch (project.fileRefIn(groupId, file)) {
-          null => true,
-          final ref => project.buildFileFor(phaseId, ref) == null,
+        if (switch ((
+          _Kind.of(file)?.phaseIn(project, targetId),
+          project.fileRefIn(groupId, file),
+        )) {
+          (null, _) => true,
+          (_, null) => true,
+          (final phase?, final ref?) =>
+            project.buildFileFor(phase, ref) == null,
         })
           file,
     ];
@@ -316,12 +320,16 @@ class InstallCommand extends Command<int> {
       );
     }
 
-    final phaseId = project.sourcesPhaseOf(targetId);
-    if (phaseId == null) {
-      throw PbxprojException(
-        'Target "$targetName" has no Sources build phase, so there is nothing '
-        'to add the generated Swift to.',
-      );
+    // One phase per kind of output. A String Catalogue in the Sources phase is
+    // not an error Xcode reports: it simply never reaches the bundle, every
+    // lookup falls back to the key, and the app ships "addTask.title" to Siri.
+    for (final kind in _Kind.needed(files)) {
+      if (kind.phaseIn(project, targetId) == null) {
+        throw PbxprojException(
+          'Target "$targetName" has no ${kind.label} build phase, so there is '
+          'nothing to add ${kind.what} to.',
+        );
+      }
     }
 
     final mainGroupId = project.mainGroupId;
@@ -373,7 +381,7 @@ class InstallCommand extends Command<int> {
       );
     }
 
-    final plan = _Plan(project, phaseId: phaseId, appGroupId: appGroupId);
+    final plan = _Plan(project, targetId: targetId, appGroupId: appGroupId);
     for (final file in files) {
       plan.add(file);
     }
@@ -404,7 +412,6 @@ class InstallCommand extends Command<int> {
     }
 
     final targetId = project.nativeTargetNamed(targetName)!;
-    final phaseId = project.sourcesPhaseOf(targetId)!;
     final appGroupId = project.childGroupNamed(
       project.mainGroupId!,
       targetName,
@@ -423,10 +430,12 @@ class InstallCommand extends Command<int> {
           '$file did not end up in the $groupName group. Nothing was written.',
         );
       }
-      if (project.buildFileFor(phaseId, fileRef) == null) {
+      final kind = _Kind.of(file)!;
+      if (project.buildFileFor(kind.phaseIn(project, targetId)!, fileRef) ==
+          null) {
         throw PbxprojException(
           '$file was referenced but not added to the $targetName target\'s '
-          'Sources phase, which would compile it into nothing. Nothing was '
+          '${kind.label} phase, which would ${kind.whenMissing}. Nothing was '
           'written.',
         );
       }
@@ -445,7 +454,7 @@ class InstallCommand extends Command<int> {
 /// The edits to make, worked out against the parsed project before any text is
 /// touched.
 class _Plan {
-  _Plan(this.project, {required this.phaseId, required this.appGroupId})
+  _Plan(this.project, {required this.targetId, required this.appGroupId})
     : groupId =
           project.childGroupNamed(appGroupId, InstallCommand.groupName) ??
           InstallCommand._id('group:${InstallCommand.groupName}'),
@@ -453,14 +462,21 @@ class _Plan {
           project.childGroupNamed(appGroupId, InstallCommand.groupName) == null;
 
   final Pbxproj project;
-  final String phaseId;
+  final String targetId;
   final String appGroupId;
   final String groupId;
   final bool createGroup;
 
   final fileRefLines = <String>[];
   final buildFileLines = <String>[];
-  final phaseEntries = <String>[];
+
+  /// Phase object id → the entries to append to its `files` list.
+  ///
+  /// Keyed rather than a single list because the generated output is no longer
+  /// all one kind: Swift compiles and a String Catalogue is bundled, and the
+  /// two go into different phases of the same target.
+  final phaseEntries = <String, List<String>>{};
+
   final groupChildren = <String>[];
 
   bool get isEmpty =>
@@ -476,13 +492,17 @@ class _Plan {
   /// half-edited — a file reference with no build file, the state the old
   /// silent-no-op could produce — is repaired rather than skipped.
   void add(String file) {
+    final kind = _Kind.of(file);
+    if (kind == null) return;
+    final phaseId = kind.phaseIn(project, targetId)!;
+
     final existingRef = createGroup ? null : project.fileRefIn(groupId, file);
     final fileRef = existingRef ?? InstallCommand._id('ref:$file');
 
     if (project.object(fileRef) == null) {
       fileRefLines.add(
         '\t\t$fileRef /* $file */ = {isa = PBXFileReference; '
-        'lastKnownFileType = sourcecode.swift; path = $file; '
+        'lastKnownFileType = ${kind.fileType}; path = $file; '
         'sourceTree = "<group>"; };\n',
       );
     }
@@ -496,11 +516,13 @@ class _Plan {
     final buildFile = InstallCommand._id('build:$file');
     if (project.object(buildFile) == null) {
       buildFileLines.add(
-        '\t\t$buildFile /* $file in Sources */ = {isa = PBXBuildFile; '
+        '\t\t$buildFile /* $file in ${kind.label} */ = {isa = PBXBuildFile; '
         'fileRef = $fileRef /* $file */; };\n',
       );
     }
-    phaseEntries.add('\n\t\t\t\t$buildFile /* $file in Sources */,');
+    phaseEntries
+        .putIfAbsent(phaseId, () => [])
+        .add('\n\t\t\t\t$buildFile /* $file in ${kind.label} */,');
   }
 
   String apply(String text) {
@@ -511,8 +533,8 @@ class _Plan {
     if (buildFileLines.isNotEmpty) {
       out = _intoSection(out, 'PBXBuildFile', buildFileLines.join());
     }
-    if (phaseEntries.isNotEmpty) {
-      out = _intoList(out, phaseId, 'files', phaseEntries.join());
+    for (final entry in phaseEntries.entries) {
+      out = _intoList(out, entry.key, 'files', entry.value.join());
     }
 
     if (createGroup) {
@@ -619,4 +641,58 @@ class _Plan {
     }
     throw PbxprojException('Object $id is never closed in project.pbxproj.');
   }
+}
+
+/// What a generated file is, which decides where in the target it goes.
+///
+/// Not cosmetic. Both phases fail the same silent way when a file lands in the
+/// wrong one — Xcode reports nothing, the build succeeds, and the thing simply
+/// is not there. A Swift file outside Sources compiles into nothing and the OS
+/// never sees the intent; a String Catalogue outside Resources never reaches
+/// the bundle and every lookup falls back to its key, so the app shows
+/// "addTask.title" where the title should be.
+enum _Kind {
+  source(
+    isa: 'PBXSourcesBuildPhase',
+    label: 'Sources',
+    fileType: 'sourcecode.swift',
+    what: 'the generated Swift',
+    whenMissing: 'compile it into nothing',
+  ),
+  resource(
+    isa: 'PBXResourcesBuildPhase',
+    label: 'Resources',
+    fileType: 'text.json.xcstrings',
+    what: 'the generated String Catalogue',
+    whenMissing: 'leave every string showing its key',
+  );
+
+  const _Kind({
+    required this.isa,
+    required this.label,
+    required this.fileType,
+    required this.what,
+    required this.whenMissing,
+  });
+
+  final String isa;
+  final String label;
+  final String fileType;
+  final String what;
+  final String whenMissing;
+
+  String? phaseIn(Pbxproj project, String targetId) =>
+      project.phaseOf(targetId, isa);
+
+  /// Null for anything os_intents does not put in the project, so a stray file
+  /// somebody left in the directory is skipped rather than registered.
+  static _Kind? of(String file) {
+    if (file.endsWith('.swift')) return _Kind.source;
+    if (file.endsWith('.xcstrings')) return _Kind.resource;
+    return null;
+  }
+
+  static Set<_Kind> needed(List<String> files) => {
+    for (final f in files) ?of(f),
+  };
 }

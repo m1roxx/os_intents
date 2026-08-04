@@ -1,3 +1,4 @@
+import 'emit_strings.dart';
 import 'model.dart';
 
 /// Emits the Swift the OS reads at compile time.
@@ -8,9 +9,29 @@ import 'model.dart';
 /// shared between projects and wiped by `pub cache repair`, generated sources
 /// could never have lived there anyway. See docs/risk1.md.
 class SwiftEmitter {
-  SwiftEmitter(this.manifest);
+  SwiftEmitter(this.manifest, {this.localised = false});
 
   final Manifest manifest;
+
+  /// Whether user-visible text is looked up in a String Catalogue by key.
+  ///
+  /// Off by default, and that default is not timidity. A keyed
+  /// `LocalizedStringResource` whose catalogue is missing renders as the key
+  /// itself — an app shipping "addTask.title" to Siri, with nothing failing
+  /// anywhere. So the Swift only starts naming keys once `sync --l10n` is
+  /// writing the catalogue that answers them.
+  final bool localised;
+
+  /// A title, description or prompt: either the text itself, or a key into the
+  /// catalogue.
+  ///
+  /// The two are interchangeable at the type level — `LocalizedStringResource`
+  /// is `ExpressibleByStringLiteral`, and the literal form uses the text as its
+  /// own key — so only one of the two ever has a catalogue to answer it.
+  String _text(String key, String value) => localised
+      ? 'LocalizedStringResource(${_str(key)}, '
+            'table: ${_str(StringCatalogEmitter.tableName)})'
+      : _str(value);
 
   /// File name → contents.
   Map<String, String> emit() => {
@@ -363,10 +384,14 @@ enum OsIntentsFiles {
 
     b.writeln('@available(iOS 16.0, *)');
     b.writeln('struct ${i.swiftTypeName}: AppIntent {');
-    b.writeln('  static let title: LocalizedStringResource = ${_str(i.title)}');
+    b.writeln(
+      '  static let title: LocalizedStringResource = '
+      '${_text(i.titleKey, i.title)}',
+    );
     if (i.description != null) {
       b.writeln(
-        '  static let description = IntentDescription(${_str(i.description!)})',
+        '  static let description = IntentDescription('
+        '${_text(i.descriptionKey, i.description!)})',
       );
     }
     // Only `foreground` needs the app on screen. This is the whole point of the
@@ -380,7 +405,7 @@ enum OsIntentsFiles {
     b.writeln();
 
     for (final p in i.params) {
-      b.writeln(_parameter(p));
+      b.writeln(_parameter(p, i.id));
     }
     if (i.params.isNotEmpty) {
       b.writeln();
@@ -400,7 +425,9 @@ enum OsIntentsFiles {
       b
         ..writeln('    if #available(iOS 18.0, *) {')
         ..writeln('      try await requestConfirmation(')
-        ..writeln('        dialog: IntentDialog(${_str(prompt)})')
+        ..writeln(
+          '        dialog: IntentDialog(${_text(i.confirmKey, prompt)})',
+        )
         ..writeln('      )')
         ..writeln('    } else {')
         ..writeln('      try await requestConfirmation()')
@@ -544,10 +571,13 @@ enum OsIntentsFiles {
     ParamType.enum_ => throw StateError('enum returns are not supported'),
   };
 
-  String _parameter(ParamSpec p) {
-    final args = <String>['title: ${_str(p.title)}'];
+  String _parameter(ParamSpec p, String intentId) {
+    final args = <String>['title: ${_text(p.titleKey(intentId), p.title)}'];
     if (p.description != null) {
-      args.add('description: ${_str(p.description!)}');
+      args.add(
+        'description: '
+        '${_text(p.descriptionKey(intentId), p.description!)}',
+      );
     }
     // Which unit the picker opens on, and the one the value is converted to
     // before it crosses. Only the measurement overloads of `@Parameter` accept
@@ -557,8 +587,14 @@ enum OsIntentsFiles {
     } else if (p.type == ParamType.measurement) {
       args.add('defaultUnit: .${p.dimension!.baseUnit}');
     }
-    if (p.requestValueDialog != null) {
-      args.add('requestValueDialog: ${_str(p.requestValueDialog!)}');
+    if (p.requestValueDialog case final dialog?) {
+      // A bare literal is an IntentDialog by conversion; a
+      // LocalizedStringResource has to be wrapped in one explicitly.
+      final key = p.requestValueDialogKey(intentId);
+      args.add(
+        'requestValueDialog: '
+        '${localised ? 'IntentDialog(${_text(key, dialog)})' : _str(dialog)}',
+      );
     }
     final optional = p.isRequired ? '' : '?';
     return '  @Parameter(${args.join(', ')})\n'
@@ -624,7 +660,14 @@ enum OsIntentsFiles {
         ..writeln(
           '  static var typeDisplayRepresentation: TypeDisplayRepresentation {',
         )
-        ..writeln('    ${_str(e.displayName ?? e.typeName)}')
+        // A literal is a TypeDisplayRepresentation by conversion; a keyed
+        // resource needs the `name:` initialiser to become one.
+        ..writeln(
+          localised
+              ? '    TypeDisplayRepresentation(name: '
+                    '${_text(e.displayNameKey, e.displayName ?? e.typeName)})'
+              : '    ${_str(e.displayName ?? e.typeName)}',
+        )
         ..writeln('  }')
         ..writeln()
         ..writeln(
@@ -633,7 +676,12 @@ enum OsIntentsFiles {
         )
         ..writeln('    [');
       for (final v in e.values) {
-        b.writeln('      .${v.name}: ${_str(v.title)},');
+        b.writeln(
+          localised
+              ? '      .${v.name}: DisplayRepresentation(title: '
+                    '${_text(e.valueKey(v), v.title)}),'
+              : '      .${v.name}: ${_str(v.title)},',
+        );
       }
       b
         ..writeln('    ]')
@@ -682,7 +730,8 @@ enum OsIntentsFiles {
     b.writeln();
     b.writeln(
       '  static let typeDisplayRepresentation: TypeDisplayRepresentation = '
-      '${_str(e.displayName ?? e.typeName)}',
+      '${localised ? 'TypeDisplayRepresentation(name: '
+                '${_text(e.displayNameKey, e.displayName ?? e.typeName)})' : _str(e.displayName ?? e.typeName)}',
     );
     b.writeln();
     b.writeln('  var displayRepresentation: DisplayRepresentation {');
@@ -783,7 +832,7 @@ enum OsIntentsFiles {
         b.writeln('        ${_phrase(p)},');
       }
       b.writeln('      ],');
-      b.writeln('      shortTitle: ${_str(i.title)},');
+      b.writeln('      shortTitle: ${_text(i.titleKey, i.title)},');
       b.writeln(
         '      systemImageName: ${_str(i.systemImageName ?? 'app.badge')}',
       );

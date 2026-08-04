@@ -200,6 +200,55 @@ contract of 143 schemas that Apple has already renamed once.
 Snippet cards can carry **buttons** (iOS 17+), but not Apple's iOS 26
 `SnippetIntent`, where the card reloads itself after a button runs.
 
+## Localisation, and the two mechanisms it turned out to be
+
+`sync --l10n` makes the generated Swift look every title, description, prompt
+and choice up by key, and writes the String Catalogue that answers. Verified end
+to end on the example, not only in the emitters: keys in the Swift → merged
+catalogue → `install` into the Runner target's **Resources** phase → built →
+`en.lproj/OsIntents.strings` in the bundle with every key resolving to the right
+text → `doctor` reading it back.
+
+Three findings, each of which changed the design:
+
+- **A keyed lookup is not a drop-in for a literal.** `TypeDisplayRepresentation`
+  and `IntentDialog` accept a bare string by conversion but a
+  `LocalizedStringResource` only through an initialiser, and an `AppEnum`'s case
+  display representation stops being a string at all. So the localised output is
+  a different program, and `swift_compiles_test` type-checks both.
+
+- **`AppShortcuts.xcstrings` needs iOS 17**, which the ordinary catalogue does
+  not. Measured, and it cost a build: an app deploying to 13 fails outright with
+  "AppShortcuts.xcstrings is only supported for iOS 17.0 and above. Use
+  AppShortcuts.strings for previous versions." The two are read by different
+  build steps — a normal catalogue becomes `.strings` at build time, the phrase
+  table is consumed by a step that is 17-only. Below 17, `sync --l10n` writes
+  everything else and lists the phrase keys rather than writing a file that
+  breaks the build.
+
+- **Phrases cannot be keyed at all, and do not need to be generated.**
+  `AppShortcutPhrase` is `ExpressibleByStringInterpolation` over a plain
+  `String` — there is no `LocalizedStringResource` initialiser anywhere in the
+  SDK — so the English phrase is its own key. And Xcode extracts them itself:
+  deleting `en.lproj/AppShortcuts.strings` from a built bundle and rebuilding
+  regenerates it. The keys use `$app`, the same token written in Dart, not the
+  `\(.applicationName)` the generated Swift contains.
+
+**The catalogue is the one generated file os_intents will not overwrite.** It
+holds translations that came from a person, so `sync` merges: keys are added,
+translations kept, and a key nothing declares any more is reported rather than
+removed. A changed source string marks the other languages `needs_review`, which
+is what Xcode does and what makes the staleness visible in the editor the file
+will be opened in.
+
+`doctor` resolves keys back through the catalogue, so the report still reads
+"Add task" rather than "addTask.title" — with the key alongside, since a keyed
+title is itself worth seeing.
+
+**Not verified:** a device showing a *translated* string. What is proven is that
+the source language resolves out of the built bundle; that a second language
+does the same is Foundation's own lookup, and nothing here adds to it.
+
 ## What a parameter may be, and what it costs
 
 `String`, `int`, `double`, `bool`, `DateTime`, `Uri`, `Duration`,
@@ -270,7 +319,7 @@ An enum parameter is confirmed in the built bundle, not only in the emitters:
 
 ## Health
 
-274 tests — 13 in `os_intents`, 143 in `os_intents_gen`, 118 in `os_intents_cli` —
+293 tests — 13 in `os_intents`, 156 in `os_intents_gen`, 124 in `os_intents_cli` —
 `flutter analyze` clean across the workspace, the example app builds for iOS, the
 probe app builds for Android.
 
