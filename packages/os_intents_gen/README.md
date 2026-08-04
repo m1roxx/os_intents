@@ -7,7 +7,7 @@ does the rest.
 ```yaml
 dev_dependencies:
   build_runner: ^2.4.13
-  os_intents_gen: ^0.1.0
+  os_intents_gen: ^0.2.0
 ```
 
 ```bash

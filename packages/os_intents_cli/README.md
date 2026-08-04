@@ -8,7 +8,7 @@ of the way.
 
 ```yaml
 dev_dependencies:
-  os_intents_cli: ^0.1.0
+  os_intents_cli: ^0.2.0
 ```
 
 ```bash
