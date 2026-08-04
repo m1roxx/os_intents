@@ -1,3 +1,8 @@
+## 0.2.1
+
+Documentation only. The install snippet on the package page still named
+0.1.0 a release after 0.2.0 shipped; it now tracks the current version.
+
 ## 0.2.0
 
 ### macOS

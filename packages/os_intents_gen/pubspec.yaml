@@ -1,6 +1,6 @@
 name: os_intents_gen
 description: "The build_runner generator for os_intents. Emits the Dart dispatcher and the Swift and Kotlin the OS needs at compile time."
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/m1roxx/os_intents
 issue_tracker: https://github.com/m1roxx/os_intents/issues
 topics: [app-intents, siri, shortcuts, codegen, build-runner]
